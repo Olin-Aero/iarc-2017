@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <package>
-  <name>iarc-tutorials</name>
+  <name>iarc_tutorials</name>
   <version>0.0.0</version>
   <description>The tutorials package</description>
 
