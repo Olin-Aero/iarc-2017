@@ -1,0 +1,7 @@
+<launch>
+  <!-- Map server -->
+  <node name="map_server" pkg="map_server" type="map_server" args="$(find neato_2dnav)/maps/blank.yaml" />
+  <node pkg="tf" type="static_transform_publisher" name="map_to_odom"
+    args="0 0 0 0 0 0 odom map 50" />
+  <include file="$(find neato_2dnav)/launch/move_base.launch"/>
+</launch>

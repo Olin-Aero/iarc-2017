@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<!--
+    - Base      : kobuki
+    - Stacks    : hexagons
+    - 3d Sensor : kinect
+-->    
+<robot name="neato" xmlns:xacro="http://ros.org/wiki/xacro">
+
+  <xacro:include filename="$(find neato_simulator)/model/neato_library.urdf.xacro"/>
+  
+  <kobuki/>
+  <sensor_hokuyo parent="base_link"/>
+</robot>

@@ -1,0 +1,14 @@
+<launch>
+  <arg name="urdf_file" default="$(find xacro)/xacro.py '$(find neato_simulator)/model/neato.urdf.xacro'" />
+  <param name="robot_description" command="$(arg urdf_file)" />
+  
+  <!-- Gazebo model spawner -->
+  <node name="spawn_neato_model" pkg="gazebo_ros" type="spawn_model"
+        args="$(optenv ROBOT_INITIAL_POSE) -unpause -urdf -param robot_description -model mobile_base"/>
+
+  <!-- laser filter -->
+  <node name="laser_filter" pkg="neato_simulator" type="laser_filter.py"/>
+
+  <!-- topic relayer -->
+  <node name="relay_velocity_cmds" pkg="topic_tools" type="relay" args="cmd_vel mobile_base/commands/velocity"/>
+</launch>

@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<!--
+  The complete neato library of xacros for easy reference
+ -->
+<robot xmlns:xacro="http://ros.org/wiki/xacro">
+  <!-- General -->
+  <xacro:include filename="$(find neato_simulator)/model/common_properties.urdf.xacro"/>
+  <!-- Bases -->
+  <xacro:include filename="$(find kobuki_description)/urdf/kobuki.urdf.xacro" />
+  <!-- 3D Sensors -->
+  <xacro:include filename="$(find neato_simulator)/model/hokuyo.urdf.xacro"/>
+</robot>

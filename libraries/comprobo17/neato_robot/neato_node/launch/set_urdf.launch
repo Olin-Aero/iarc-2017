@@ -1,0 +1,5 @@
+<launch>
+  <arg name="urdf_file" default="$(find xacro)/xacro.py '$(find neato_simulator)/model/neato.urdf.xacro'" />
+  <param name="robot_description" command="$(arg urdf_file)" />
+  <arg name="use_sim_time" value="false"/>
+</launch>
