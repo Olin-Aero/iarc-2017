@@ -8,5 +8,10 @@
 
 	<node name="neato_simulator" pkg="iarc_sim_2d" cwd="node" type="neato.py" />
 	
+	<node name="cmd_vel_fwd" pkg="topic_tools" type="relay" args="/cmd_vel /robot0/cmd_vel" />
+
+	<node name="base_link_tf" pkg="tf" type="static_transform_publisher" args="0 0 0 0 0 0 robot0 base_link 30" />	
+
+	<node name="target_tf" pkg="tf" type="static_transform_publisher" args="0 0 0 0 0 0 robot1 target0 30" />
 
 </launch>

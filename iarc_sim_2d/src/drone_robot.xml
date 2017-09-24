@@ -1,0 +1,14 @@
+<robot>
+  <robot_specifications>
+    <initial_pose>
+      <x>0</x>
+      <y>0</y>
+      <theta>0</theta>
+    </initial_pose>
+    <kinematic>
+      <kinematic_specifications>
+        <kinematic_model>omni</kinematic_model>
+      </kinematic_specifications>
+    </kinematic>
+  </robot_specifications>
+</robot>

@@ -173,11 +173,16 @@ class ObstacleRoomba(Roomba):
             self.heading = ang + (cfg.PI / 2)
 
 def create_neatos(targetNum=1, obstacleNum=0):
+
+    creationString = 'rosrun stdr_robot robot_handler add drone_robot.xml 10 10 0'
+
+    os.system(creationString)
+
     dist = 2
     dist_2 = 4
     targetArray = []
     obstacleArray = []
-    for i in xrange(0,targetNum):
+    for i in xrange(1,targetNum+1):
 
         angle = float(i)/targetNum * (cfg.PI*2)
 
@@ -186,7 +191,7 @@ def create_neatos(targetNum=1, obstacleNum=0):
         os.system(creationString)
         targetArray = np.append(targetArray, TargetRoomba([np.cos(angle)*dist+10,np.sin(angle)*dist+10], angle, "robot%d" %i))
 
-    for j in xrange(targetNum,targetNum+obstacleNum):
+    for j in xrange(targetNum+1,targetNum+obstacleNum+1):
         angle = float(j)/obstacleNum * (cfg.PI*2)
         creationString = 'rosrun stdr_robot robot_handler add simp_robot.xml %f %f %f' %(np.cos(angle)*dist_2+10, np.sin(angle)*dist_2+10, angle+cfg.PI/2)
         os.system(creationString)
