@@ -30,6 +30,7 @@ class Arbiter:
         self.land_pub = rospy.Publisher('/ardrone/land', Empty, queue_size=10)
 
         self.status_pub = rospy.Publisher('status', String, queue_size=10)
+        self.active_pub = rospy.Publisher('active_behavior', String, queue_size=10)
 
         rospy.Service('register', Register, self.handle_register)
 
@@ -86,6 +87,7 @@ class Arbiter:
         else:
             self.vel_pub.publish(cmd.vel)
 
+        self.active_pub.publish(String(behavior.name))
         rospy.loginfo_throttle(1, "Command published by {}".format(behavior.name))
 
     def choose_leader(self):
@@ -132,6 +134,14 @@ class Behavior:
         self.is_leader = False
         self.last_msg_time = rospy.Time(0)
 
+    def handle_message(self, topic, msg):
+        msg_type, transformer = self.arbiter.transformers[topic]
+
+        self.last_msg_time = rospy.Time.now()
+        if self.is_leader:
+            standardized = transformer(msg)
+            self.arbiter.process_command(self, standardized)
+
     def subscribe(self, topic):
         if topic not in self.arbiter.transformers:
             rospy.logerr_throttle(1, "Unable to subscribe to topic {} for {}: unknown type".format(topic, self.name))
@@ -140,15 +150,13 @@ class Behavior:
         msg_type, transformer = self.arbiter.transformers[topic]
 
         def callback(msg):
-            self.last_msg_time = rospy.Time.now()
-            if self.is_leader:
-                standardized = transformer(msg)
-                self.arbiter.process_command(self, standardized)
+            self.handle_message(topic, msg)
 
         sub = rospy.Subscriber("{}/{}".format(self.namespace, topic), msg_type, callback)
         self.subscribers[topic] = sub
 
         rospy.loginfo("Subscribed to {}/{}".format(self.namespace, topic))
+
 
 if __name__ == '__main__':
     Arbiter().run()
