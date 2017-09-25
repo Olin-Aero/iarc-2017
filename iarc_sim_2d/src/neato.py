@@ -172,7 +172,7 @@ class ObstacleRoomba(Roomba):
             ang = np.arctan2(10 - self.pos[1], 10 - self.pos[0])
             self.heading = ang + (cfg.PI / 2)
 
-def create_neatos(targetNum=1, obstacleNum=0):
+def create_neatos(targetNum=1, obstacleNum=1):
 
     creationString = 'rosrun stdr_robot robot_handler add drone_robot.xml 10 10 0'
 
@@ -238,16 +238,15 @@ def run_neatos(neatos):
     t2 = t0
 
     while not rospy.is_shutdown():
-        while not rospy.is_shutdown():
-            t2=rospy.Time.now().to_sec()
-            dt = t2-t1
+        t2=rospy.Time.now().to_sec()
+        dt = t2-t1
 
-            print((t1-t0)*1000)
+        print((t1-t0)*1000)
 
-            update_neatos(neatos, dt, (t2-t0)*1000)
+        update_neatos(neatos, dt, (t2-t0)*1000)
 
-            rospy.sleep(.1)
-            t1 = t2
+        rospy.sleep(.1)
+        t1 = t2
 
 if __name__ == '__main__':
     try:
