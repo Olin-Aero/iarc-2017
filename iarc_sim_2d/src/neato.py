@@ -116,7 +116,6 @@ class TargetRoomba(Roomba):
                 self.state = cfg.ROOMBA_STATE_TURNING
                 self.turn_target = np.pi
                 self.turn_clockwise = True
-
             # check random noise period
             elif elapsed - self.timers['noise'] > cfg.ROOMBA_HEADING_NOISE_PERIOD:
                 self.timers['noise'] = elapsed
