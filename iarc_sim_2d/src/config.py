@@ -57,7 +57,7 @@ ROOMBA_LINEAR_SPEED = 0.33 # m/s
 ROOMBA_ANGULAR_SPEED = 1.279 # rad/s
 
 # Time until a full reverse (milliseconds)
-ROOMBA_REVERSE_PERIOD = 21000
+ROOMBA_REVERSE_PERIOD = 20000
 
 # Time until random heading noise is applied (milliseconds)
 ROOMBA_HEADING_NOISE_PERIOD = 5000

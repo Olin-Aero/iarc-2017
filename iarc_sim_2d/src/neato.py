@@ -118,7 +118,7 @@ class TargetRoomba(Roomba):
                 self.turn_clockwise = True
 
             # check random noise period
-            if elapsed - self.timers['noise'] > cfg.ROOMBA_HEADING_NOISE_PERIOD:
+            elif elapsed - self.timers['noise'] > cfg.ROOMBA_HEADING_NOISE_PERIOD:
                 self.timers['noise'] = elapsed
                 self.state = cfg.ROOMBA_STATE_TURNING
                 self.turn_target = np.random.rand() * cfg.ROOMBA_HEADING_NOISE_MAX
