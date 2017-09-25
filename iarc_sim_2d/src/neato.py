@@ -200,7 +200,7 @@ def create_neatos(targetNum=1, obstacleNum=0):
 
 
 def kill_neatos(targetNum=1, obstacleNum=1):
-    for i in xrange(0,targetNum+obstacleNum):
+    for i in xrange(0,targetNum+obstacleNum+1):
         killString = 'rosrun stdr_robot robot_handler delete robot%d' %i
         os.system(killString)
 
