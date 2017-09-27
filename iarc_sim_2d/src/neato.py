@@ -8,7 +8,7 @@ import os
 
 import actionlib
 #import stdr_msgs.msg
-from stdr_msgs.msg import FootprintMsg, SpawnRobotAction, SpawnRobotGoal, RobotMsg
+from stdr_msgs.msg import FootprintMsg, SpawnRobotAction, SpawnRobotGoal, RobotMsg, DeleteRobotAction, DeleteRobotGoal
 
 '''
 roomba.py
@@ -325,10 +325,22 @@ def spawn_robots(
         obstacles.append(robot)
     return drone, targets, obstacles
 
+def delete_robot(name):
+    client = actionlib.SimpleActionClient(
+            '/stdr_sevrer/delete_robot',
+            DelteRobotAction
+            )
+    goal = DeleteRobotGoal(name=name)
+    client.send_goal_and_wait(goal)
+    return client.get_result()
+
 def main():
     rospy.init_node('neatos')
+    num_targets = rospy.get_param('~num_targets', default=1)
+    num_obstacles = rospy.get_param('~num_obstacles', default=1)
+
     try:
-        drone, targets, obstacles = spawn_robots()
+        drone, targets, obstacles = spawn_robots(num_targets, num_obstacles)
         run_neatos([targets, obstacles])
     except rospy.ROSInterruptException:
         pass
