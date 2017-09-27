@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 import rospy
-from geometry_msgs.msg import Twist
-from geometry_msgs.msg import Pose2D
+from geometry_msgs.msg import Twist, Pose2D, Point
 import numpy as np
 import time
 import config as cfg
@@ -269,6 +268,8 @@ def spawn_robot(
                 )
             )
     client.send_goal_and_wait(goal)
+
+    #TODO : handle failure?
     res = client.get_result()
     des = res.indexedDescription
     pose = des.robot.initialPose
@@ -281,13 +282,23 @@ def spawn_robot(
             )
 
 def spawn_robots(
-        num_targets=1,
-        num_obstacles=1,
+        num_targets=8,
+        num_obstacles=4,
         ):
     client = actionlib.SimpleActionClient(
             '/stdr_server/spawn_robot',
             SpawnRobotAction
             )
+
+    obstacle_shape = []
+    for i in range(11):
+        theta = float(i)/10 * cfg.PI*2
+        obstacle_shape.append(Point(0.35*np.cos(theta), 0.35*np.sin(theta), 0))
+    for i in range(11):
+        theta = -float(i)/10 * cfg.PI*2
+        obstacle_shape.append(Point(0.1*np.cos(theta), 0.1*np.sin(theta), 0))
+
+    obstacle_footprint = FootprintMsg(points=obstacle_shape)
 
     drone = None
     targets = []
@@ -310,7 +321,7 @@ def spawn_robots(
                 10 + 2 * np.sin(theta),
                 theta
                 )
-        robot = spawn_robot(client, pose, robot_class=ObstacleRoomba)
+        robot = spawn_robot(client, pose, footprint=obstacle_footprint, robot_class=ObstacleRoomba)
         obstacles.append(robot)
     return drone, targets, obstacles
 
@@ -321,7 +332,6 @@ def main():
         run_neatos([targets, obstacles])
     except rospy.ROSInterruptException:
         pass
-    rospy.spin()
 
 if __name__ == '__main__':
     main()
