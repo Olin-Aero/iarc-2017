@@ -1,10 +1,15 @@
 #!/usr/bin/env python
 import rospy
 from geometry_msgs.msg import Twist
+from geometry_msgs.msg import Pose2D
 import numpy as np
 import time
 import config as cfg
 import os
+
+import actionlib
+#import stdr_msgs.msg
+from stdr_msgs.msg import FootprintMsg, SpawnRobotAction, SpawnRobotGoal, RobotMsg
 
 '''
 roomba.py
@@ -173,7 +178,7 @@ class ObstacleRoomba(Roomba):
 
 def create_neatos(targetNum=1, obstacleNum=1):
 
-    creationString = 'rosrun stdr_robot robot_handler add drone_robot.xml 10 10 0'
+    creationString = 'rosrun stdr_robot robot_handler add $(rospack find iarc_sim_2d)/data/drone_robot.xml 10 10 0'
 
     os.system(creationString)
 
@@ -185,14 +190,14 @@ def create_neatos(targetNum=1, obstacleNum=1):
 
         angle = float(i)/targetNum * (cfg.PI*2)
 
-        creationString = 'rosrun stdr_robot robot_handler add simp_robot.xml %f %f %f' %(np.cos(angle)*dist+10, np.sin(angle)*dist+10, angle)
+        creationString = 'rosrun stdr_robot robot_handler add $(rospack find iarc_sim_2d)/data/simp_robot.xml %f %f %f' %(np.cos(angle)*dist+10, np.sin(angle)*dist+10, angle)
 
         os.system(creationString)
         targetArray = np.append(targetArray, TargetRoomba([np.cos(angle)*dist+10,np.sin(angle)*dist+10], angle, "robot%d" %i))
 
     for j in xrange(targetNum+1,targetNum+obstacleNum+1):
         angle = float(j)/obstacleNum * (cfg.PI*2)
-        creationString = 'rosrun stdr_robot robot_handler add simp_robot.xml %f %f %f' %(np.cos(angle)*dist_2+10, np.sin(angle)*dist_2+10, angle+cfg.PI/2)
+        creationString = 'rosrun stdr_robot robot_handler add $(rospack find iarc_sim_2d)/data/simp_robot.xml %f %f %f' %(np.cos(angle)*dist_2+10, np.sin(angle)*dist_2+10, angle+cfg.PI/2)
         os.system(creationString)
         obstacleArray = np.append(obstacleArray, ObstacleRoomba([np.cos(angle)*dist_2+10,np.sin(angle)*dist_2+10], angle+cfg.PI/2, "robot%d" %j))
 
@@ -220,9 +225,6 @@ def reset_neatos():
     pass
 
 def run_neatos(neatos):
-    # Starts a new node
-    rospy.init_node('neato', anonymous=True)
-
     for target_neato in neatos[0]:
         target_neato.velocity_publisher = rospy.Publisher('/%s/cmd_vel' %target_neato.tag, Twist, queue_size=10)
         target_neato.start()
@@ -247,10 +249,88 @@ def run_neatos(neatos):
         rospy.sleep(.1)
         t1 = t2
 
-if __name__ == '__main__':
+def spawn_robot(
+        client=None,
+        pose=Pose2D(),
+        footprint=FootprintMsg(radius=0.35), # standard roomba dim-ish
+        robot_class='' # currently ignored argument
+        ):
+    if client is None:
+        client = actionlib.SimpleActionClient(
+                '/stdr_server/spawn_robot',
+                SpawnRobotAction
+                )
+    client.wait_for_server()
+
+    goal = SpawnRobotGoal(
+            description=RobotMsg(
+                initialPose=pose,
+                footprint=footprint
+                )
+            )
+    client.send_goal_and_wait(goal)
+    res = client.get_result()
+    des = res.indexedDescription
+    pose = des.robot.initialPose
+    name = des.name
+
+    return robot_class(
+            [pose.x, pose.y], # pos
+            pose.theta, # heading
+            name
+            )
+
+def spawn_robots(
+        num_targets=1,
+        num_obstacles=1,
+        ):
+    client = actionlib.SimpleActionClient(
+            '/stdr_server/spawn_robot',
+            SpawnRobotAction
+            )
+
+    drone = None
+    targets = []
+    obstacles = []
+
+    #spawn_robot(client, robot_type='drone')
+    for i in xrange(num_targets):
+        theta = float(i)/num_targets * (cfg.PI*2)
+        pose = Pose2D(
+                10 + 4 * np.cos(theta),
+                10 + 4 * np.sin(theta),
+                theta
+                )
+        robot = spawn_robot(client, pose, robot_class=TargetRoomba)
+        targets.append(robot)
+    for i in xrange(num_obstacles):
+        theta = float(i)/num_obstacles* (cfg.PI*2)
+        pose = Pose2D(
+                10 + 2 * np.cos(theta),
+                10 + 2 * np.sin(theta),
+                theta
+                )
+        robot = spawn_robot(client, pose, robot_class=ObstacleRoomba)
+        obstacles.append(robot)
+    return drone, targets, obstacles
+
+def main():
+    rospy.init_node('neatos')
     try:
-        #Testing our function
-        neatos = create_neatos()
-        # kill_neatos()
-        run_neatos(neatos)
-    except rospy.ROSInterruptException: pass
+        drone, targets, obstacles = spawn_robots()
+        run_neatos([targets, obstacles])
+    except rospy.ROSInterruptException:
+        pass
+    rospy.spin()
+
+if __name__ == '__main__':
+    main()
+    #try:
+    #    #Testing our function
+    #    #neatos = create_neatos()
+    #    # kill_neatos()
+    #    #run_neatos(neatos)
+    #    spawn_robot()
+    #    rospy.spin()
+    #except rospy.ROSInterruptException: pass
+
