@@ -6,7 +6,9 @@
 
 	<include file="$(find stdr_gui)/launch/stdr_gui.launch"/>
 
-	<node name="neato_simulator" pkg="iarc_sim_2d" cwd="node" type="neato.py" output="screen"/>
+	<node name="neato_simulator" pkg="iarc_sim_2d" cwd="node" type="neato.py" output="screen">
+        <param name="num_targets" value="12"/>
+    </node>
 	
 	<node name="cmd_vel_fwd" pkg="topic_tools" type="relay" args="/cmd_vel /robot0/cmd_vel" />
 

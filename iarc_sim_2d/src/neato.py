@@ -6,6 +6,7 @@ import time
 import config as cfg
 import os
 
+import tf
 import actionlib
 #import stdr_msgs.msg
 from stdr_msgs.msg import FootprintMsg, SpawnRobotAction, SpawnRobotGoal, RobotMsg, DeleteRobotAction, DeleteRobotGoal
@@ -192,7 +193,7 @@ def reset_neatos():
     pass
 
 def run_neatos(neatos):
-	listener = tf.TransformListener()
+    listener = tf.TransformListener()
     
     for target_neato in neatos[0]:
         target_neato.velocity_publisher = rospy.Publisher('/%s/cmd_vel' %target_neato.tag, Twist, queue_size=10)
@@ -207,7 +208,7 @@ def run_neatos(neatos):
     t2 = t0
 
     while not rospy.is_shutdown():
-    	t_t_collisions(listener)
+        t_t_collision(listener, neatos[0])
         t2=rospy.Time.now().to_sec()
         dt = t2-t1
 
@@ -221,7 +222,7 @@ def run_neatos(neatos):
 def spawn_robot(
         client=None,
         pose=Pose2D(),
-        footprint=FootprintMsg(radius=0.35), # standard roomba dim-ish
+        footprint=FootprintMsg(radius=cfg.ROOMBA_RADIUS), # standard roomba dim-ish
         robot_class='' # currently ignored argument
         ):
     if client is None:
@@ -263,7 +264,7 @@ def spawn_robots(
     obstacle_shape = []
     for i in range(11):
         theta = float(i)/10 * cfg.PI*2
-        obstacle_shape.append(Point(0.35*np.cos(theta), 0.35*np.sin(theta), 0))
+        obstacle_shape.append(Point(cfg.ROOMBA_RADIUS*np.cos(theta), cfg.ROOMBA_RADIUS*np.sin(theta), 0))
     for i in range(11):
         theta = -float(i)/10 * cfg.PI*2
         obstacle_shape.append(Point(0.1*np.cos(theta), 0.1*np.sin(theta), 0))
@@ -280,7 +281,7 @@ def spawn_robots(
         pose = Pose2D(
                 10 + 4 * np.cos(theta),
                 10 + 4 * np.sin(theta),
-                theta
+                2*cfg.PI -theta
                 )
         robot = spawn_robot(client, pose, robot_class=TargetRoomba)
         targets.append(robot)
@@ -296,31 +297,46 @@ def spawn_robots(
     return drone, targets, obstacles
 
 def distance(a,b):
-	return np.sqrt((a[0]-b[0])**2 + (a[1]-b[1])**2)
+    return np.sqrt((a[0]-b[0])**2 + (a[1]-b[1])**2)
 
 def t_t_collision(listener, targets):
-	try:
-		target_pos = [listener.lookupTransform(
-			'robot%d' % i, 'map', rospy.Time(0)
-			)[0] for i in xrange(targets)]
-	except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
-		continue
-	
-	collisions=[False for _ in xrange(targets)]
+    target_pos = []
+    try:
+        target_pos, target_headings = zip(*[listener.lookupTransform(
+            'map', 'robot%d'%i, rospy.Time(0)
+            ) for i in xrange(len(targets))
+            ])
+    except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException) as e:
+        print e
+        print 'WTF?'
+        return
 
-	for i in xrange(0,len(targets)):
-		for j in xrange(i, len(targets)):
-			d = distance(target_pos[i], target_pos[j])
-			if d < cfg.ROOMBA_RADIUS * 2:
-				collisions[i] = collisions[j] = True
+    collisions=[False for _ in xrange(len(targets))]
 
-	for i,f in enumerate(collisions):
-		if f and targets[i].state != cfg.ROOMBA_STATE_TURNING:
-			targets[i].state = cfg.ROOMBA_STATE_TURNING
-			targets[i].turn_target = cfg.PI
+    for i in xrange(0,len(targets)):
+        for j in xrange(i+1, len(targets)):
+            d = distance(target_pos[i], target_pos[j])
+            if d < cfg.ROOMBA_RADIUS * 2:
 
+                h1 = 2*np.arctan2(*target_headings[i][2:])
+                h2 = 2*np.arctan2(*target_headings[j][2:])
 
+                dh = np.abs(h1-h2)
+                if dh>cfg.PI:
+                    dh -= 2*cfg.PI
+                elif dh < -cfg.PI:
+                    dh += 2*cfg.PI
+                if abs(dh) < cfg.PI/2.0:
+                    collisions[i] = collisions[j] = True
+                #u2 = target_headings[j][2:]
+                #d2 = np.dot(u1,u2)
+                #print d2
+                #if d2 > 0:
 
+    for i,f in enumerate(collisions):
+        if f and targets[i].state != cfg.ROOMBA_STATE_TURNING:
+            targets[i].state = cfg.ROOMBA_STATE_TURNING
+            targets[i].turn_target = cfg.PI
 
 def delete_robot(name):
     client = actionlib.SimpleActionClient(
