@@ -299,6 +299,9 @@ def spawn_robots(
 def distance(a,b):
     return np.sqrt((a[0]-b[0])**2 + (a[1]-b[1])**2)
 
+def v2h(v):
+    return np.arctan2(v[1],v[2])
+
 def t_t_collision(listener, targets):
     target_pos = []
     try:
@@ -315,23 +318,27 @@ def t_t_collision(listener, targets):
 
     for i in xrange(0,len(targets)):
         for j in xrange(i+1, len(targets)):
-            d = distance(target_pos[i], target_pos[j])
-            if d < cfg.ROOMBA_RADIUS * 2:
+            # for i
+            h_i = tf.transformations.euler_from_quaternion(target_headings[i])[-1]
+            u_i = [np.cos(h_i), np.sin(h_i)]
 
-                h1 = 2*np.arctan2(*target_headings[i][2:])
-                h2 = 2*np.arctan2(*target_headings[j][2:])
+            dy = target_pos[j][1] - target_pos[i][1]
+            dx = target_pos[j][0] - target_pos[i][0]
 
-                dh = np.abs(h1-h2)
-                if dh>cfg.PI:
-                    dh -= 2*cfg.PI
-                elif dh < -cfg.PI:
-                    dh += 2*cfg.PI
-                if abs(dh) < cfg.PI/2.0:
-                    collisions[i] = collisions[j] = True
-                #u2 = target_headings[j][2:]
-                #d2 = np.dot(u1,u2)
-                #print d2
-                #if d2 > 0:
+            d = np.sqrt(dx**2 + dy**2)
+            if d < cfg.ROOMBA_RADIUS*2 and np.dot(u_i, [dx,dy]) > 0:
+                collisions[i] = True
+
+            # for i
+            h_j = tf.transformations.euler_from_quaternion(target_headings[j])[-1]
+            u_j = [np.cos(h_j), np.sin(h_j)]
+
+            dy = target_pos[i][1] - target_pos[j][1]
+            dx = target_pos[i][0] - target_pos[j][0]
+
+            d = np.sqrt(dx**2 + dy**2)
+            if d < cfg.ROOMBA_RADIUS*2 and np.dot(u_j, [dx,dy]) > 0:
+                collisions[j] = True
 
     for i,f in enumerate(collisions):
         if f and targets[i].state != cfg.ROOMBA_STATE_TURNING:
