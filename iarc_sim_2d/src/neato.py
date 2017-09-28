@@ -175,38 +175,6 @@ class ObstacleRoomba(Roomba):
             ang = np.arctan2(10 - self.pos[1], 10 - self.pos[0])
             self.heading = ang + (cfg.PI / 2)
 
-def create_neatos(targetNum=1, obstacleNum=1):
-
-    creationString = 'rosrun stdr_robot robot_handler add $(rospack find iarc_sim_2d)/data/drone_robot.xml 10 10 0'
-
-    os.system(creationString)
-
-    dist = 2
-    dist_2 = 4
-    targetArray = []
-    obstacleArray = []
-    for i in xrange(1,targetNum+1):
-
-        angle = float(i)/targetNum * (cfg.PI*2)
-
-        creationString = 'rosrun stdr_robot robot_handler add $(rospack find iarc_sim_2d)/data/simp_robot.xml %f %f %f' %(np.cos(angle)*dist+10, np.sin(angle)*dist+10, angle)
-
-        os.system(creationString)
-        targetArray = np.append(targetArray, TargetRoomba([np.cos(angle)*dist+10,np.sin(angle)*dist+10], angle, "robot%d" %i))
-
-    for j in xrange(targetNum+1,targetNum+obstacleNum+1):
-        angle = float(j)/obstacleNum * (cfg.PI*2)
-        creationString = 'rosrun stdr_robot robot_handler add $(rospack find iarc_sim_2d)/data/simp_robot.xml %f %f %f' %(np.cos(angle)*dist_2+10, np.sin(angle)*dist_2+10, angle+cfg.PI/2)
-        os.system(creationString)
-        obstacleArray = np.append(obstacleArray, ObstacleRoomba([np.cos(angle)*dist_2+10,np.sin(angle)*dist_2+10], angle+cfg.PI/2, "robot%d" %j))
-
-    return [targetArray, obstacleArray]
-
-
-def kill_neatos(targetNum=1, obstacleNum=1):
-    for i in xrange(0,targetNum+obstacleNum):
-        killString = 'rosrun stdr_robot robot_handler delete robot%d' %i
-        os.system(killString)
 
 def update_neatos(neatos, delta, elapsed):
     vel_msg = Twist()
@@ -224,6 +192,8 @@ def reset_neatos():
     pass
 
 def run_neatos(neatos):
+	listener = tf.TransformListener()
+    
     for target_neato in neatos[0]:
         target_neato.velocity_publisher = rospy.Publisher('/%s/cmd_vel' %target_neato.tag, Twist, queue_size=10)
         target_neato.start()
@@ -232,12 +202,12 @@ def run_neatos(neatos):
         obstacle_neato.velocity_publisher = rospy.Publisher('/%s/cmd_vel' %obstacle_neato.tag, Twist, queue_size=10)
         obstacle_neato.start()
 
-
     t0 = rospy.Time.now().to_sec()
     t1 = t0 
     t2 = t0
 
     while not rospy.is_shutdown():
+    	t_t_collisions(listener)
         t2=rospy.Time.now().to_sec()
         dt = t2-t1
 
@@ -324,6 +294,33 @@ def spawn_robots(
         robot = spawn_robot(client, pose, footprint=obstacle_footprint, robot_class=ObstacleRoomba)
         obstacles.append(robot)
     return drone, targets, obstacles
+
+def distance(a,b):
+	return np.sqrt((a[0]-b[0])**2 + (a[1]-b[1])**2)
+
+def t_t_collision(listener, targets):
+	try:
+		target_pos = [listener.lookupTransform(
+			'robot%d' % i, 'map', rospy.Time(0)
+			)[0] for i in xrange(targets)]
+	except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
+		continue
+	
+	collisions=[False for _ in xrange(targets)]
+
+	for i in xrange(0,len(targets)):
+		for j in xrange(i, len(targets)):
+			d = distance(target_pos[i], target_pos[j])
+			if d < cfg.ROOMBA_RADIUS * 2:
+				collisions[i] = collisions[j] = True
+
+	for i,f in enumerate(collisions):
+		if f and targets[i].state != cfg.ROOMBA_STATE_TURNING:
+			targets[i].state = cfg.ROOMBA_STATE_TURNING
+			targets[i].turn_target = cfg.PI
+
+
+
 
 def delete_robot(name):
     client = actionlib.SimpleActionClient(
