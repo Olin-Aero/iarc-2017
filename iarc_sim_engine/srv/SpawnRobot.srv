@@ -1,0 +1,8 @@
+string name #also frame_id
+string img #image to draw
+float32 radius #display scaled accordingly
+float32 x
+float32 y
+float32 t #angle
+---
+bool success
