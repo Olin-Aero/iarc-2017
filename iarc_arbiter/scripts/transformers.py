@@ -3,6 +3,13 @@ from geometry_msgs.msg import Twist
 cmd_vel_multiplier = 0.3
 
 
+class Command:
+    def __init__(self, vel, land=False, takeoff=False):
+        self.vel = vel
+        self.takeoff = takeoff
+        self.land = land
+
+
 def cmd_vel(msg):
     """
     :type msg: Twist
@@ -12,15 +19,16 @@ def cmd_vel(msg):
     return Command(msg)
 
 
-def raw_cmd_vel(msg):
+def cmd_vel_raw(msg):
     """
     :type msg: Twist
     """
     return Command(msg)
 
 
-class Command:
-    def __init__(self, vel, land=False, takeoff=False):
-        self.vel = vel
-        self.takeoff = takeoff
-        self.land = land
+def cmd_takeoff(msg):
+    return Command(Twist(), takeoff=True)
+
+
+def cmd_land(msg):
+    return Command(Twist(), land=True)

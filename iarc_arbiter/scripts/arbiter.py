@@ -11,16 +11,18 @@ rospy.init_node('arbiter')
 
 class Arbiter:
     def __init__(self):
-        null_behavior = Behavior('null', self, friendly_name='Undefined behavior', is_magic=True)
+        self.null_behavior = Behavior(self, namespace='', name='null', friendly_name='UndefinedBehavior')
 
-        self.behaviors = [null_behavior]
-        self.active_behavior = null_behavior
+        self.behaviors = [self.null_behavior]
+        self.active_behavior = self.null_behavior
         self.choose_leader()
 
         # Transformers are functions capable of processing incoming data in a variety of formats.
         self.transformers = {
-            'raw_cmd_vel': (Twist, transformers.raw_cmd_vel),
+            'cmd_vel_raw': (Twist, transformers.cmd_vel_raw),
             'cmd_vel': (Twist, transformers.cmd_vel),
+            'cmd_takeoff': (Empty, transformers.cmd_takeoff),
+            'cmd_land': (Empty, transformers.cmd_land),
         }
 
         self.secondaries = []
@@ -40,16 +42,10 @@ class Arbiter:
         """
         print req
         if not req.namespace:
-            rospy.logerr("Service cannot be created with empty namespace")
-            return
+            rospy.logerr("Behavior cannot be created with empty namespace")
+            return RegisterResponse()
 
-        if not req.name:
-            req.name = req.namespace.strip('/')
-
-        if not req.pretty_name:
-            req.pretty_name = req.name
-
-        behavior = Behavior(req.name, self, req.namespace, req.pretty_name)
+        behavior = Behavior(self, req.namespace, req.name, req.pretty_name)
         self.behaviors.append(behavior)
         rospy.loginfo("Created behavior {}".format(behavior))
 
@@ -57,7 +53,7 @@ class Arbiter:
 
     def subscribe_all(self):
         for b in self.behaviors:
-            if b.is_magic or b.namespace in (None, '', '/'):
+            if b.namespace in (None, '', '/'):
                 # This behavior is internal to the arbiter, and should not be subscribed.
                 continue
 
@@ -100,35 +96,42 @@ class Arbiter:
         self.status_pub.publish(String(str(self.behaviors)))
 
     def run(self):
-        r_vote = rospy.Rate(20)
+        r = rospy.Rate(20)
         r_scan = rospy.Rate(1)
 
         while not rospy.is_shutdown():
             self.choose_leader()
             self.publish_status()
+            self.null_behavior.handle_message('cmd_vel', Twist())
 
             if r_scan.remaining() < rospy.Duration(0):
                 self.subscribe_all()
                 r_scan.sleep()
 
-            r_vote.sleep()
+            r.sleep()
 
 
 class Behavior:
-    def __init__(self, name, arbiter, namespace=None, friendly_name=None, intrinsic_vote=0, is_magic=False):
-        if friendly_name is None:
-            friendly_name = name
-        if namespace is None:
-            namespace = name
-        if namespace[0] != '/':
+    def __init__(self, arbiter, namespace, name=None, friendly_name=None, intrinsic_vote=0.0):
+        """
+        :param arbiter: The Arbiter to which this belongs
+        :param namespace: If empty, the behavior is treated as being internal to the Arbiter.
+        :param name: The name used to refer to this elsewhere in ROS
+        :param friendly_name: The name displayed, in CapitalCamelCase
+        :param intrinsic_vote: A "default" vote associated with this behavior
+        """
+        if namespace and (namespace[0] != '/'):
             namespace = '/' + namespace
+        if not name:
+            name = namespace.strip('/')
+        if not friendly_name:
+            friendly_name = name
 
         self.name = name
         self.arbiter = arbiter
         self.namespace = namespace
         self.friendly_name = friendly_name
         self.intrinsic_vote = intrinsic_vote
-        self.is_magic = is_magic
         self.subscribers = dict()
 
         self.is_leader = False
