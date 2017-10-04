@@ -10,13 +10,14 @@ from stdr_msgs.msg import FootprintMsg, SpawnRobotAction, SpawnRobotGoal, RobotM
 
 import config as cfg
 
-from neato import TargetRoomba, ObstacleRoomba
+from robots import TargetRoomba, ObstacleRoomba
 
 class Simulator(object):
     def __init__(self, num_targets, num_obstacles):
         """ initialize simulation with given number of robots """
         self.tf = tf.TransformListener()
         self.drone, self.targets, self.obstacles = self.spawn_robots(num_targets, num_obstacles)
+
 
     def spawn_robot(self,
             client=None,

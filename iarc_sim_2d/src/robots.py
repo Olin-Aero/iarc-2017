@@ -165,3 +165,4 @@ class ObstacleRoomba(Roomba):
             # reorient so we tangent to a circle centered at the origin 
             ang = np.arctan2(10 - self.pos[1], 10 - self.pos[0])
             self.heading = ang + (cfg.PI / 2)
+
