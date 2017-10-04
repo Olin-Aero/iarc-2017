@@ -20,14 +20,14 @@ class FollowBehavior:
         maxvelocity = rospy.get_param('~max_velocity', 1.0)
         kpturn = rospy.get_param('~kp_turn', 1.0)
 
+        last_time = rospy.Time.now()
         integral_x = 0.0
         previous_error_x = 0.0
         integral_y = 0.0
         previous_error_y = 0.0
-        dt = 0.2
-        Kp = 1.2
-        Ki = 0.2
-        Kd = 1
+        Kp = 1 # Proportional
+        Ki = 0.2 # Integral
+        Kd = 0.0 # Derivative: Kd is currently unused
 
         while not rospy.is_shutdown():
         	if self.tf.frameExists("base_link") and self.tf.frameExists("target0"):
@@ -39,23 +39,33 @@ class FollowBehavior:
 	            # Plan the motion
                 cmd = Twist()
 
+                now = rospy.Time.now()
+                dt = (now - last_time).to_sec()
+                last_time = now
+
+                # In case something weird happens with the loop freezing
+                dt = min(dt, 0.5)
+                dt = max(dt, 0.01)
+
                 # Calculate DIP velocity_x
                 error_x = position[0]
                 integral_x = integral_x + error_x * dt
                 derivative_x = (error_x - previous_error_x)/dt
+                previous_error_x = error_x
                 dip_x = Kp * error_x + Ki * integral_x + Kd * derivative_x
 
                 # Calculate DIP velocity_y
                 error_y = position[1]
                 integral_y = integral_y + error_y * dt
                 derivative_y = (error_y - previous_error_y)/dt
+                previous_error_y = error_y
                 dip_y = Kp * error_y + Ki * integral_y + Kd * derivative_y
 
                 # Combined velocity
                 dip_diagonal = math.sqrt(dip_x**2 + dip_y**2)
 
                 if dip_diagonal < maxvelocity:
-                    # If diagonalvelocity_ is already < max_velocity
+                    # If dip_diagonal is already < max_velocity
                     # use dip velocity
                     cmd.linear.x = dip_x
                     cmd.linear.y = dip_y
@@ -65,13 +75,11 @@ class FollowBehavior:
                     cmd.linear.x = position[0] / diagonalvelocity * maxvelocity
                     cmd.linear.y = position[1] / diagonalvelocity * maxvelocity
 
-                    # Reset integral and derivative until we start using it
+                    # Reset integral until we start using it
                     integral_x = 0.0
-                    previous_error_x = 0.0
                     integral_y = 0.0
-                    previous_error_y = 0.0
 
-                # Turn our drone to the linear_x/y of
+                # Turn the drone to the target's direction
                 cmd.angular.z = kpturn * math.atan2(cmd.linear.y, cmd.linear.x)
 
                 # Publish the motion
