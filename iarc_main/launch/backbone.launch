@@ -1,0 +1,5 @@
+<launch>
+  <node name="arbiter_1" pkg="topic_tools" type="relay" args="/scan/cmd_vel /cmd_vel" />
+  <node name="arbiter_2" pkg="topic_tools" type="relay" args="/follow/cmd_vel /cmd_vel" />
+  <node name="arbiter_3" pkg="topic_tools" type="relay" args="/avoid/cmd_vel /cmd_vel" />
+</launch>

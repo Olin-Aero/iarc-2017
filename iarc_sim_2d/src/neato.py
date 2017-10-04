@@ -116,9 +116,8 @@ class TargetRoomba(Roomba):
                 self.state = cfg.ROOMBA_STATE_TURNING
                 self.turn_target = np.pi
                 self.turn_clockwise = True
-
             # check random noise period
-            if elapsed - self.timers['noise'] > cfg.ROOMBA_HEADING_NOISE_PERIOD:
+            elif elapsed - self.timers['noise'] > cfg.ROOMBA_HEADING_NOISE_PERIOD:
                 self.timers['noise'] = elapsed
                 self.state = cfg.ROOMBA_STATE_TURNING
                 self.turn_target = np.random.rand() * cfg.ROOMBA_HEADING_NOISE_MAX
@@ -201,7 +200,7 @@ def create_neatos(targetNum=1, obstacleNum=0):
 
 
 def kill_neatos(targetNum=1, obstacleNum=1):
-    for i in xrange(0,targetNum+obstacleNum):
+    for i in xrange(0,targetNum+obstacleNum+1):
         killString = 'rosrun stdr_robot robot_handler delete robot%d' %i
         os.system(killString)
 
