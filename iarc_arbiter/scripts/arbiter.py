@@ -51,18 +51,6 @@ class Arbiter:
 
         return RegisterResponse(name=behavior.name)
 
-    def subscribe_all(self):
-        for b in self.behaviors:
-            if b.namespace in (None, '', '/'):
-                # This behavior is internal to the arbiter, and should not be subscribed.
-                continue
-
-            topics = rospy.get_published_topics(b.namespace)
-            for t in topics:
-                name = t[0][len(b.namespace):].strip('/')
-                if name in self.transformers and name not in b.subscribers:
-                    b.subscribe(name)
-
     def process_command(self, behavior, cmd):
         """
         process_command gets called after a message gets received from the currently active behavior.
@@ -97,16 +85,11 @@ class Arbiter:
 
     def run(self):
         r = rospy.Rate(20)
-        r_scan = rospy.Rate(1)
 
         while not rospy.is_shutdown():
             self.choose_leader()
             self.publish_status()
             self.null_behavior.handle_message('cmd_vel', Twist())
-
-            if r_scan.remaining() < rospy.Duration(0):
-                self.subscribe_all()
-                r_scan.sleep()
 
             r.sleep()
 
@@ -137,6 +120,8 @@ class Behavior:
         self.is_leader = False
         self.last_msg_time = rospy.Time(0)
 
+        self.subscribe()
+
     def handle_message(self, topic, msg):
         msg_type, transformer = self.arbiter.transformers[topic]
 
@@ -145,20 +130,16 @@ class Behavior:
             standardized = transformer(msg)
             self.arbiter.process_command(self, standardized)
 
-    def subscribe(self, topic):
-        if topic not in self.arbiter.transformers:
-            rospy.logerr_throttle(1, "Unable to subscribe to topic {} for {}: unknown type".format(topic, self.name))
-            return
+    def subscribe(self):
+        for (topic, (msg_type, transformer)) in enumerate(self.arbiter.transformers):
 
-        msg_type, transformer = self.arbiter.transformers[topic]
+            def callback(msg):
+                self.handle_message(topic, msg)
 
-        def callback(msg):
-            self.handle_message(topic, msg)
+            sub = rospy.Subscriber("{}/{}".format(self.namespace, topic), msg_type, callback)
+            self.subscribers[topic] = sub
 
-        sub = rospy.Subscriber("{}/{}".format(self.namespace, topic), msg_type, callback)
-        self.subscribers[topic] = sub
-
-        rospy.loginfo("Subscribed to {}/{}".format(self.namespace, topic))
+            rospy.loginfo("Subscribed to {}/{}".format(self.namespace, topic))
 
 
 if __name__ == '__main__':
