@@ -3,6 +3,13 @@
 
 C++/Qt4 Engine for 2D IARC Simulation.
 
+## Install ..
+
+```bash
+rosdep install iarc_sim_engine
+catkin_make -C ~/catkin_ws
+```
+
 ## Running
 
 ```bash
