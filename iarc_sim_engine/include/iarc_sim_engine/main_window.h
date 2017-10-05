@@ -16,30 +16,38 @@ namespace Ui{
     class MainWindow;
 }
 
-using callback_t = std::function<void(float)>;
 
 class MainWindow : public QMainWindow{
+    using callback_t = std::function<void(float)>;
     // QT
     Q_OBJECT
     //
     private:
-        QGraphicsScene scene;
-        std::vector<std::shared_ptr<QRobot>> robots;
+        QGraphicsScene* scene;
         Ui::MainWindow *ui;
-        QTime now;
         std::vector<callback_t> cbs;
+        QTime now;
+        int timer_id;
+        float accel;
     public:
         explicit MainWindow(QWidget* parent=0);
         ~MainWindow();
 
-        void spawn(std::shared_ptr<QRobot>& robot);
-        void kill(const std::string name);
-        void reset();
-
         void timerEvent(QTimerEvent*);
         void add_cb(callback_t cb);
-        // add timer event
-        // void add_cb();
+
+        void spawn(RobotItem* item);
+        void kill(RobotItem* item);
+    signals:
+        void sig_spawn(RobotItem* item);
+        void sig_kill(RobotItem* item);
+        void sig_reset();
+    public slots:
+        void handle_spawn(RobotItem* item);
+        void handle_kill(RobotItem* item);
+        void set_sim_accel(double accel);
+    public:
+        double get_sim_accel();
 
 };
 

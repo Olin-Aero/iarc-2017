@@ -2,20 +2,29 @@ cmake_minimum_required(VERSION 2.8.3)
 project(iarc_sim_engine)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
-# add_compile_options(-std=c++11)
+add_compile_options(-std=c++11)
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
-  nav_msgs
-  roscpp
-  roslib
-  rospy
-  sensor_msgs
-  std_msgs
-  tf
-)
+    roscpp
+    roslib
+    rospy
+    tf
+    nav_msgs
+    sensor_msgs
+    std_msgs
+    message_generation
+    )
+
+find_package(Qt4 REQUIRED COMPONENTS
+    QtCore
+    QtGui
+    QtUiTools
+    )
+
+include(${QT_USE_FILE})
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
@@ -58,11 +67,11 @@ find_package(catkin REQUIRED COMPONENTS
 # )
 
 ## Generate services in the 'srv' folder
-# add_service_files(
-#   FILES
-#   Service1.srv
-#   Service2.srv
-# )
+add_service_files(
+    FILES
+    KillRobot.srv
+    SpawnRobot.srv
+)
 
 ## Generate actions in the 'action' folder
 # add_action_files(
@@ -72,10 +81,11 @@ find_package(catkin REQUIRED COMPONENTS
 # )
 
 ## Generate added messages and services with any dependencies listed here
-# generate_messages(
-#   DEPENDENCIES
-#   nav_msgs#   sensor_msgs#   std_msgs
-# )
+ generate_messages(
+   DEPENDENCIES
+   std_msgs
+   #nav_msgs#   sensor_msgs#   std_msgs
+ )
 
 ################################################
 ## Declare ROS dynamic reconfigure parameters ##
@@ -107,11 +117,30 @@ find_package(catkin REQUIRED COMPONENTS
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
-#  INCLUDE_DIRS include
-#  LIBRARIES iarc_sim_engine
-#  CATKIN_DEPENDS nav_msgs roscpp roslib rospy sensor_msgs std_msgs tf
-#  DEPENDS system_lib
-)
+    DEPENDS
+        QT
+    CATKIN_DEPENDS
+        roscpp
+        roslib
+        rospy
+        tf
+        sensor_msgs
+        std_msgs
+        nav_msgs
+        message_runtime
+    #  INCLUDE_DIRS include
+    #  LIBRARIES iarc_sim_engine
+    #  CATKIN_DEPENDS nav_msgs roscpp roslib rospy sensor_msgs std_msgs tf
+    #  DEPENDS system_lib
+    )
+
+set(QT_FORMS
+    data/main_window.ui
+    )
+QT4_WRAP_UI(QT_FORMS_HPP ${QT_FORMS})
+QT_WRAP_CPP(iarc_sim_node SAMPLE_MOC_SRCS
+    include/iarc_sim_engine/main_window.h
+    )
 
 ###########
 ## Build ##
@@ -120,9 +149,29 @@ catkin_package(
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
 include_directories(
-# include
-  ${catkin_INCLUDE_DIRS}
-)
+    include/
+    include/iarc_sim_engine/
+    ${catkin_INCLUDE_DIRS}
+    )
+include_directories(
+    ${CMAKE_CURRENT_BINARY_DIR}
+    )
+
+add_executable(iarc_sim_node
+    src/robot_item.cpp
+    src/qrobot.cpp
+    src/ros_robot.cpp
+    src/main_window.cpp
+    src/main.cpp
+    src/robot.cpp
+    src/utils.cpp
+    ${QT_FORMS_HPP}
+    ${SAMPLE_MOC_SRCS}
+    )
+target_link_libraries(iarc_sim_node
+    ${catkin_LIBRARIES}
+    ${QT_LIBRARIES}
+    )
 
 ## Declare a C++ library
 # add_library(${PROJECT_NAME}

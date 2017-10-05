@@ -11,7 +11,7 @@ struct QRobot{
         RobotItem* item;
     public:
         QRobot(std::shared_ptr<Robot> r, RobotItem* i);
-        void render();
+        void update(float dt);
 };
 
 #endif

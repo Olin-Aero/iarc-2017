@@ -14,11 +14,10 @@ class ROSRobot: public Robot{
         tf::TransformBroadcaster br;
         geometry_msgs::Pose2D pos_msg;
     public:
-        ROSRobot(ros::NodeHandle& nh,
-                const std::string name,
-                );
+        ROSRobot(ros::NodeHandle& nh, const std::string name);
         virtual ~ROSRobot();
         void publish();
         void cmd_vel_cb(const geometry_msgs::TwistConstPtr& msg);
-}
+};
+
 #endif
