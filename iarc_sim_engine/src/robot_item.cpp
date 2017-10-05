@@ -8,7 +8,7 @@ QRectF RobotItem::boundingRect() const{
     return QRectF(pos - dims/2, pos + dims/2);
 }
 
-void RobotItem::set_pos(QPointF pos, float t){
+void RobotItem::set_pos(QPointF p, float t){
     pos = p;
     theta = t;
 }

@@ -84,7 +84,7 @@ flags = [
 '/opt/ros/kinetic/include',
 '-I',
 '/usr/include/qt4/QtGui',
-'I',
+'-I',
 '/usr/include/qt4/QtCore'
 ]
 

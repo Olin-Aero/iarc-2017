@@ -5,12 +5,12 @@
 #include "robot.h"
 #include "robot_item.h"
 
-class QRobot{
-    private:
-        std::shared_ptr<Robot> robot;
-        std::shared_ptr<RobotItem> item;
+struct QRobot{
     public:
-        QRobot(Robot r, RobotItem i);
+        std::shared_ptr<Robot> robot;
+        RobotItem* item;
+    public:
+        QRobot(std::shared_ptr<Robot> r, RobotItem* i);
         void render();
 };
 

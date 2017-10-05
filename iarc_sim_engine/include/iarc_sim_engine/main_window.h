@@ -2,6 +2,8 @@
 #define __MAINWINDOW_H__
 
 #include <memory>
+#include <algorithm>
+
 // Qt4
 #include <QMainWindow>
 #include <QGraphicsView>
@@ -17,7 +19,9 @@ namespace Ui{
 using callback_t = std::function<void(float)>;
 
 class MainWindow : public QMainWindow{
+    // QT
     Q_OBJECT
+    //
     private:
         QGraphicsScene scene;
         std::vector<std::shared_ptr<QRobot>> robots;
@@ -34,10 +38,8 @@ class MainWindow : public QMainWindow{
 
         void timerEvent(QTimerEvent*);
         void add_cb(callback_t cb);
-
-
-            // add timer event
-            // void add_cb();
+        // add timer event
+        // void add_cb();
 
 };
 

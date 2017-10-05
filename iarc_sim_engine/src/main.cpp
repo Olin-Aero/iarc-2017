@@ -37,7 +37,7 @@ class ROSInterface{
             // create ...
             auto robot = std::make_shared<ROSRobot>(nh, req.name);
             robot->set_pos(req.x,req.y,req.t);
-            auto item = std::make_shared<RobotItem>(dims, req.img);
+            auto item = new RobotItem(dims, req.img);
             item->set_pos(req.x,req.y,req.t);
             auto qrobot = std::make_shared<QRobot>(robot, item);
 

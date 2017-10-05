@@ -3,6 +3,7 @@
 
 #include <QObject>
 #include <QPointF>
+#include <QRectF>
 #include <QWidget>
 #include <QPainter>
 #include <QGraphicsItem>
@@ -25,5 +26,3 @@ public:
 };
 
 #endif
-
-

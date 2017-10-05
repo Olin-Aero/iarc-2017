@@ -8,6 +8,24 @@ MainWindow::MainWindow(QWidget* parent):
         ui->graphicsView->setScene(&scene);
     }
 
+void MainWindow::spawn(std::shared_ptr<QRobot>& robot){
+    robots.push_back(robot);
+    scene->addItem(robot->item);
+}
+
+void MainWindow::kill(const std::string name){
+    std::string s;
+
+    auto it = std::find(robots.begin(), robots.end(), [&](const std::shared_ptr<QRobot>& robot){
+            robot->robot->get_name(s);
+            return s == name;
+            });
+    if(it != robots.end()){
+        scene->removeItem((*it)->item);
+        robots.erase(it);
+    }
+}
+
 void MainWindow::timerEvent(QTimerEvent*){
     _now = QTime::currentTime();
     float dt = now.msecsTo(_now)/1000.0;
