@@ -1,3 +1,5 @@
+#include "main_window.h"
+
 MainWindow::MainWindow(QWidget* parent):
     QMainWindow(parent),
     scene(new QGraphicsScene(0,0,512,512,this)),
@@ -7,12 +9,10 @@ MainWindow::MainWindow(QWidget* parent):
     }
 
 void MainWindow::timerEvent(QTimerEvent*){
-    publish();
-}
-
-void MainWindow::publish(){
-    float x,y,t;
-    for(auto& r : robots){
-        r.publish();
+    _now = QTime::currentTime();
+    float dt = now.msecsTo(_now)/1000.0;
+    for(auto& cb : cbs){
+        cb(dt);
     }
+    now = _now;
 }

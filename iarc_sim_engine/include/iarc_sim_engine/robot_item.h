@@ -17,9 +17,8 @@ private:
     QPointF dims;
     QPixmap img;
     //frequently requested derived features
-    float cr;
 public:
-    RobotItem(QPointF pos, QPointF dims, std::string img);
+    RobotItem(const QPointF dims, const std::string img);
     QRectF boundingRect() const;
     void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget);
     void set_pos(QPointF pos, float theta);

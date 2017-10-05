@@ -1,7 +1,8 @@
 #include "robot.h"
 
-#include <string>
+Robot::Robot(const std::string name):name(name){
 
+}
 //class Roomba : public Robot{
 //
 //};

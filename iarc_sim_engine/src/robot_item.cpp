@@ -1,6 +1,6 @@
 #include "robot_item.h"
 
-RobotItem::RobotItem(QPointF pos, QPointF dims, std::string img):img(img){
+RobotItem::RobotItem(QPointF dims, std::string img):img(img){
 
 }
 
