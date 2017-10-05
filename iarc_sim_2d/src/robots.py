@@ -42,8 +42,8 @@ class Roomba(object):
         self.z_w = 0
 
         self.collisions = {
-            'front': False,
-            'top': False
+            'front' : False,
+            'top' : False
         }
 
         self.timers = {
@@ -124,17 +124,17 @@ class TargetRoomba(Roomba):
             self.turn_target -= amount
 
             if self.turn_clockwise:
-                print("Turning clockwise")
+                # print("Turning clockwise")
                 self.z_w = -cfg.ROOMBA_ANGULAR_SPEED
                 self.heading -= amount
             else:
-                print("Turning counterclockwise")
+                # print("Turning counterclockwise")
                 self.z_w = cfg.ROOMBA_ANGULAR_SPEED
                 self.heading += amount
             
             if self.turn_target < 0:
                 # we have completed the turn, reset to forward motion
-                print("turn completed")
+                # print("turn completed")
                 self.z_w = 0
                 self.state = cfg.ROOMBA_STATE_FORWARD
 
@@ -165,4 +165,28 @@ class ObstacleRoomba(Roomba):
             # reorient so we tangent to a circle centered at the origin 
             ang = np.arctan2(10 - self.pos[1], 10 - self.pos[0])
             self.heading = ang + (cfg.PI / 2)
+
+
+class Drone(object):
+    """
+    Represents the drone in the simulation
+    """
+
+    def __init__(self, pos2d, heading, tag = ''):
+        """
+        Initialize the Drone object where:
+        pos3d is a vector [x,y,z]
+        vel3d is a vector [x',y',z']
+        heading is an angle in radians (0 is +x and pi/2 is +y)
+        """
+        initial_height = 0 #Make this an arugment at some point
+        self.vel3d = [0,0,0]
+
+        self.pos3d = [pos2d[0], pos2d[1], initial_height]
+        self.heading = heading
+
+    def limitSpeed(self, speedLimit):
+        currentSpeed = np.linalg.norm(self.vel3d)
+        if currentSpeed > speedLimit:
+            self.vel3d = self.vel3d * speedLimit/currentSpeed
 

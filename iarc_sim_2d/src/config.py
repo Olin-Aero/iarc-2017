@@ -73,6 +73,9 @@ ROOMBA_STATE_TURNING = 2
 # Roomba's radius in meters
 ROOMBA_RADIUS = 0.35 / 2
 
+# Drone Rotor Radius
+DRONE_RADIUS = .08
+ROTOR_OFFSET = .15
 #
 # MISSION CONFIGURATION
 #

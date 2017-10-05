@@ -10,7 +10,7 @@ from stdr_msgs.msg import FootprintMsg, SpawnRobotAction, SpawnRobotGoal, RobotM
 
 import config as cfg
 
-from robots import TargetRoomba, ObstacleRoomba
+from robots import TargetRoomba, ObstacleRoomba, Drone
 
 class Simulator(object):
     def __init__(self, num_targets, num_obstacles):
@@ -47,6 +47,7 @@ class Simulator(object):
         pose = des.robot.initialPose
         name = des.name
 
+
         return robot_class(
                 [pose.x, pose.y], # pos
                 pose.theta, # heading
@@ -63,6 +64,14 @@ class Simulator(object):
                 '/stdr_server/spawn_robot',
                 SpawnRobotAction
                 )
+
+        drone_shape = []
+        for j in range(5):
+            theta_Rotors = cfg.PI/4 + float(j)/4 * cfg.PI*2
+            for i in range(11):
+                theta = float(i)/10 * cfg.PI*2
+                drone_shape.append(Point(cfg.DRONE_RADIUS*np.cos(theta) + cfg.ROTOR_OFFSET*np.cos(theta_Rotors), cfg.DRONE_RADIUS*np.sin(theta)+ cfg.ROTOR_OFFSET*np.sin(theta_Rotors), 0) )
+        drone_footprint = FootprintMsg(points=drone_shape)
 
         obstacle_shape = []
         for i in range(11):
@@ -97,6 +106,14 @@ class Simulator(object):
                     )
             robot = self.spawn_robot(client, pose, footprint=obstacle_footprint, robot_class=ObstacleRoomba)
             obstacles.append(robot)
+
+        #Spawn Drone
+        theta = cfg.PI/2
+        pose = Pose2D(10, 10, theta)
+
+        drone = self.spawn_robot(client, pose, footprint=drone_footprint, robot_class=Drone)
+
+
         return drone, targets, obstacles
 
     def delete(self, name):
@@ -166,8 +183,7 @@ class Simulator(object):
 
         for i,f in enumerate(collisions):
             if f and targets[i].state != cfg.ROOMBA_STATE_TURNING:
-                targets[i].state = cfg.ROOMBA_STATE_TURNING
-                targets[i].turn_target = cfg.PI
+                targets[i].collisions['front'] = True
 
     def run(self):
         """ Main loop for running simulation. """
@@ -188,7 +204,7 @@ class Simulator(object):
             t2=rospy.Time.now().to_sec()
             dt = t2-t1
 
-            print((t1-t0)*1000)
+            # print((t1-t0)*1000)
 
             self.update(dt, (t2-t0)*1000)
 
