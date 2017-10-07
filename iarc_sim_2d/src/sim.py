@@ -155,9 +155,9 @@ class Simulator(object):
             obstacle_neato.velocity_publisher.publish(vel_msg)
 
 
-        vel_msg = self.drone.vel_msg
-        self.drone.update(delta, elapsed)
-        self.drone.velocity_publisher.publish(vel_msg)
+        # vel_msg = self.drone.vel_msg
+        # self.drone.update(delta, elapsed)
+        # self.drone.velocity_publisher.publish(vel_msg)
 
     def run_collision(self):
         """ Handle collision between robots. """
