@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import numpy as np
 import config as cfg
+import tf
 '''
 roomba.py
 
@@ -48,7 +49,8 @@ class Roomba(object):
 
         self.timers = {
             'reverse': 0,
-            'noise': 0
+            'noise': 0,
+            'stopped': 0
         }
 
         self.state = cfg.ROOMBA_STATE_IDLE
@@ -138,6 +140,17 @@ class TargetRoomba(Roomba):
                 self.z_w = 0
                 self.state = cfg.ROOMBA_STATE_FORWARD
 
+    def collision(self, self_pos, self_heading, other_pos, other_heading):
+    	h_i = tf.transformations.euler_from_quaternion(self_heading)[-1] # yaw
+        u_i = [np.cos(h_i), np.sin(h_i)]
+
+        dy = other_pos[1] - self_pos[1]
+        dx = other_pos[0] - self_pos[0]
+
+        d = np.sqrt(dx**2 + dy**2)
+        if d < cfg.ROOMBA_RADIUS*2 and np.dot(u_i, [dx,dy]) > 0:
+            self.collisions['front'] = True
+
 
 class ObstacleRoomba(Roomba):
     '''
@@ -156,15 +169,52 @@ class ObstacleRoomba(Roomba):
         delta - change in time since last update (seconds)
         elapsed - total time elapsed since start (milliseconds)
         '''
+        # reorient so we tangent to a circle centered at the origin 
+        #ang = np.arctan2(10 - self.pos[1], 10 - self.pos[0])
+        #self.heading = ang
+        # self.x_vel = cfg.ROOMBA_LINEAR_SPEED
+
         if self.collisions['front']:
             self.collisions['front'] = False
-        elif self.state == cfg.ROOMBA_STATE_FORWARD:
-            self.pos[0] += cfg.ROOMBA_LINEAR_SPEED * np.cos(self.heading) * delta
-            self.pos[1] += cfg.ROOMBA_LINEAR_SPEED * np.sin(self.heading) * delta
+            self.state = cfg.ROOMBA_STATE_IDLE
+            self.timers['stopped'] = elapsed
 
-            # reorient so we tangent to a circle centered at the origin 
-            ang = np.arctan2(10 - self.pos[1], 10 - self.pos[0])
-            self.heading = ang + (cfg.PI / 2)
+        if elapsed - self.timers['stopped'] > cfg.ROOMBA_OBSTACLE_STOP_PERIOD:
+        	self.timers['stopped'] = elapsed
+        	self.state = cfg.ROOMBA_STATE_FORWARD
+
+        if self.state == cfg.ROOMBA_STATE_IDLE:
+        	self.x_vel = 0
+        	self.z_w = 0
+        	
+        if self.state == cfg.ROOMBA_STATE_FORWARD:
+        	self.x_vel = cfg.ROOMBA_LINEAR_SPEED
+        	self.z_w = self.x_vel / 2
+
+        #elif self.collisions['top']:
+        #	self.collisions['top'] = False
+        #	self.state = cfg.ROOMBA_STATE_IDLE
+        #	self.timers['stopped'] = elapsed
+
+        #    if elapsed - self.timers['stopped'] > cfg.ROOMBA_OBSTACLE_STOP_PERIOD:
+        #   	self.timers['stopped'] = elapsed
+        #    	self.state = cfg.ROOMBA_STATE_FORWARD
+
+        # if self.state == cfg.ROOMBA_STATE_FORWARD:
+        self.pos[0] += cfg.ROOMBA_LINEAR_SPEED * np.cos(self.heading) * delta
+        self.pos[1] += cfg.ROOMBA_LINEAR_SPEED * np.sin(self.heading) * delta
+        
+
+    def collision(self, self_pos, self_heading, other_pos, other_heading):
+    	h_i = tf.transformations.euler_from_quaternion(self_heading)[-1] # yaw
+        u_i = [np.cos(h_i), np.sin(h_i)]
+
+        dy = other_pos[1] - self_pos[1]
+        dx = other_pos[0] - self_pos[0]
+
+        d = np.sqrt(dx**2 + dy**2)
+        if d < cfg.ROOMBA_RADIUS*2 and np.dot(u_i, [dx,dy]) > 0:
+            self.collisions['front'] = True
 
 
 class Drone(object):
@@ -184,9 +234,13 @@ class Drone(object):
 
         self.pos3d = [pos2d[0], pos2d[1], initial_height]
         self.heading = heading
+        self.tag = tag
 
     def limitSpeed(self, speedLimit):
         currentSpeed = np.linalg.norm(self.vel3d)
         if currentSpeed > speedLimit:
             self.vel3d = self.vel3d * speedLimit/currentSpeed
+
+    def collision(self, self_pos, self_heading, other_pos, other_heading):
+    	pass
 
