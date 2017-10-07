@@ -6,7 +6,7 @@ import tf
 import actionlib
 
 from geometry_msgs.msg import Twist, Pose2D, Point
-from stdr_msgs.msg import FootprintMsg, SpawnRobotAction, SpawnRobotGoal, RobotMsg, DeleteRobotAction, DeleteRobotGoal
+from stdr_msgs.msg import FootprintMsg, KinematicMsg, SpawnRobotAction, SpawnRobotGoal, RobotMsg, DeleteRobotAction, DeleteRobotGoal
 
 import config as cfg
 
@@ -23,7 +23,8 @@ class Simulator(object):
             client=None,
             pose=Pose2D(),
             footprint=FootprintMsg(radius=cfg.ROOMBA_RADIUS), # standard roomba dim-ish
-            robot_class='' # currently ignored argument
+            robot_class='', # currently ignored argument,
+            kinematicModel=KinematicMsg()
             ):
         """ Spawn a single robot with given initial configurations """
         if client is None:
@@ -36,11 +37,13 @@ class Simulator(object):
         goal = SpawnRobotGoal(
                 description=RobotMsg(
                     initialPose=pose,
-                    footprint=footprint
+                    footprint=footprint,
+                    kinematicModel=kinematicModel
                     )
                 )
         client.send_goal_and_wait(goal)
 
+        print(kinematicModel)
         #TODO : handle failure?
         res = client.get_result()
         des = res.indexedDescription
@@ -66,7 +69,7 @@ class Simulator(object):
                 )
 
         drone_shape = []
-        for j in range(5):
+        for j in range(4):
             theta_Rotors = cfg.PI/4 + float(j)/4 * cfg.PI*2
             for i in range(11):
                 theta = float(i)/10 * cfg.PI*2
@@ -87,6 +90,13 @@ class Simulator(object):
         targets = []
         obstacles = []
 
+        #Spawn Drone
+        theta = cfg.PI/2
+        pose = Pose2D(10, 10, theta)
+
+        drone = self.spawn_robot(client, pose, footprint=drone_footprint, robot_class=Drone, kinematicModel=KinematicMsg(type='omni'))
+
+
         #self.spawn_robot(client, robot_type='drone')
         for i in xrange(num_targets):
             theta = float(i)/num_targets * (cfg.PI*2)
@@ -102,17 +112,10 @@ class Simulator(object):
             pose = Pose2D(
                     10 + 2 * np.cos(theta),
                     10 + 2 * np.sin(theta),
-                    theta
+                    theta + cfg.PI/2
                     )
-            robot = self.spawn_robot(client, pose, footprint=obstacle_footprint, robot_class=ObstacleRoomba)
+            robot = self.spawn_robot(client, pose,footprint=obstacle_footprint, robot_class=ObstacleRoomba )
             obstacles.append(robot)
-
-        #Spawn Drone
-        theta = cfg.PI/2
-        pose = Pose2D(10, 10, theta)
-
-        drone = self.spawn_robot(client, pose, footprint=drone_footprint, robot_class=Drone)
-
 
         return drone, targets, obstacles
 
@@ -143,16 +146,35 @@ class Simulator(object):
         for obstacle_neato in self.obstacles:
             obstacle_neato.update(delta, elapsed)
 
+
+        vel_msg = self.drone.vel_msg
+        self.drone.update(delta, elapsed)
+        self.drone.velocity_publisher.publish(vel_msg)
+
     def run_collision(self):
         """ Handle collision between robots. """
         targets = self.targets # save some typing ...
         try:
             target_pos, target_headings = zip(*[self.tf.lookupTransform(
-                'map', 'robot%d'%i, rospy.Time(0)
+                'map', '%s'%targets[i].tag, rospy.Time(0)
                 ) for i in xrange(len(targets))
                 ])
         except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException) as e:
+            print("Exception in tf Lookup")
             return
+
+        drone = self.drone
+        print(drone.tag)
+        try:
+            drone_pos, drone_heading = self.tf.lookupTransform(
+                'map', '%s'%drone.tag, rospy.Time(0)
+                )
+
+        except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException) as e:
+            print("Exception in tf Lookup")
+            return
+
+        print(drone_pos)
 
         collisions=[False for _ in xrange(len(targets))]
 

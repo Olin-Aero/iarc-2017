@@ -184,6 +184,7 @@ class Drone(object):
 
         self.pos3d = [pos2d[0], pos2d[1], initial_height]
         self.heading = heading
+        self.tag = tag
 
     def limitSpeed(self, speedLimit):
         currentSpeed = np.linalg.norm(self.vel3d)
