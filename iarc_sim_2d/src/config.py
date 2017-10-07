@@ -59,6 +59,9 @@ ROOMBA_ANGULAR_SPEED = 1.279 # rad/s
 # Time until a full reverse (milliseconds)
 ROOMBA_REVERSE_PERIOD = 20000
 
+# Time until stopped Obstacle Roomba checks to see if it can move (milliseconds)
+ROOMBA_OBSTACLE_STOP_PERIOD = 50
+
 # Time until random heading noise is applied (milliseconds)
 ROOMBA_HEADING_NOISE_PERIOD = 5000
 

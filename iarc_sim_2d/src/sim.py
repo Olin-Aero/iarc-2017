@@ -61,7 +61,6 @@ class Simulator(object):
         """
         Spawn all the robots. 
 
-        TODO : Implement Spawning Drone
         """
         client = actionlib.SimpleActionClient(
                 '/stdr_server/spawn_robot',
@@ -89,6 +88,10 @@ class Simulator(object):
         drone = None
         targets = []
         obstacles = []
+        theta = cfg.PI/2
+        pose = Pose2D(10, 10, theta)
+
+        drone = self.spawn_robot(client, pose, footprint=drone_footprint, robot_class=Drone)
 
         #Spawn Drone
         theta = cfg.PI/2
@@ -109,6 +112,7 @@ class Simulator(object):
             targets.append(robot)
         for i in xrange(num_obstacles):
             theta = float(i)/num_obstacles* (cfg.PI*2)
+            print('%f number%d'%(theta, i))
             pose = Pose2D(
                     10 + 2 * np.cos(theta),
                     10 + 2 * np.sin(theta),
@@ -144,7 +148,11 @@ class Simulator(object):
             target_neato.velocity_publisher.publish(vel_msg)
 
         for obstacle_neato in self.obstacles:
+            vel_msg.linear.x = obstacle_neato.x_vel
+            vel_msg.angular.z = obstacle_neato.z_w
+
             obstacle_neato.update(delta, elapsed)
+            obstacle_neato.velocity_publisher.publish(vel_msg)
 
 
         vel_msg = self.drone.vel_msg
@@ -153,11 +161,17 @@ class Simulator(object):
 
     def run_collision(self):
         """ Handle collision between robots. """
-        targets = self.targets # save some typing ...
+        #for target robots
+        targets = self.targets
+        obstacles = self.obstacles
+        drone = self.drone
+        all_robots = np.concatenate((targets, obstacles, [drone]))
+        print(all_robots) # save some typing ...
+
         try:
-            target_pos, target_headings = zip(*[self.tf.lookupTransform(
-                'map', '%s'%targets[i].tag, rospy.Time(0)
-                ) for i in xrange(len(targets))
+            robot_pos, robot_headings = zip(*[self.tf.lookupTransform(
+                'map', '%s'%all_robots[i].tag, rospy.Time(0)
+                ) for i in xrange(len(all_robots))
                 ])
         except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException) as e:
             print("Exception in tf Lookup")
@@ -174,38 +188,13 @@ class Simulator(object):
             print("Exception in tf Lookup")
             return
 
-        print(drone_pos)
 
-        collisions=[False for _ in xrange(len(targets))]
-
-        n_t = len(targets)
+        n_t = len(all_robots)
         for i in xrange(0,n_t):
-            for j in xrange(i+1, n_t):
-                # for i
-                h_i = tf.transformations.euler_from_quaternion(target_headings[i])[-1] # yaw
-                u_i = [np.cos(h_i), np.sin(h_i)]
-
-                dy = target_pos[j][1] - target_pos[i][1]
-                dx = target_pos[j][0] - target_pos[i][0]
-
-                d = np.sqrt(dx**2 + dy**2)
-                if d < cfg.ROOMBA_RADIUS*2 and np.dot(u_i, [dx,dy]) > 0:
-                    collisions[i] = True
-
-                # for i
-                h_j = tf.transformations.euler_from_quaternion(target_headings[j])[-1] # yaw
-                u_j = [np.cos(h_j), np.sin(h_j)]
-
-                dy = target_pos[i][1] - target_pos[j][1]
-                dx = target_pos[i][0] - target_pos[j][0]
-
-                d = np.sqrt(dx**2 + dy**2)
-                if d < cfg.ROOMBA_RADIUS*2 and np.dot(u_j, [dx,dy]) > 0:
-                    collisions[j] = True
-
-        for i,f in enumerate(collisions):
-            if f and targets[i].state != cfg.ROOMBA_STATE_TURNING:
-                targets[i].collisions['front'] = True
+            for j in xrange(0, n_t):
+                if i != j:
+                    all_robots[i].collision(robot_pos[i], robot_headings[i], robot_pos[j], robot_headings[j])
+                
 
     def run(self):
         """ Main loop for running simulation. """
