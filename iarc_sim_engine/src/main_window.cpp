@@ -1,12 +1,11 @@
 #include "main_window.h"
 #include "ui_main_window.h"
 
-#include <csignal>
-
 MainWindow::MainWindow(QWidget* parent, const std::string map_s):
     QMainWindow(parent),
     scene(new QGraphicsScene(this)),
-    ui(new Ui::MainWindow){
+    ui(new Ui::MainWindow),
+    accel(1.0){
         ui->setupUi(this);
 
         auto w = ui->graphicsView->width();
@@ -24,18 +23,12 @@ MainWindow::MainWindow(QWidget* parent, const std::string map_s):
 
         ui->graphicsView->setScene(scene);
 
+        // update timer
         timer_id = startTimer(10);
 
         // signals
         connect(this, SIGNAL(sig_spawn(RobotItem*)), this, SLOT(handle_spawn(RobotItem*)));
         connect(this, SIGNAL(sig_kill(RobotItem*)), this, SLOT(handle_kill(RobotItem*)));
-        accel=1.0;
-        
-        //auto f = std::bind(&MainWindow::signal, this, std::placeholders::_1);
-        //std::signal(SIGINT, [&](int){this->signal(SIGINT);});
-        //std::signal(SIGINT, f);
-        //[&](int){this->signal(SIGINT);});
-        //std::signal(SIGTERM, [&](int){this->signal(SIGTERM);});
     }
 MainWindow::~MainWindow(){
     if(scene != nullptr){
@@ -53,12 +46,6 @@ void MainWindow::spawn(RobotItem* item){
 }
 void MainWindow::kill(RobotItem* item){
     emit sig_kill(item);
-}
-void MainWindow::signal(int sig){
-    //switch(sig){
-    //    case SIGINT:
-    //        emit quit();
-    //}
 }
 void MainWindow::handle_spawn(RobotItem* item){
     item->load_img();

@@ -22,7 +22,7 @@ class MainWindow : public QMainWindow{
     using callback_t = std::function<void(float)>;
     // QT
     Q_OBJECT
-    //
+
     private:
         QGraphicsScene* scene;
         Ui::MainWindow *ui;
@@ -39,7 +39,6 @@ class MainWindow : public QMainWindow{
 
         void spawn(RobotItem* item);
         void kill(RobotItem* item);
-        void signal(int sig);
     signals:
         void sig_spawn(RobotItem* item);
         void sig_kill(RobotItem* item);

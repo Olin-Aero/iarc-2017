@@ -6,6 +6,7 @@
 #include "qrobot.h"
 #include "ros_robot.h"
 #include <QApplication>
+#include <csignal>
 
 #include "iarc_sim_engine/SpawnRobot.h"
 #include "iarc_sim_engine/KillRobot.h"
@@ -107,6 +108,15 @@ class ROSInterface{
 
 };
 
+QApplication* a_ptr=nullptr;
+
+void handle_signal(int sig){
+    if(a_ptr){
+        a_ptr->quit();
+        a_ptr = nullptr;
+    }
+}
+
 int main(int argc, char* argv[]){
     // ros initializtion
     ros::init(argc, argv, "iarc_sim_engine");
@@ -122,7 +132,9 @@ int main(int argc, char* argv[]){
 
     // qt initialization
     QApplication a(argc, argv);
+    a_ptr = &a;
     MainWindow w(nullptr, map);
+    std::signal(SIGINT, &handle_signal);
 
     // ros+qt
     ROSInterface r(nh, nh_priv, w);
@@ -133,5 +145,5 @@ int main(int argc, char* argv[]){
     a.exec();
 
     // ros shutdown
-    //ros::waitForShutdown();
+    ros::shutdown();
 }
