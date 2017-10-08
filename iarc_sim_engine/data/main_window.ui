@@ -10,6 +10,12 @@
     <height>880</height>
    </rect>
   </property>
+  <property name="sizePolicy">
+   <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+    <horstretch>0</horstretch>
+    <verstretch>0</verstretch>
+   </sizepolicy>
+  </property>
   <property name="windowTitle">
    <string>MainWindow</string>
   </property>
@@ -33,8 +39,8 @@
      <rectf>
       <x>0.000000000000000</x>
       <y>0.000000000000000</y>
-      <width>512.000000000000000</width>
-      <height>512.000000000000000</height>
+      <width>768.000000000000000</width>
+      <height>768.000000000000000</height>
      </rectf>
     </property>
     <property name="viewportUpdateMode">

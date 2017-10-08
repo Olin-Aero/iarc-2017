@@ -1,5 +1,6 @@
 #include "main_window.h"
 #include "ui_main_window.h"
+#include <iostream>
 
 MainWindow::MainWindow(QWidget* parent, const std::string map_s):
     QMainWindow(parent),
@@ -8,16 +9,17 @@ MainWindow::MainWindow(QWidget* parent, const std::string map_s):
     accel(1.0){
         ui->setupUi(this);
 
+        //fix size
+        this->setFixedSize(this->geometry().width(),this->geometry().height());
+
         auto w = ui->graphicsView->width();
         auto h = ui->graphicsView->height();
 
         scene->setSceneRect(0, 0, w, h);
 
         // Add Background
-        auto bkpx = QPixmap(QString::fromStdString(map_s));
+        auto bkpx = QPixmap(QString::fromStdString(map_s)).scaled(w,h);
         auto bk = new QGraphicsPixmapItem(bkpx);
-        auto r = bk->boundingRect();
-        bk->setOffset((w-r.width())/2, (h-r.height())/2);
 
         scene->addItem(bk);
 
