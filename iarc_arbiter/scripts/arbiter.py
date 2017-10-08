@@ -31,7 +31,7 @@ class Arbiter:
         self.takeoff_pub = rospy.Publisher('/ardrone/takeoff', Empty, queue_size=0)
         self.land_pub = rospy.Publisher('/ardrone/land', Empty, queue_size=0)
 
-        self.status_pub = rospy.Publisher('status', String, queue_size=10)
+        self.status_pub = rospy.Publisher('debug', String, queue_size=10)
         self.active_pub = rospy.Publisher('active_behavior', String, queue_size=10)
 
         rospy.Service('register', Register, self.handle_register)
@@ -93,7 +93,7 @@ class Arbiter:
 
         # Log it
         self.active_pub.publish(String(behavior))
-        rospy.loginfo_throttle(1, "Command published by {}".format(behavior.name))
+        rospy.loginfo_throttle(1, "Command published by {}".format(behavior))
 
         return True
 
@@ -148,7 +148,7 @@ class Behavior:
         if not self.namespace:
             return
 
-        for (topic, (msg_type, _)) in enumerate(transformers):
+        for (topic, (msg_type, _)) in transformers.iteritems():
 
             def callback(msg):
                 self.handle_message(topic, msg)
@@ -157,6 +157,9 @@ class Behavior:
             self.subscribers[topic] = sub
 
             rospy.loginfo("Subscribed to {}/{}".format(self.namespace, topic))
+
+    def __str__(self):
+        return 'Behavior["{}", id={} namespace="{}"]'.format(self.friendly_name, self.name, self.namespace)
 
 
 if __name__ == '__main__':
