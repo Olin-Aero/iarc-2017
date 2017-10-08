@@ -55,5 +55,6 @@ void RobotItem::paint(QPainter* painter, const QStyleOptionGraphicsItem* option,
     painter->drawPixmap(dp, *img);
 
     painter->drawRect(QRectF(w*-dims/2.0, h*dims/2.0));
+    painter->resetTransform();
     //painter->drawEllipse(pos, 5.0, 5.0);
 }

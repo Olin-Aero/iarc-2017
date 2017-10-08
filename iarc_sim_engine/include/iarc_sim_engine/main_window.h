@@ -2,6 +2,7 @@
 #define __MAINWINDOW_H__
 
 #include <memory>
+#include <functional>
 #include <algorithm>
 
 // Qt4
@@ -30,7 +31,7 @@ class MainWindow : public QMainWindow{
         int timer_id;
         float accel;
     public:
-        explicit MainWindow(QWidget* parent=0);
+        explicit MainWindow(QWidget* parent=0, const std::string map_s="");
         ~MainWindow();
 
         void timerEvent(QTimerEvent*);
@@ -38,6 +39,7 @@ class MainWindow : public QMainWindow{
 
         void spawn(RobotItem* item);
         void kill(RobotItem* item);
+        void signal(int sig);
     signals:
         void sig_spawn(RobotItem* item);
         void sig_kill(RobotItem* item);
@@ -45,6 +47,7 @@ class MainWindow : public QMainWindow{
     public slots:
         void handle_spawn(RobotItem* item);
         void handle_kill(RobotItem* item);
+        void handle_reset();
         void set_sim_accel(double accel);
     public:
         double get_sim_accel();

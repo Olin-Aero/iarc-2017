@@ -13,6 +13,8 @@
 class ROSInterface{
     private:
         ros::NodeHandle& nh;
+        ros::NodeHandle& nh_priv;
+
         MainWindow& w;
         std::vector<std::shared_ptr<QRobot>> robots;
 
@@ -22,8 +24,9 @@ class ROSInterface{
     public:
         ROSInterface(
                 ros::NodeHandle& nh,
+                ros::NodeHandle& nh_priv,
                 MainWindow& w
-                ):nh(nh), w(w){
+                ):nh(nh),nh_priv(nh_priv),w(w){
 
             spawn_srv = nh.advertiseService("spawn", &ROSInterface::spawn_cb, this);
             kill_srv = nh.advertiseService("kill", &ROSInterface::kill_cb, this);
@@ -39,6 +42,7 @@ class ROSInterface{
             for(auto& r : robots){
                 r->robot->get_name(s);
                 if (req.name == s){
+                    ROS_INFO("Robot Name %s Already Exists", s.c_str());
                     res.success = false;
                     return false;
                 }
@@ -76,9 +80,13 @@ class ROSInterface{
             if(it != robots.end()){
                 w.kill((*it)->item);
                 robots.erase(it);
+                res.success = true;
+                return true;
             }
-            res.success = true;
-            return true;
+
+            //failed to kill
+            ROS_INFO("Robot Name %s Does not Exist", req.name.c_str());
+            return false;
         }
 
         //void reset_cb(
@@ -86,6 +94,7 @@ class ROSInterface{
         //        iarc_sim_engine::ResetRobot::Response& res){
         //    // not handling for now
         //}
+        
         void update(float dt){
             // dt *= ACCEL;
             for(auto& r : robots){
@@ -101,21 +110,22 @@ class ROSInterface{
 int main(int argc, char* argv[]){
     // ros initializtion
     ros::init(argc, argv, "iarc_sim_engine");
-    ros::NodeHandle nh("~");
 
-    // TODO : support map
-    //std::string map_s;
-    //nh.param<std::string>("map", map_s, "");
+    ros::NodeHandle nh;
+    ros::NodeHandle nh_priv("~"); //private node handle
 
+    std::string map;
+    nh_priv.param<std::string>("map", map, "");
+    std::cout << "map : " << map << std::endl;
 
     ros::AsyncSpinner spinner(4);
 
     // qt initialization
     QApplication a(argc, argv);
-    MainWindow w;
+    MainWindow w(nullptr, map);
 
     // ros+qt
-    ROSInterface r(nh, w);
+    ROSInterface r(nh, nh_priv, w);
 
     // start running
     spinner.start();

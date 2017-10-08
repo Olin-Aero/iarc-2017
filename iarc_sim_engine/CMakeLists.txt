@@ -173,6 +173,8 @@ target_link_libraries(iarc_sim_node
     ${QT_LIBRARIES}
     )
 
+add_dependencies(iarc_sim_node ${catkin_EXPORTED_TARGETS})
+
 ## Declare a C++ library
 # add_library(${PROJECT_NAME}
 #   src/${PROJECT_NAME}/iarc_sim_engine.cpp
@@ -181,7 +183,6 @@ target_link_libraries(iarc_sim_node
 ## Add cmake target dependencies of the library
 ## as an example, code may need to be generated before libraries
 ## either from message generation or dynamic reconfigure
-# add_dependencies(${PROJECT_NAME} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context

@@ -1,0 +1,5 @@
+<launch>
+    <node name="sim" pkg="iarc_sim_engine" type="iarc_sim_node">
+        <param name="map" value="$(find iarc_sim_engine)/data/map.png"/>
+    </node>
+</launch>
