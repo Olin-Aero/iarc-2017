@@ -59,6 +59,9 @@ ROOMBA_ANGULAR_SPEED = 1.279 # rad/s
 # Time until a full reverse (milliseconds)
 ROOMBA_REVERSE_PERIOD = 20000
 
+# Time until stopped Obstacle Roomba checks to see if it can move (milliseconds)
+ROOMBA_OBSTACLE_STOP_PERIOD = 50
+
 # Time until random heading noise is applied (milliseconds)
 ROOMBA_HEADING_NOISE_PERIOD = 5000
 
@@ -73,27 +76,25 @@ ROOMBA_STATE_TURNING = 2
 # Roomba's radius in meters
 ROOMBA_RADIUS = 0.35 / 2
 
-#
-# MISSION CONFIGURATION
-#
+#Sensor Pad Radius for the roomba
+SENSOR_PAD_RADIUS = .34/2
+PAD_HEIGHT = .04
 
-# number of target roombas to spawn
-MISSION_NUM_TARGETS = 10
+#Roomba height in meters
+ROOMBA_HEIGHT = .1
 
-# radius to spawn target roombas (centered at origin) in meters
-MISSION_TARGET_SPAWN_RADIUS = 1
+#Obstacle pole radius in meters
+OBSTACLE_POLE_RADIUS = .05
 
-# number of obstacle roombas to spawn
-MISSION_NUM_OBSTACLES = 4
 
-# radius to spawn obstacle roombas in meters
-MISSION_OBSTACLE_SPAWN_RADIUS = 4
 
-#
-# GRAPHICS CONFIGURATION
-#
+# Drone Rotor Radius
+DRONE_RADIUS = .08
+ROTOR_OFFSET = .15
 
-# how many vertices to use to draw circles
-# (note: hopefully someone can implement fragment shaders
-# and this will become irrelevant)
-GRAPHICS_CIRCLE_VERTICES = 100
+#Angle of bottom camera field of view, in radians
+BOTTOM_CAMERA_FOV = PI/3
+
+
+def getObstacleHeight():
+    return np.random.uniform(.05, 2)

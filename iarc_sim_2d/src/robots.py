@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 import numpy as np
 import config as cfg
+import tf
+from geometry_msgs.msg import Twist
 '''
 roomba.py
 
@@ -42,13 +44,14 @@ class Roomba(object):
         self.z_w = 0
 
         self.collisions = {
-            'front': False,
-            'top': False
+            'front' : False,
+            'top' : False
         }
 
         self.timers = {
             'reverse': 0,
-            'noise': 0
+            'noise': 0,
+            'stopped': 0
         }
 
         self.state = cfg.ROOMBA_STATE_IDLE
@@ -100,6 +103,13 @@ class TargetRoomba(Roomba):
                 self.turn_target = np.pi
                 self.turn_clockwise = True
 
+        if self.collisions['top']:
+            self.collisions['top'] = False
+            if self.state == cfg.ROOMBA_STATE_FORWARD:
+                self.state = cfg.ROOMBA_STATE_TURNING
+                self.turn_target = np.pi/4
+                self.turn_clockwise = True
+
         # update linear or angular motion
         if self.state == cfg.ROOMBA_STATE_FORWARD:
             self.pos[0] += cfg.ROOMBA_LINEAR_SPEED * np.cos(self.heading) * delta
@@ -124,25 +134,38 @@ class TargetRoomba(Roomba):
             self.turn_target -= amount
 
             if self.turn_clockwise:
-                print("Turning clockwise")
+                # print("Turning clockwise")
                 self.z_w = -cfg.ROOMBA_ANGULAR_SPEED
                 self.heading -= amount
             else:
-                print("Turning counterclockwise")
+                # print("Turning counterclockwise")
                 self.z_w = cfg.ROOMBA_ANGULAR_SPEED
                 self.heading += amount
             
             if self.turn_target < 0:
                 # we have completed the turn, reset to forward motion
-                print("turn completed")
+                # print("turn completed")
                 self.z_w = 0
                 self.state = cfg.ROOMBA_STATE_FORWARD
+
+    def collision(self, self_pos, self_heading, other_pos, other_heading, self_radius=cfg.ROOMBA_RADIUS, other_radius=cfg.ROOMBA_RADIUS):
+    	h_i = tf.transformations.euler_from_quaternion(self_heading)[-1] # yaw
+        u_i = [np.cos(h_i), np.sin(h_i)]
+
+        dy = other_pos[1] - self_pos[1]
+        dx = other_pos[0] - self_pos[0]
+
+        d = np.sqrt(dx**2 + dy**2)
+        if d < self_radius + other_radius and np.dot(u_i, [dx,dy]) > 0:
+            self.collisions['front'] = True
 
 
 class ObstacleRoomba(Roomba):
     '''
     Represents an obstacle roomba.
     '''
+    def gen_pole(self):
+        self.pole_height = cfg.getObstacleHeight()
 
     def update(self, delta, elapsed):
         '''
@@ -156,12 +179,99 @@ class ObstacleRoomba(Roomba):
         delta - change in time since last update (seconds)
         elapsed - total time elapsed since start (milliseconds)
         '''
+        # reorient so we tangent to a circle centered at the origin 
+        #ang = np.arctan2(10 - self.pos[1], 10 - self.pos[0])
+        #self.heading = ang
+        # self.x_vel = cfg.ROOMBA_LINEAR_SPEED
+
         if self.collisions['front']:
             self.collisions['front'] = False
-        elif self.state == cfg.ROOMBA_STATE_FORWARD:
-            self.pos[0] += cfg.ROOMBA_LINEAR_SPEED * np.cos(self.heading) * delta
-            self.pos[1] += cfg.ROOMBA_LINEAR_SPEED * np.sin(self.heading) * delta
+            self.state = cfg.ROOMBA_STATE_IDLE
+            self.timers['stopped'] = elapsed
 
-            # reorient so we tangent to a circle centered at the origin 
-            ang = np.arctan2(10 - self.pos[1], 10 - self.pos[0])
-            self.heading = ang + (cfg.PI / 2)
+        if elapsed - self.timers['stopped'] > cfg.ROOMBA_OBSTACLE_STOP_PERIOD:
+        	self.timers['stopped'] = elapsed
+        	self.state = cfg.ROOMBA_STATE_FORWARD
+
+        if self.state == cfg.ROOMBA_STATE_IDLE:
+        	self.x_vel = 0
+        	self.z_w = 0
+        	
+        if self.state == cfg.ROOMBA_STATE_FORWARD:
+        	self.x_vel = cfg.ROOMBA_LINEAR_SPEED
+        	self.z_w = self.x_vel / 2
+
+        #elif self.collisions['top']:
+        #	self.collisions['top'] = False
+        #	self.state = cfg.ROOMBA_STATE_IDLE
+        #	self.timers['stopped'] = elapsed
+
+        #    if elapsed - self.timers['stopped'] > cfg.ROOMBA_OBSTACLE_STOP_PERIOD:
+        #   	self.timers['stopped'] = elapsed
+        #    	self.state = cfg.ROOMBA_STATE_FORWARD
+
+        # if self.state == cfg.ROOMBA_STATE_FORWARD:
+        self.pos[0] += cfg.ROOMBA_LINEAR_SPEED * np.cos(self.heading) * delta
+        self.pos[1] += cfg.ROOMBA_LINEAR_SPEED * np.sin(self.heading) * delta
+
+
+    def collision(self, self_pos, self_heading, other_pos, other_heading, self_radius=cfg.ROOMBA_RADIUS, other_radius=cfg.ROOMBA_RADIUS):
+    	h_i = tf.transformations.euler_from_quaternion(self_heading)[-1] # yaw
+        u_i = [np.cos(h_i), np.sin(h_i)]
+
+        dy = other_pos[1] - self_pos[1]
+        dx = other_pos[0] - self_pos[0]
+
+        d = np.sqrt(dx**2 + dy**2)
+        if d < self_radius + other_radius and np.dot(u_i, [dx,dy]) > 0:
+            print("Pole height is %f" %(cfg.ROOMBA_HEIGHT+self.pole_height))
+            self.collisions['front'] = True
+
+
+class Drone(object):
+    """
+    Represents the drone in the simulation
+    """
+
+    def __init__(self, pos2d, heading, tag = ''):
+        """
+        Initialize the Drone object where:
+        pos3d is a vector [x,y,z]
+        vel3d is a vector [x',y',z']
+        heading is an angle in radians (0 is +x and pi/2 is +y)
+        """
+        initial_height = 0 #Make this an arugment at some point
+        self.vel3d = Twist()
+
+        self.pos3d = [pos2d[0], pos2d[1], initial_height]
+        self.heading = heading
+        self.tag = tag
+        self.visible_roombas = []
+
+    def limitSpeed(self, speedLimit):
+        currentSpeed = np.linalg.norm(self.vel3d)
+        if currentSpeed > speedLimit:
+            self.vel3d = self.vel3d * speedLimit/currentSpeed
+
+    def collision(self, self_pos, self_heading, other_pos, other_heading, self_radius=cfg.DRONE_RADIUS, other_radius=cfg.ROOMBA_RADIUS):
+    	pass
+
+    def record_vel(self, data):
+        self.vel3d = data
+
+    def update(self, delta, elapsed):
+        z_vel = self.vel3d.linear.z
+        self.pos3d[2] += z_vel * delta
+
+    def get_visible_roombas(self, roomba_array, pos_array):
+        visible_roombas = []
+        for i in xrange(0, len(pos_array)):
+
+            dy = pos_array[i][1] - self.pos3d[1]
+            dx = pos_array[i][0] - self.pos3d[0]
+
+            d = np.sqrt(dx**2 + dy**2)
+
+            if d < np.sin(cfg.BOTTOM_CAMERA_FOV)*self.pos3d[2]:
+                visible_roombas = np.append(visible_roombas, roomba_array[i])
+        self.visible_roombas = visible_roombas

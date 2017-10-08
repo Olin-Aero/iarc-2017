@@ -6,11 +6,11 @@ import tf
 import actionlib
 
 from geometry_msgs.msg import Twist, Pose2D, Point
-from stdr_msgs.msg import FootprintMsg, SpawnRobotAction, SpawnRobotGoal, RobotMsg, DeleteRobotAction, DeleteRobotGoal
+from stdr_msgs.msg import FootprintMsg, KinematicMsg, SpawnRobotAction, SpawnRobotGoal, RobotMsg, DeleteRobotAction, DeleteRobotGoal
 
 import config as cfg
 
-from neato import TargetRoomba, ObstacleRoomba
+from robots import TargetRoomba, ObstacleRoomba, Drone
 
 class Simulator(object):
     def __init__(self, num_targets, num_obstacles):
@@ -18,11 +18,13 @@ class Simulator(object):
         self.tf = tf.TransformListener()
         self.drone, self.targets, self.obstacles = self.spawn_robots(num_targets, num_obstacles)
 
+
     def spawn_robot(self,
             client=None,
             pose=Pose2D(),
             footprint=FootprintMsg(radius=cfg.ROOMBA_RADIUS), # standard roomba dim-ish
-            robot_class='' # currently ignored argument
+            robot_class='', # currently ignored argument,
+            kinematicModel=KinematicMsg()
             ):
         """ Spawn a single robot with given initial configurations """
         if client is None:
@@ -35,16 +37,19 @@ class Simulator(object):
         goal = SpawnRobotGoal(
                 description=RobotMsg(
                     initialPose=pose,
-                    footprint=footprint
+                    footprint=footprint,
+                    kinematicModel=kinematicModel
                     )
                 )
         client.send_goal_and_wait(goal)
 
+        # print(kinematicModel)
         #TODO : handle failure?
         res = client.get_result()
         des = res.indexedDescription
         pose = des.robot.initialPose
         name = des.name
+
 
         return robot_class(
                 [pose.x, pose.y], # pos
@@ -55,13 +60,19 @@ class Simulator(object):
     def spawn_robots(self, num_targets, num_obstacles):
         """
         Spawn all the robots. 
-
-        TODO : Implement Spawning Drone
         """
         client = actionlib.SimpleActionClient(
                 '/stdr_server/spawn_robot',
                 SpawnRobotAction
                 )
+
+        drone_shape = []
+        for j in range(4):
+            theta_Rotors = cfg.PI/4 + float(j)/4 * cfg.PI*2
+            for i in range(11):
+                theta = float(i)/10 * cfg.PI*2
+                drone_shape.append(Point(cfg.DRONE_RADIUS*np.cos(theta) + cfg.ROTOR_OFFSET*np.cos(theta_Rotors), cfg.DRONE_RADIUS*np.sin(theta)+ cfg.ROTOR_OFFSET*np.sin(theta_Rotors), 0) )
+        drone_footprint = FootprintMsg(points=drone_shape)
 
         obstacle_shape = []
         for i in range(11):
@@ -77,6 +88,13 @@ class Simulator(object):
         targets = []
         obstacles = []
 
+        #Spawn Drone
+        theta = cfg.PI/2
+        pose = Pose2D(10, 10, theta)
+
+        drone = self.spawn_robot(client, pose, footprint=drone_footprint, robot_class=Drone, kinematicModel=KinematicMsg(type='omni'))
+
+
         #self.spawn_robot(client, robot_type='drone')
         for i in xrange(num_targets):
             theta = float(i)/num_targets * (cfg.PI*2)
@@ -89,13 +107,16 @@ class Simulator(object):
             targets.append(robot)
         for i in xrange(num_obstacles):
             theta = float(i)/num_obstacles* (cfg.PI*2)
+            # print('%f number%d'%(theta, i))
             pose = Pose2D(
                     10 + 2 * np.cos(theta),
                     10 + 2 * np.sin(theta),
-                    theta
+                    theta + cfg.PI/2
                     )
-            robot = self.spawn_robot(client, pose, footprint=obstacle_footprint, robot_class=ObstacleRoomba)
+            robot = self.spawn_robot(client, pose,footprint=obstacle_footprint, robot_class=ObstacleRoomba )
+            robot.gen_pole()
             obstacles.append(robot)
+
         return drone, targets, obstacles
 
     def delete(self, name):
@@ -123,50 +144,87 @@ class Simulator(object):
             target_neato.velocity_publisher.publish(vel_msg)
 
         for obstacle_neato in self.obstacles:
+            vel_msg.linear.x = obstacle_neato.x_vel
+            vel_msg.angular.z = obstacle_neato.z_w
+
             obstacle_neato.update(delta, elapsed)
+            obstacle_neato.velocity_publisher.publish(vel_msg)
+
+
+        # vel_msg = self.drone.vel_msg
+        self.drone.update(delta, elapsed)
+        # self.drone.velocity_publisher.publish(vel_msg)
 
     def run_collision(self):
         """ Handle collision between robots. """
+        #for target robots
         targets = self.targets # save some typing ...
+        obstacles = self.obstacles
+        drone = self.drone
+        all_robots = np.concatenate((targets, obstacles))
+        # print(all_robots) 
+
         try:
-            target_pos, target_headings = zip(*[self.tf.lookupTransform(
-                'map', 'robot%d'%i, rospy.Time(0)
-                ) for i in xrange(len(targets))
+            robot_pos, robot_headings = zip(*[self.tf.lookupTransform(
+                'map', '%s'%all_robots[i].tag, rospy.Time(0)
+                ) for i in xrange(len(all_robots))
                 ])
         except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException) as e:
+            print("Exception in tf Lookup Robots")
             return
 
-        collisions=[False for _ in xrange(len(targets))]
+        drone = self.drone
+        drone.get_visible_roombas(all_robots, robot_pos)
+        print(drone.visible_roombas)
+        try:
+            drone_pos, drone_heading = self.tf.lookupTransform(
+                'map', '%s'%drone.tag, rospy.Time(0)
+                )
+            drone.pos3d[0], drone.pos3d[1] = [drone_pos[0], drone_pos[1]]
 
-        n_t = len(targets)
+        except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException) as e:
+            print("Exception in tf Lookup Drone")
+            return
+
+        #Calculate all of the collisions between robots
+        n_t = len(all_robots)
         for i in xrange(0,n_t):
-            for j in xrange(i+1, n_t):
-                # for i
-                h_i = tf.transformations.euler_from_quaternion(target_headings[i])[-1] # yaw
-                u_i = [np.cos(h_i), np.sin(h_i)]
+            for j in xrange(0, n_t):
+                if i != j:
+                    all_robots[i].collision(robot_pos[i], robot_headings[i], robot_pos[j], robot_headings[j])
 
-                dy = target_pos[j][1] - target_pos[i][1]
-                dx = target_pos[j][0] - target_pos[i][0]
+        #Now calculate all of the collisions between the drone and the robots
+        for i in xrange(0, n_t):
+            if drone.pos3d[2] < 0:
+                drone.pos3d[2] = 0
 
-                d = np.sqrt(dx**2 + dy**2)
-                if d < cfg.ROOMBA_RADIUS*2 and np.dot(u_i, [dx,dy]) > 0:
-                    collisions[i] = True
+            if drone.pos3d[2] < cfg.ROOMBA_HEIGHT + cfg.PAD_HEIGHT and type(all_robots[i]) is TargetRoomba:
+                d = np.sqrt((drone.pos3d[0] - robot_pos[i][0])**2 + (drone.pos3d[1] - robot_pos[i][1])**2)
+                #Before normal collisions are checkes, see if it's a tap
+                if drone.vel3d.linear.z < 0 and d < cfg.SENSOR_PAD_RADIUS:
+                    drone.pos3d[2] = cfg.ROOMBA_HEIGHT + cfg.PAD_HEIGHT #Make the drone not fall through the roomba
+                    all_robots[i].collisions['top'] = True
+                    print('hit on top')
+                    continue
 
-                # for i
-                h_j = tf.transformations.euler_from_quaternion(target_headings[j])[-1] # yaw
-                u_j = [np.cos(h_j), np.sin(h_j)]
+            #Standard Collision
+            if drone.pos3d[2] < cfg.ROOMBA_HEIGHT:
+                #Do normal collisions
+                all_robots[i].collision(robot_pos[i], robot_headings[i], drone_pos, drone_heading, self_radius=cfg.ROOMBA_RADIUS, other_radius=(cfg.DRONE_RADIUS+cfg.ROTOR_OFFSET))
 
-                dy = target_pos[i][1] - target_pos[j][1]
-                dx = target_pos[i][0] - target_pos[j][0]
+            #Collision type for hitting obstacle roombas
+            if drone.pos3d[2] > cfg.ROOMBA_HEIGHT and type(all_robots[i]) is ObstacleRoomba:
 
-                d = np.sqrt(dx**2 + dy**2)
-                if d < cfg.ROOMBA_RADIUS*2 and np.dot(u_j, [dx,dy]) > 0:
-                    collisions[j] = True
+                if drone.pos3d[2] < cfg.ROOMBA_HEIGHT+all_robots[i].pole_height:
+                    all_robots[i].collision(robot_pos[i], robot_headings[i], drone_pos, drone_heading, self_radius=cfg.OBSTACLE_POLE_RADIUS, other_radius=(cfg.DRONE_RADIUS+cfg.ROTOR_OFFSET))
+                    drone.collision( drone_pos, drone_heading, robot_pos[i], robot_headings[i], self_radius=(cfg.DRONE_RADIUS+cfg.ROTOR_OFFSET), other_radius=cfg.OBSTACLE_POLE_RADIUS)
 
-        for i,f in enumerate(collisions):
-            if f and targets[i].state != cfg.ROOMBA_STATE_TURNING:
-                targets[i].state = cfg.ROOMBA_STATE_TURNING
-                targets[i].turn_target = cfg.PI
+
+            # print(all_robots[i] is ObstacleRoomb())
+
+
+            # elif drone.pos3d[2] > a
+
 
     def run(self):
         """ Main loop for running simulation. """
@@ -178,6 +236,9 @@ class Simulator(object):
             obstacle_neato.velocity_publisher = rospy.Publisher('/%s/cmd_vel' %obstacle_neato.tag, Twist, queue_size=10)
             obstacle_neato.start()
 
+        self.drone.velocity_publisher = rospy.Publisher('/%s/cmd_vel' %self.drone.tag, Twist, queue_size=10)
+        self.drone.velocity_subscriber = rospy.Subscriber('/%s/cmd_vel' %self.drone.tag, Twist, self.drone.record_vel)
+
         t0 = rospy.Time.now().to_sec()
         t1 = t0 
         t2 = t0
@@ -187,8 +248,9 @@ class Simulator(object):
             t2=rospy.Time.now().to_sec()
             dt = t2-t1
 
-            print((t1-t0)*1000)
-
+            # print((t1-t0)*1000)
+            # print(self.drone.vel3d)
+            print(self.drone.pos3d[2])
             self.update(dt, (t2-t0)*1000)
 
             rospy.sleep(.1)
