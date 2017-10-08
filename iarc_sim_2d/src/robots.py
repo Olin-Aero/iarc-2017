@@ -103,6 +103,13 @@ class TargetRoomba(Roomba):
                 self.turn_target = np.pi
                 self.turn_clockwise = True
 
+        if self.collisions['top']:
+            self.collisions['top'] = False
+            if self.state == cfg.ROOMBA_STATE_FORWARD:
+                self.state = cfg.ROOMBA_STATE_TURNING
+                self.turn_target = np.pi/4
+                self.turn_clockwise = True
+
         # update linear or angular motion
         if self.state == cfg.ROOMBA_STATE_FORWARD:
             self.pos[0] += cfg.ROOMBA_LINEAR_SPEED * np.cos(self.heading) * delta
@@ -268,4 +275,3 @@ class Drone(object):
             if d < np.sin(cfg.BOTTOM_CAMERA_FOV)*self.pos3d[2]:
                 visible_roombas = np.append(visible_roombas, roomba_array[i])
         self.visible_roombas = visible_roombas
-        

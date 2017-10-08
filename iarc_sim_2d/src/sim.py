@@ -192,11 +192,21 @@ class Simulator(object):
             for j in xrange(0, n_t):
                 if i != j:
                     all_robots[i].collision(robot_pos[i], robot_headings[i], robot_pos[j], robot_headings[j])
-        
+
         #Now calculate all of the collisions between the drone and the robots
         for i in xrange(0, n_t):
             if drone.pos3d[2] < 0:
                 drone.pos3d[2] = 0
+
+            if drone.pos3d[2] < cfg.ROOMBA_HEIGHT + cfg.PAD_HEIGHT and type(all_robots[i]) is TargetRoomba:
+                d = np.sqrt((drone.pos3d[0] - robot_pos[i][0])**2 + (drone.pos3d[1] - robot_pos[i][1])**2)
+                #Before normal collisions are checkes, see if it's a tap
+                if drone.vel3d.linear.z < 0 and d < cfg.SENSOR_PAD_RADIUS:
+                    drone.pos3d[2] = cfg.ROOMBA_HEIGHT + cfg.PAD_HEIGHT #Make the drone not fall through the roomba
+                    all_robots[i].collisions['top'] = True
+                    print('hit on top')
+                    continue
+
             #Standard Collision
             if drone.pos3d[2] < cfg.ROOMBA_HEIGHT:
                 #Do normal collisions
@@ -228,7 +238,7 @@ class Simulator(object):
 
         self.drone.velocity_publisher = rospy.Publisher('/%s/cmd_vel' %self.drone.tag, Twist, queue_size=10)
         self.drone.velocity_subscriber = rospy.Subscriber('/%s/cmd_vel' %self.drone.tag, Twist, self.drone.record_vel)
-        
+
         t0 = rospy.Time.now().to_sec()
         t1 = t0 
         t2 = t0

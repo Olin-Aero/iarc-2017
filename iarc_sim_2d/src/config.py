@@ -76,6 +76,10 @@ ROOMBA_STATE_TURNING = 2
 # Roomba's radius in meters
 ROOMBA_RADIUS = 0.35 / 2
 
+#Sensor Pad Radius for the roomba
+SENSOR_PAD_RADIUS = .34/2
+PAD_HEIGHT = .04
+
 #Roomba height in meters
 ROOMBA_HEIGHT = .1
 
