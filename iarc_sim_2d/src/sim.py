@@ -43,7 +43,7 @@ class Simulator(object):
                 )
         client.send_goal_and_wait(goal)
 
-        print(kinematicModel)
+        # print(kinematicModel)
         #TODO : handle failure?
         res = client.get_result()
         des = res.indexedDescription
@@ -60,7 +60,6 @@ class Simulator(object):
     def spawn_robots(self, num_targets, num_obstacles):
         """
         Spawn all the robots. 
-
         """
         client = actionlib.SimpleActionClient(
                 '/stdr_server/spawn_robot',
@@ -88,10 +87,6 @@ class Simulator(object):
         drone = None
         targets = []
         obstacles = []
-        theta = cfg.PI/2
-        pose = Pose2D(10, 10, theta)
-
-        drone = self.spawn_robot(client, pose, footprint=drone_footprint, robot_class=Drone)
 
         #Spawn Drone
         theta = cfg.PI/2
@@ -112,13 +107,14 @@ class Simulator(object):
             targets.append(robot)
         for i in xrange(num_obstacles):
             theta = float(i)/num_obstacles* (cfg.PI*2)
-            print('%f number%d'%(theta, i))
+            # print('%f number%d'%(theta, i))
             pose = Pose2D(
                     10 + 2 * np.cos(theta),
                     10 + 2 * np.sin(theta),
                     theta + cfg.PI/2
                     )
             robot = self.spawn_robot(client, pose,footprint=obstacle_footprint, robot_class=ObstacleRoomba )
+            robot.gen_pole()
             obstacles.append(robot)
 
         return drone, targets, obstacles
@@ -156,17 +152,17 @@ class Simulator(object):
 
 
         # vel_msg = self.drone.vel_msg
-        # self.drone.update(delta, elapsed)
+        self.drone.update(delta, elapsed)
         # self.drone.velocity_publisher.publish(vel_msg)
 
     def run_collision(self):
         """ Handle collision between robots. """
         #for target robots
-        targets = self.targets
+        targets = self.targets # save some typing ...
         obstacles = self.obstacles
         drone = self.drone
-        all_robots = np.concatenate((targets, obstacles, [drone]))
-        print(all_robots) # save some typing ...
+        all_robots = np.concatenate((targets, obstacles))
+        # print(all_robots) 
 
         try:
             robot_pos, robot_headings = zip(*[self.tf.lookupTransform(
@@ -174,27 +170,51 @@ class Simulator(object):
                 ) for i in xrange(len(all_robots))
                 ])
         except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException) as e:
-            print("Exception in tf Lookup")
+            print("Exception in tf Lookup Robots")
             return
 
         drone = self.drone
-        print(drone.tag)
+        drone.get_visible_roombas(all_robots, robot_pos)
+        print(drone.visible_roombas)
         try:
             drone_pos, drone_heading = self.tf.lookupTransform(
                 'map', '%s'%drone.tag, rospy.Time(0)
                 )
+            drone.pos3d[0], drone.pos3d[1] = [drone_pos[0], drone_pos[1]]
 
         except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException) as e:
-            print("Exception in tf Lookup")
+            print("Exception in tf Lookup Drone")
             return
 
-
+        #Calculate all of the collisions between robots
         n_t = len(all_robots)
         for i in xrange(0,n_t):
             for j in xrange(0, n_t):
                 if i != j:
                     all_robots[i].collision(robot_pos[i], robot_headings[i], robot_pos[j], robot_headings[j])
-                
+        
+        #Now calculate all of the collisions between the drone and the robots
+        for i in xrange(0, n_t):
+            if drone.pos3d[2] < 0:
+                drone.pos3d[2] = 0
+            #Standard Collision
+            if drone.pos3d[2] < cfg.ROOMBA_HEIGHT:
+                #Do normal collisions
+                all_robots[i].collision(robot_pos[i], robot_headings[i], drone_pos, drone_heading, self_radius=cfg.ROOMBA_RADIUS, other_radius=(cfg.DRONE_RADIUS+cfg.ROTOR_OFFSET))
+
+            #Collision type for hitting obstacle roombas
+            if drone.pos3d[2] > cfg.ROOMBA_HEIGHT and type(all_robots[i]) is ObstacleRoomba:
+
+                if drone.pos3d[2] < cfg.ROOMBA_HEIGHT+all_robots[i].pole_height:
+                    all_robots[i].collision(robot_pos[i], robot_headings[i], drone_pos, drone_heading, self_radius=cfg.OBSTACLE_POLE_RADIUS, other_radius=(cfg.DRONE_RADIUS+cfg.ROTOR_OFFSET))
+                    drone.collision( drone_pos, drone_heading, robot_pos[i], robot_headings[i], self_radius=(cfg.DRONE_RADIUS+cfg.ROTOR_OFFSET), other_radius=cfg.OBSTACLE_POLE_RADIUS)
+
+
+            # print(all_robots[i] is ObstacleRoomb())
+
+
+            # elif drone.pos3d[2] > a
+
 
     def run(self):
         """ Main loop for running simulation. """
@@ -206,6 +226,9 @@ class Simulator(object):
             obstacle_neato.velocity_publisher = rospy.Publisher('/%s/cmd_vel' %obstacle_neato.tag, Twist, queue_size=10)
             obstacle_neato.start()
 
+        self.drone.velocity_publisher = rospy.Publisher('/%s/cmd_vel' %self.drone.tag, Twist, queue_size=10)
+        self.drone.velocity_subscriber = rospy.Subscriber('/%s/cmd_vel' %self.drone.tag, Twist, self.drone.record_vel)
+        
         t0 = rospy.Time.now().to_sec()
         t1 = t0 
         t2 = t0
@@ -216,7 +239,8 @@ class Simulator(object):
             dt = t2-t1
 
             # print((t1-t0)*1000)
-
+            # print(self.drone.vel3d)
+            print(self.drone.pos3d[2])
             self.update(dt, (t2-t0)*1000)
 
             rospy.sleep(.1)

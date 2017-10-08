@@ -76,30 +76,21 @@ ROOMBA_STATE_TURNING = 2
 # Roomba's radius in meters
 ROOMBA_RADIUS = 0.35 / 2
 
+#Roomba height in meters
+ROOMBA_HEIGHT = .1
+
+#Obstacle pole radius in meters
+OBSTACLE_POLE_RADIUS = .05
+
+
+
 # Drone Rotor Radius
 DRONE_RADIUS = .08
 ROTOR_OFFSET = .15
-#
-# MISSION CONFIGURATION
-#
 
-# number of target roombas to spawn
-MISSION_NUM_TARGETS = 10
+#Angle of bottom camera field of view, in radians
+BOTTOM_CAMERA_FOV = PI/3
 
-# radius to spawn target roombas (centered at origin) in meters
-MISSION_TARGET_SPAWN_RADIUS = 1
 
-# number of obstacle roombas to spawn
-MISSION_NUM_OBSTACLES = 4
-
-# radius to spawn obstacle roombas in meters
-MISSION_OBSTACLE_SPAWN_RADIUS = 4
-
-#
-# GRAPHICS CONFIGURATION
-#
-
-# how many vertices to use to draw circles
-# (note: hopefully someone can implement fragment shaders
-# and this will become irrelevant)
-GRAPHICS_CIRCLE_VERTICES = 100
+def getObstacleHeight():
+    return np.random.uniform(.05, 2)

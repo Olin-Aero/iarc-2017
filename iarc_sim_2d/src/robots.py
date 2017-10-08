@@ -2,6 +2,7 @@
 import numpy as np
 import config as cfg
 import tf
+from geometry_msgs.msg import Twist
 '''
 roomba.py
 
@@ -140,7 +141,7 @@ class TargetRoomba(Roomba):
                 self.z_w = 0
                 self.state = cfg.ROOMBA_STATE_FORWARD
 
-    def collision(self, self_pos, self_heading, other_pos, other_heading):
+    def collision(self, self_pos, self_heading, other_pos, other_heading, self_radius=cfg.ROOMBA_RADIUS, other_radius=cfg.ROOMBA_RADIUS):
     	h_i = tf.transformations.euler_from_quaternion(self_heading)[-1] # yaw
         u_i = [np.cos(h_i), np.sin(h_i)]
 
@@ -148,7 +149,7 @@ class TargetRoomba(Roomba):
         dx = other_pos[0] - self_pos[0]
 
         d = np.sqrt(dx**2 + dy**2)
-        if d < cfg.ROOMBA_RADIUS*2 and np.dot(u_i, [dx,dy]) > 0:
+        if d < self_radius + other_radius and np.dot(u_i, [dx,dy]) > 0:
             self.collisions['front'] = True
 
 
@@ -156,6 +157,8 @@ class ObstacleRoomba(Roomba):
     '''
     Represents an obstacle roomba.
     '''
+    def gen_pole(self):
+        self.pole_height = cfg.getObstacleHeight()
 
     def update(self, delta, elapsed):
         '''
@@ -203,9 +206,9 @@ class ObstacleRoomba(Roomba):
         # if self.state == cfg.ROOMBA_STATE_FORWARD:
         self.pos[0] += cfg.ROOMBA_LINEAR_SPEED * np.cos(self.heading) * delta
         self.pos[1] += cfg.ROOMBA_LINEAR_SPEED * np.sin(self.heading) * delta
-        
 
-    def collision(self, self_pos, self_heading, other_pos, other_heading):
+
+    def collision(self, self_pos, self_heading, other_pos, other_heading, self_radius=cfg.ROOMBA_RADIUS, other_radius=cfg.ROOMBA_RADIUS):
     	h_i = tf.transformations.euler_from_quaternion(self_heading)[-1] # yaw
         u_i = [np.cos(h_i), np.sin(h_i)]
 
@@ -213,7 +216,8 @@ class ObstacleRoomba(Roomba):
         dx = other_pos[0] - self_pos[0]
 
         d = np.sqrt(dx**2 + dy**2)
-        if d < cfg.ROOMBA_RADIUS*2 and np.dot(u_i, [dx,dy]) > 0:
+        if d < self_radius + other_radius and np.dot(u_i, [dx,dy]) > 0:
+            print("Pole height is %f" %(cfg.ROOMBA_HEIGHT+self.pole_height))
             self.collisions['front'] = True
 
 
@@ -230,17 +234,38 @@ class Drone(object):
         heading is an angle in radians (0 is +x and pi/2 is +y)
         """
         initial_height = 0 #Make this an arugment at some point
-        self.vel3d = [0,0,0]
+        self.vel3d = Twist()
 
         self.pos3d = [pos2d[0], pos2d[1], initial_height]
         self.heading = heading
         self.tag = tag
+        self.visible_roombas = []
 
     def limitSpeed(self, speedLimit):
         currentSpeed = np.linalg.norm(self.vel3d)
         if currentSpeed > speedLimit:
             self.vel3d = self.vel3d * speedLimit/currentSpeed
 
-    def collision(self, self_pos, self_heading, other_pos, other_heading):
+    def collision(self, self_pos, self_heading, other_pos, other_heading, self_radius=cfg.DRONE_RADIUS, other_radius=cfg.ROOMBA_RADIUS):
     	pass
 
+    def record_vel(self, data):
+        self.vel3d = data
+
+    def update(self, delta, elapsed):
+        z_vel = self.vel3d.linear.z
+        self.pos3d[2] += z_vel * delta
+
+    def get_visible_roombas(self, roomba_array, pos_array):
+        visible_roombas = []
+        for i in xrange(0, len(pos_array)):
+
+            dy = pos_array[i][1] - self.pos3d[1]
+            dx = pos_array[i][0] - self.pos3d[0]
+
+            d = np.sqrt(dx**2 + dy**2)
+
+            if d < np.sin(cfg.BOTTOM_CAMERA_FOV)*self.pos3d[2]:
+                visible_roombas = np.append(visible_roombas, roomba_array[i])
+        self.visible_roombas = visible_roombas
+        
