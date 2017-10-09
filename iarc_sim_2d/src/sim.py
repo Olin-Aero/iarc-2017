@@ -1,16 +1,18 @@
 #!/usr/bin/env python
+import os
 import numpy as np
 
 import rospy
 import tf
 import actionlib
-
+import rospkg
 from geometry_msgs.msg import Twist, Pose2D, Point
-from stdr_msgs.msg import FootprintMsg, KinematicMsg, SpawnRobotAction, SpawnRobotGoal, RobotMsg, DeleteRobotAction, DeleteRobotGoal
+rospack = rospkg.RosPack()
 
+from iarc_sim_engine.srv import SpawnRobot, SpawnRobotRequest, SpawnRobotResponse, KillRobotRequest, KillRobotResponse
 import config as cfg
-
 from robots import TargetRoomba, ObstacleRoomba, Drone
+
 
 class Simulator(object):
     def __init__(self, num_targets, num_obstacles):
@@ -20,36 +22,17 @@ class Simulator(object):
 
 
     def spawn_robot(self,
-            client=None,
-            pose=Pose2D(),
-            footprint=FootprintMsg(radius=cfg.ROOMBA_RADIUS), # standard roomba dim-ish
-            robot_class='', # currently ignored argument,
-            kinematicModel=KinematicMsg()
+            client,
+            name, img,
+            radius, pose,
+            robot_class
             ):
         """ Spawn a single robot with given initial configurations """
-        if client is None:
-            client = actionlib.SimpleActionClient(
-                    '/stdr_server/spawn_robot',
-                    SpawnRobotAction
-                    )
-        client.wait_for_server()
-
-        goal = SpawnRobotGoal(
-                description=RobotMsg(
-                    initialPose=pose,
-                    footprint=footprint,
-                    kinematicModel=kinematicModel
-                    )
-                )
-        client.send_goal_and_wait(goal)
-
-        # print(kinematicModel)
-        #TODO : handle failure?
-        res = client.get_result()
-        des = res.indexedDescription
-        pose = des.robot.initialPose
-        name = des.name
-
+        try:
+            client(name=name,img=img,radius=radius,x=pose.x,y=pose.y,t=pose.theta)
+        except rospy.ServiceException as e:
+            print ('Service Call Failed : %s' % e)
+            return
 
         return robot_class(
                 [pose.x, pose.y], # pos
@@ -61,59 +44,59 @@ class Simulator(object):
         """
         Spawn all the robots. 
         """
-        client = actionlib.SimpleActionClient(
-                '/stdr_server/spawn_robot',
-                SpawnRobotAction
-                )
 
-        drone_shape = []
-        for j in range(4):
-            theta_Rotors = cfg.PI/4 + float(j)/4 * cfg.PI*2
-            for i in range(11):
-                theta = float(i)/10 * cfg.PI*2
-                drone_shape.append(Point(cfg.DRONE_RADIUS*np.cos(theta) + cfg.ROTOR_OFFSET*np.cos(theta_Rotors), cfg.DRONE_RADIUS*np.sin(theta)+ cfg.ROTOR_OFFSET*np.sin(theta_Rotors), 0) )
-        drone_footprint = FootprintMsg(points=drone_shape)
+        try:
+            client = rospy.ServiceProxy('/spawn', SpawnRobot)
+        except rospy.ServiceException as e:
+            print ('Client Creation Failed : %s' % e)
 
-        obstacle_shape = []
-        for i in range(11):
-            theta = float(i)/10 * cfg.PI*2
-            obstacle_shape.append(Point(cfg.ROOMBA_RADIUS*np.cos(theta), cfg.ROOMBA_RADIUS*np.sin(theta), 0))
-        for i in range(11):
-            theta = -float(i)/10 * cfg.PI*2
-            obstacle_shape.append(Point(0.1*np.cos(theta), 0.1*np.sin(theta), 0))
-
-        obstacle_footprint = FootprintMsg(points=obstacle_shape)
-
+        img = {
+                'drone' : os.path.join(rospack.get_path('iarc_sim_engine'),'data','drone.jpg'),
+                'obstacle' : os.path.join(rospack.get_path('iarc_sim_engine'),'data','roomba.png'),
+                'target' : os.path.join(rospack.get_path('iarc_sim_engine'),'data','roomba.png')
+                }
+        print 'img', img
         drone = None
         targets = []
         obstacles = []
 
         #Spawn Drone
-        theta = cfg.PI/2
-        pose = Pose2D(10, 10, theta)
-
-        drone = self.spawn_robot(client, pose, footprint=drone_footprint, robot_class=Drone, kinematicModel=KinematicMsg(type='omni'))
-
+        drone = self.spawn_robot(
+                client,
+                name='drone', img=img['drone'],
+                radius=cfg.DRONE_RADIUS, pose=Pose2D(0,0,cfg.PI/2),
+                robot_class=Drone,
+                )
 
         #self.spawn_robot(client, robot_type='drone')
         for i in xrange(num_targets):
             theta = float(i)/num_targets * (cfg.PI*2)
             pose = Pose2D(
-                    10 + cfg.ROOMBA_TARGET_TURN_RADIUS * np.cos(theta),
-                    10 + cfg.ROOMBA_TARGET_TURN_RADIUS * np.sin(theta),
-                    2*cfg.PI + theta
+                    cfg.ROOMBA_TARGET_TURN_RADIUS * np.cos(theta),
+                    cfg.ROOMBA_TARGET_TURN_RADIUS * np.sin(theta),
+                    theta
                     )
-            robot = self.spawn_robot(client, pose, robot_class=TargetRoomba)
+            robot = self.spawn_robot(
+                    client,
+                    name=('target%d'%i), img=img['target'],
+                    radius=cfg.ROOMBA_RADIUS, pose=pose,
+                    robot_class=TargetRoomba
+                    )
             targets.append(robot)
         for i in xrange(num_obstacles):
             theta = float(i)/num_obstacles* (cfg.PI*2)
             # print('%f number%d'%(theta, i))
             pose = Pose2D(
-                    10 + cfg.ROOMBA_OBSTACLE_TURN_RADIUS * np.cos(theta),
-                    10 + cfg.ROOMBA_OBSTACLE_TURN_RADIUS * np.sin(theta),
+                    cfg.ROOMBA_OBSTACLE_TURN_RADIUS * np.cos(theta),
+                    cfg.ROOMBA_OBSTACLE_TURN_RADIUS * np.sin(theta),
                     theta + cfg.PI/2
                     )
-            robot = self.spawn_robot(client, pose,footprint=obstacle_footprint, robot_class=ObstacleRoomba )
+            robot = self.spawn_robot(
+                    client,
+                    name=('obstacle%d'%i), img=img['obstacle'],
+                    radius=cfg.ROOMBA_RADIUS, pose=pose,
+                    robot_class=ObstacleRoomba
+                    )
             robot.gen_pole()
             obstacles.append(robot)
 
@@ -121,13 +104,12 @@ class Simulator(object):
 
     def delete(self, name):
         """ Delete a single robot with the given name. """
-        client = actionlib.SimpleActionClient(
-                '/stdr_server/delete_robot',
-                DelteRobotAction
-                )
-        goal = DeleteRobotGoal(name=name)
-        client.send_goal_and_wait(goal)
-        return client.get_result()
+        try:
+            client = rospy.ServiceProxy('/spawn', SpawnRobot)
+            return client(name)
+        except rospy.ServiceException as e:
+            print ('Service Call Failed : %s' % e)
+        return False
 
     def reset(self):
         """ Reset all robots to default position """
