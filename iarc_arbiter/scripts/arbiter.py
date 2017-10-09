@@ -36,12 +36,16 @@ class Arbiter:
 
         rospy.Service('register', Register, self.handle_register)
 
-        rospy.Subscriber('activate', String, self.handle_activate)
+        rospy.Subscriber('activate_behavior', String, self.handle_activate)
 
     def handle_activate(self, msg):
         self.set_active_behavior(msg.data)
 
     def set_active_behavior(self, name):
+        if name not in self.behaviors:
+            rospy.logerr('{} does not exist as a behavior!'.format(name))
+            self.set_active_behavior('zero')
+
         self.active_behavior_name = name
         rospy.loginfo_throttle(1.0, '{} selected as active behavior'.format(name))
 
@@ -136,8 +140,8 @@ class Behavior:
         self.last_msg_time = rospy.Time(0)
 
     def handle_message(self, topic, msg):
-            self.last_msg_time = rospy.Time.now()
-            self.callback(self.name, topic, msg)
+        self.last_msg_time = rospy.Time.now()
+        self.callback(self.name, topic, msg)
 
     def subscribe(self, transformers):
         """
