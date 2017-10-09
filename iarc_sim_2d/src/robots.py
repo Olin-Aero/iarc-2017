@@ -199,7 +199,7 @@ class ObstacleRoomba(Roomba):
         	
         if self.state == cfg.ROOMBA_STATE_FORWARD:
         	self.x_vel = cfg.ROOMBA_LINEAR_SPEED
-        	self.z_w = self.x_vel / 2
+        	self.z_w = self.x_vel / cfg.ROOMBA_OBSTACLE_TURN_RADIUS
 
         #elif self.collisions['top']:
         #	self.collisions['top'] = False
