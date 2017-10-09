@@ -27,9 +27,12 @@ class MainWindow : public QMainWindow{
         QGraphicsScene* scene;
         Ui::MainWindow *ui;
         std::vector<callback_t> cbs;
-        QTime now;
         int timer_id;
         float accel;
+
+        QTime ref;
+        QTime now;
+        double sim_ref;
     public:
         explicit MainWindow(QWidget* parent, const QPixmap& map);
         ~MainWindow();
@@ -51,6 +54,7 @@ class MainWindow : public QMainWindow{
         void set_sim_accel(double accel);
     public:
         double get_sim_accel();
+        double get_time();
 
 };
 

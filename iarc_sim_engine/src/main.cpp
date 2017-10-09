@@ -5,8 +5,10 @@
 #include "main_window.h"
 #include "qrobot.h"
 #include "ros_robot.h"
+
 #include <QApplication>
 #include <csignal>
+#include <rosgraph_msgs/Clock.h>
 
 #include "iarc_sim_engine/SpawnRobot.h"
 #include "iarc_sim_engine/KillRobot.h"
@@ -18,7 +20,9 @@ class ROSInterface{
 
         MainWindow& w;
         std::vector<std::shared_ptr<QRobot>> robots;
+        rosgraph_msgs::Clock clock_msg;
 
+        ros::Publisher clock_pub;
         ros::ServiceServer spawn_srv;
         ros::ServiceServer kill_srv;
         ros::ServiceServer reset_srv;
@@ -31,6 +35,7 @@ class ROSInterface{
 
             spawn_srv = nh.advertiseService("spawn", &ROSInterface::spawn_cb, this);
             kill_srv = nh.advertiseService("kill", &ROSInterface::kill_cb, this);
+            clock_pub = nh.advertise<rosgraph_msgs::Clock>("/clock", 100);
             //reset_srv = nh.advertiseService("reset", &ROSInterface::reset_cb, this);
             w.add_cb([&](float dt){return this->update(dt);});
         }
@@ -97,13 +102,15 @@ class ROSInterface{
         //}
         
         void update(float dt){
-            // dt *= ACCEL;
             for(auto& r : robots){
-                r->update(w.get_sim_accel() * dt);
+                r->update(dt);
             }
             for(auto& r : robots){
                 dynamic_cast<ROSRobot&>(*(r->robot)).publish();
             }
+            clock_msg.clock = ros::Time(w.get_time());
+            clock_pub.publish(clock_msg);
+            
         }
 
 };

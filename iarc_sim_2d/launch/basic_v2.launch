@@ -1,4 +1,5 @@
 <launch>
+    <param name="use_sim_time" value="true" />
 	<include file="$(find iarc_sim_engine)/launch/basic.launch"/>
 
 	<node name="iarc_simulator" pkg="iarc_sim_2d" cwd="node" type="sim_v2.py" output="screen">

@@ -28,6 +28,11 @@ MainWindow::MainWindow(QWidget* parent, const QPixmap& map):
         view->setScene(scene);
         view->scale(float(view->width())/map.width(), float(view->height())/map.height());
 
+        // simulation time
+        ref = QTime::currentTime();
+        now = QTime::currentTime();
+        sim_ref = 0.0;
+
         // update timer
         timer_id = startTimer(10);
 
@@ -65,7 +70,7 @@ void MainWindow::handle_reset(){
 }
 void MainWindow::timerEvent(QTimerEvent*){
     auto _now = QTime::currentTime();
-    float dt = now.msecsTo(_now)/1000.0;
+    float dt = accel * now.msecsTo(_now)/1000.0;
     for(auto& cb : cbs){
         cb(dt);
     }
@@ -80,8 +85,16 @@ void MainWindow::add_cb(callback_t cb){
 }
 
 void MainWindow::set_sim_accel(double _accel){
-    accel=_accel;
+    // update reference
+    sim_ref += accel * ref.msecsTo(QTime::currentTime())/1000.0;
+    ref = QTime::currentTime();
+
+    accel =_accel;
 }
 double MainWindow::get_sim_accel(){
     return accel;
+}
+double MainWindow::get_time(){
+    auto _now = QTime::currentTime();
+    return sim_ref + accel * ref.msecsTo(_now)/1000.0;
 }
