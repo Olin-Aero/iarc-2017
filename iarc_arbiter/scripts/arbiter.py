@@ -6,10 +6,6 @@ from iarc_arbiter.srv import *
 
 import transformers
 
-if __name__ == '__main__':
-    rospy.init_node('arbiter')
-
-
 class Arbiter:
     """
     The Arbiter is a mutiplexer that reads cmd_* topics from several namespaces, converts them into
@@ -23,7 +19,7 @@ class Arbiter:
     It also publishes the name of the active behavior to arbiter/active_behavior.
     """
     def __init__(self):
-        self.null_behavior = Behavior(self.process_command, namespace='', name='zero', friendly_name='StopBehavior')
+        self.null_behavior = Behavior(self.process_command, 'zero')
 
         self.behaviors = {'zero': self.null_behavior}
         self.active_behavior_name = ''
@@ -88,11 +84,11 @@ class Arbiter:
             rospy.logerr("Behavior {} already exists".format(req.name))
             return RegisterResponse()
 
-        if not req.namespace:
-            rospy.logerr("Behavior cannot be created with empty namespace")
+        if not req.name:
+            rospy.logerr("Behavior cannot be created with empty name")
             return RegisterResponse()
 
-        behavior = Behavior(self.process_command, req.namespace, req.name, req.pretty_name)
+        behavior = Behavior(self.process_command, req.name)
         behavior.subscribe(self.transformers)
         self.behaviors[req.name] = behavior
         rospy.loginfo("Created behavior {}".format(behavior))
@@ -162,26 +158,14 @@ class Arbiter:
 
 
 class Behavior:
-    def __init__(self, callback, namespace, name=None, friendly_name=None):
+    def __init__(self, callback, name):
         """
-        :param callback: A function that takes this behavior and the standardized message as arguments
-        :param namespace: If empty, the behavior is treated as being internal to the Arbiter.
+        :param (str, str, Any)->bool callback: The function to be called when this behavior receives a command
         :param name: The name used to refer to this elsewhere in ROS
-        :param friendly_name: The name displayed, in CapitalCamelCase
         """
-        if namespace and (namespace[0] != '/'):
-            namespace = '/' + namespace
-
-        if not name:
-            name = namespace.strip('/')
-
-        if not friendly_name:
-            friendly_name = name
 
         self.name = name
         self.callback = callback
-        self.namespace = namespace
-        self.friendly_name = friendly_name
         self.subscribers = dict()
 
         self.last_msg_time = rospy.Time(0)
@@ -206,24 +190,23 @@ class Behavior:
         :type transformers: dict[str, (str, (Any) -> transformers.Command)]
         :return:
         """
-        if not self.namespace:
-            return
 
         for (topic, (msg_type, _)) in transformers.iteritems():
 
             def callback(msg):
                 self.handle_message(topic, msg)
 
-            sub = rospy.Subscriber("{}/{}".format(self.namespace, topic), msg_type, callback)
+            sub = rospy.Subscriber("/{}/{}".format(self.name, topic), msg_type, callback)
             self.subscribers[topic] = sub
 
-            rospy.loginfo("Subscribed to {}/{}".format(self.namespace, topic))
+            rospy.loginfo("Subscribed to /{}/{}".format(self.name, topic))
 
     def __str__(self):
-        return 'Behavior["{}", id={} namespace="{}"]'.format(self.friendly_name, self.name, self.namespace)
+        return 'Behavior[{}]'.format(self.name)
 
     __repr__ = __str__
 
 
 if __name__ == '__main__':
+    rospy.init_node('arbiter')
     Arbiter().run()
