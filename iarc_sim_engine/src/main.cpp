@@ -50,7 +50,7 @@ class ROSInterface{
             }
 
             float r = req.radius;
-            QPointF dims(r,r); // TODO : something more reasonable
+            QPointF dims(2*r,2*r); // TODO : something more reasonable
 
             // create ...
             auto robot = std::make_shared<ROSRobot>(nh, req.name);
@@ -138,6 +138,9 @@ int main(int argc, char* argv[]){
     QPixmap map(QString::fromStdString(map_file));
     MAP_M = map_dim; // remember map dimensions
     MAP_PX = map.width(); // this is from image
+
+    std::cout << "map_dim : " << MAP_M << std::endl;
+    std::cout << "map_dim : " << MAP_PX << std::endl;
 
     MainWindow w(nullptr, map);
     std::signal(SIGINT, &handle_signal);

@@ -56,6 +56,9 @@
   <run_depend>stdr_simulator</run_depend>
   <run_depend>stdr_resources</run_depend>
 
+  <!-- custom sim engine -->
+  <run_depend>iarc_sim_engine</run_depend>
+
 
   <!-- The export tag contains other, unspecified, tags -->
   <export>

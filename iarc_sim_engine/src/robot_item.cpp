@@ -14,7 +14,7 @@ RobotItem::~RobotItem(){
 QRectF RobotItem::boundingRect() const{
     int w = m2p(dims.x());
     int h = m2p(dims.y());
-    return QRectF(-w,-h,w*2,h*2);
+    return QRectF(-w/2,-h/2,w,h);
 }
 
 void RobotItem::set_pos(QPointF p, float t){
@@ -39,6 +39,7 @@ void RobotItem::paint(QPainter* painter, const QStyleOptionGraphicsItem* option,
     
     int ww = widget->size().width();
     int wh = widget->size().height();
+    //std::cout << ww << "," << wh  << std::endl;
         
     int w = img->width();
     int h = img->height();
@@ -53,8 +54,7 @@ void RobotItem::paint(QPainter* painter, const QStyleOptionGraphicsItem* option,
 
     QPointF dp(-w/2.0, -h/2.0);
     painter->drawPixmap(dp, *img);
-
-    painter->drawRect(QRectF(w*-dims/2.0, h*dims/2.0));
+    //painter->drawRect(QRectF(w*-dims/2.0, h*dims/2.0));
+    //painter->drawEllipse(pos, m2p(0.7)/w, m2p(0.7)/w);
     painter->resetTransform();
-    //painter->drawEllipse(pos, 5.0, 5.0);
 }

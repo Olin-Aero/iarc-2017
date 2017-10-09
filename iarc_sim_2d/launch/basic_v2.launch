@@ -1,0 +1,13 @@
+<launch>
+	<include file="$(find iarc_sim_engine)/launch/basic.launch"/>
+
+	<node name="iarc_simulator" pkg="iarc_sim_2d" cwd="node" type="sim_v2.py" output="screen">
+        <param name="num_targets" value="8"/>
+        <param name="num_obstacles" value="4"/>
+    </node>
+	
+	<node name="cmd_vel_fwd" pkg="topic_tools" type="relay" args="/cmd_vel /robot0/cmd_vel" />
+
+	<node name="base_link_tf" pkg="tf" type="static_transform_publisher" args="0 0 0 0 0 0 robot0 base_link 30" />	
+
+</launch>
