@@ -1,6 +1,6 @@
 #!/usr/bin/env python2
 import rospy
-from geometry_msgs.msg import Twist
+from geometry_msgs.msg import Twist, PoseStamped
 from std_msgs.msg import Empty, String
 from iarc_arbiter.srv import *
 
@@ -23,6 +23,7 @@ class Arbiter:
             'cmd_vel': (Twist, transformers.cmd_vel),
             'cmd_takeoff': (Empty, transformers.cmd_takeoff),
             'cmd_land': (Empty, transformers.cmd_land),
+            'cmd_pos': (PoseStamped, transformers.cmd_pos),
         }
 
         self.secondaries = []
@@ -39,9 +40,17 @@ class Arbiter:
         rospy.Subscriber('activate_behavior', String, self.handle_activate)
 
     def handle_activate(self, msg):
+        """
+        ROS subscriber for the activate_behavior topic
+        :type msg: String
+        """
         self.set_active_behavior(msg.data)
 
     def set_active_behavior(self, name):
+        """
+        Sets the active behavior, if the provided name is one of the known behaviors.
+        :type name: str
+        """
         if name not in self.behaviors:
             rospy.logerr('{} does not exist as a behavior!'.format(name))
             self.set_active_behavior('zero')
@@ -51,6 +60,7 @@ class Arbiter:
 
     def handle_register(self, req):
         """
+        ROS service for adding
         :type req: RegisterRequest
         """
         print req

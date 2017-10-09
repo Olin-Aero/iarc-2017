@@ -1,4 +1,4 @@
-from geometry_msgs.msg import Twist
+from geometry_msgs.msg import Twist, PoseStamped
 
 cmd_vel_multiplier = 0.3
 
@@ -14,9 +14,10 @@ def cmd_vel(msg):
     """
     :type msg: Twist
     """
-    msg.linear.x *= cmd_vel_multiplier
-    msg.linear.y *= cmd_vel_multiplier
-    return Command(msg)
+    vel = msg
+    vel.linear.x *= cmd_vel_multiplier
+    vel.linear.y *= cmd_vel_multiplier
+    return Command(vel)
 
 
 def cmd_vel_raw(msg):
@@ -32,3 +33,15 @@ def cmd_takeoff(msg):
 
 def cmd_land(msg):
     return Command(Twist(), land=True)
+
+
+def cmd_pos(msg):
+    """
+    :type msg: PoseStamped
+    :return: Command
+    """
+
+    vel = Twist()
+    # does stuff
+
+    return Command(vel)
