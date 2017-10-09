@@ -3,8 +3,10 @@ import rospy
 from geometry_msgs.msg import Twist, PoseStamped
 from std_msgs.msg import Empty, String
 from iarc_arbiter.srv import *
+from tf import TransformListener
 
 import transformers
+from avoid import AvoidBehavior
 
 
 class Arbiter:
@@ -39,9 +41,15 @@ class Arbiter:
         }
         """:type : dict[str, (str, (Any) -> transformers.Command)]"""
 
+        self.tf = TransformListener()
+        rospy.sleep(0.2)
+
         # Secondary behaviors are filters that are always active on the Command before it is published.
         # Examples include last-minute obstacle avoidance, speed limiters, or arena boundary constraints.
-        self.secondaries = []
+        self.secondaries = [
+            AvoidBehavior(self.tf).avoid_obstacles,
+        ]
+        """:type : List[(transformers.Command)->transformers.Command]"""
 
         self.vel_pub = rospy.Publisher('/cmd_vel', Twist, queue_size=0)
         self.takeoff_pub = rospy.Publisher('/ardrone/takeoff', Empty, queue_size=0)

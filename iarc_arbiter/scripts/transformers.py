@@ -1,4 +1,5 @@
 from geometry_msgs.msg import Twist, PoseStamped
+from copy import deepcopy
 
 cmd_vel_multiplier = 0.3
 
@@ -13,6 +14,9 @@ class Command:
         self.vel = vel
         self.takeoff = takeoff
         self.land = land
+
+    def copy(self):
+        return deepcopy(self)
 
 
 def cmd_vel(msg):
