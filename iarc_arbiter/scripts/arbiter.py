@@ -1,10 +1,9 @@
 #!/usr/bin/env python2
 import rospy
+import transformers
 from geometry_msgs.msg import Twist, PoseStamped
 from std_msgs.msg import Empty, String
 from iarc_arbiter.srv import *
-
-import transformers
 
 rospy.init_node('arbiter')
 
