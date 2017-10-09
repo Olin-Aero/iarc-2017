@@ -38,6 +38,13 @@ class Arbiter:
         }
         """:type : dict[str, (str, (Any) -> transformers.Command)]"""
 
+        # Subscribe to the behaviors passed as ROS parameters
+        starting_behaviors = rospy.get_param('~behaviors', [])
+        for b in starting_behaviors:
+            behavior = Behavior(self.process_command, b)
+            behavior.subscribe(self.transformers)
+            self.behaviors[b] = behavior
+
         # Secondary behaviors are filters that are always active on the Command before it is published.
         # Examples include last-minute obstacle avoidance, speed limiters, or arena boundary constraints.
         self.secondaries = []
@@ -150,8 +157,6 @@ class Arbiter:
         r = rospy.Rate(20)
 
         while not rospy.is_shutdown():
-            self.active_pub.publish(self.active_behavior_name)
-
             self.publish_debug()
             self.null_behavior.handle_message('cmd_vel', Twist())
 
