@@ -6,18 +6,20 @@ from iarc_arbiter.srv import *
 
 import transformers
 
+
 class Arbiter:
     """
     The Arbiter is a mutiplexer that reads cmd_* topics from several namespaces, converts them into
-    standard cmd_vel form, and forwards them onto the global namespace.
+    standard cmd_vel form, and forwards one of them into the global namespace.
 
-    It recieves information about which behavior (namespace) should be selected from String messages
+    It receives information about which behavior (namespace) should be selected from String messages
     on the /arbiter/activate_behavior topic. This information comes from the planning stack.
     In the future, a voting system could replace this mechanism.
     The special value "zero" represents an internal behavior that stops the vehicle.
 
     It also publishes the name of the active behavior to arbiter/active_behavior.
     """
+
     def __init__(self):
         self.null_behavior = Behavior(self.process_command, 'zero')
 
@@ -182,17 +184,16 @@ class Behavior:
         self.last_msg_time = rospy.Time.now()
         self.callback(self.name, topic, msg)
 
-    def subscribe(self, transformers):
+    def subscribe(self, topics):
         """
         Subscribes to the topics specified by transformers from the namespace.
 
-        :param transformers: map{topic name : (Type, Transformer)
-        :type transformers: dict[str, (str, (Any) -> transformers.Command)]
+        :param topics: map{topic name : (Type, Transformer)
+        :type topics: dict[str, (str, (Any) -> transformers.Command)]
         :return:
         """
 
-        for (topic, (msg_type, _)) in transformers.iteritems():
-
+        for (topic, (msg_type, _)) in topics.iteritems():
             def callback(msg):
                 self.handle_message(topic, msg)
 
