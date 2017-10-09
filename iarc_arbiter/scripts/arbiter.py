@@ -2,7 +2,7 @@
 import rospy
 from geometry_msgs.msg import Twist, PoseStamped
 from std_msgs.msg import Empty, String
-from iarc_arbiter.srv import *
+from iarc_arbiter.msg import RegisterBehavior
 
 import transformers
 
@@ -56,8 +56,7 @@ class Arbiter:
         self.debug_pub = rospy.Publisher('/arbiter/debug', String, queue_size=10)
         self.active_pub = rospy.Publisher('/arbiter/active_behavior', String, queue_size=10)
 
-        # TODO: consider using a subscriber here to handle latched messages better
-        rospy.Service('register', Register, self.handle_register)
+        rospy.Subscriber('/arbiter/register', RegisterBehavior, self.handle_register)
 
         rospy.Subscriber('/arbiter/activate_behavior', String, self.handle_activate)
 
@@ -83,25 +82,22 @@ class Arbiter:
 
     def handle_register(self, req):
         """
-        ROS service handler for adding a new behavior to the system.
-        TODO: Consider changing to subscriber
+        ROS subscriber for adding a new behavior to the system.
+        It is recommended to publish a single latched message to this behavior when a behavior
+        node starts.
 
-        :type req: RegisterRequest
+        :type req: RegisterBehavior
         """
         if req.name in self.behaviors:
             rospy.logerr("Behavior {} already exists".format(req.name))
-            return RegisterResponse()
 
         if not req.name:
             rospy.logerr("Behavior cannot be created with empty name")
-            return RegisterResponse()
 
         behavior = Behavior(self.process_command, req.name)
         behavior.subscribe(self.transformers)
         self.behaviors[req.name] = behavior
         rospy.loginfo("Created behavior {}".format(behavior))
-
-        return RegisterResponse(name=behavior.name)
 
     def process_command(self, behavior, topic, raw_cmd):
         """
