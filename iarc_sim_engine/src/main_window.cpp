@@ -34,7 +34,7 @@ MainWindow::MainWindow(QWidget* parent, const QPixmap& map):
         sim_ref = 0.0;
 
         // update timer
-        timer_id = startTimer(10);
+        timer_id = startTimer(5);
 
         // signals
         connect(this, SIGNAL(sig_spawn(RobotItem*)), this, SLOT(handle_spawn(RobotItem*)));
