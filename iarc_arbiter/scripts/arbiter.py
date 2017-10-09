@@ -31,7 +31,6 @@ class Arbiter:
         # They are functions that take input of whatever type the topic is, and produce a transformers.Command
         # object.
         self.transformers = {
-            'cmd_vel_raw': (Twist, transformers.cmd_vel_raw),
             'cmd_vel': (Twist, transformers.cmd_vel),
             'cmd_takeoff': (Empty, transformers.cmd_takeoff),
             'cmd_land': (Empty, transformers.cmd_land),
