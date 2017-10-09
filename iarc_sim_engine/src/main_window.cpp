@@ -1,29 +1,32 @@
 #include "main_window.h"
 #include "ui_main_window.h"
+#include "utils.h"
 #include <iostream>
 
-MainWindow::MainWindow(QWidget* parent, const std::string map_s):
+MainWindow::MainWindow(QWidget* parent, const QPixmap& map):
     QMainWindow(parent),
     scene(new QGraphicsScene(this)),
     ui(new Ui::MainWindow),
     accel(1.0){
-        ui->setupUi(this);
 
-        //fix size
+        ui->setupUi(this);
+        auto view = ui->graphicsView;
+
+        // fix size for now
         this->setFixedSize(this->geometry().width(),this->geometry().height());
 
-        auto w = ui->graphicsView->width();
-        auto h = ui->graphicsView->height();
+        auto w = map.width();
+        auto h = map.height();
 
         scene->setSceneRect(0, 0, w, h);
+        view->setSceneRect(0, 0, w, h);
 
         // Add Background
-        auto bkpx = QPixmap(QString::fromStdString(map_s)).scaled(w,h);
-        auto bk = new QGraphicsPixmapItem(bkpx);
-
+        auto bk = new QGraphicsPixmapItem(map);
         scene->addItem(bk);
 
-        ui->graphicsView->setScene(scene);
+        view->setScene(scene);
+        view->scale(float(view->width())/map.width(), float(view->height())/map.height());
 
         // update timer
         timer_id = startTimer(10);
@@ -69,7 +72,9 @@ void MainWindow::timerEvent(QTimerEvent*){
     now = _now;
     scene->update();
 }
-
+void MainWindow::resizeEvent(QResizeEvent*){
+    // TODO: scaleable
+}
 void MainWindow::add_cb(callback_t cb){
     cbs.push_back(cb);
 }

@@ -31,10 +31,11 @@ class MainWindow : public QMainWindow{
         int timer_id;
         float accel;
     public:
-        explicit MainWindow(QWidget* parent=0, const std::string map_s="");
+        explicit MainWindow(QWidget* parent, const QPixmap& map);
         ~MainWindow();
 
         void timerEvent(QTimerEvent*);
+        void resizeEvent(QResizeEvent*);
         void add_cb(callback_t cb);
 
         void spawn(RobotItem* item);

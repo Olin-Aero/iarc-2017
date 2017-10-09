@@ -120,19 +120,25 @@ void handle_signal(int sig){
 int main(int argc, char* argv[]){
     // ros initializtion
     ros::init(argc, argv, "iarc_sim_engine");
-
     ros::NodeHandle nh;
     ros::NodeHandle nh_priv("~"); //private node handle
-
-    std::string map;
-    nh_priv.param<std::string>("map", map, "");
-    std::cout << "map : " << map << std::endl;
-
     ros::AsyncSpinner spinner(4);
+
+    // load parameters
+    std::string map_file;
+    double map_dim;
+
+    nh_priv.param<std::string>("map", map_file, "");
+    nh_priv.param<double>("map_dim", map_dim, 20.0);
 
     // qt initialization
     QApplication a(argc, argv);
     a_ptr = &a;
+
+    QPixmap map(QString::fromStdString(map_file));
+    MAP_M = map_dim; // remember map dimensions
+    MAP_PX = map.width(); // this is from image
+
     MainWindow w(nullptr, map);
     std::signal(SIGINT, &handle_signal);
 

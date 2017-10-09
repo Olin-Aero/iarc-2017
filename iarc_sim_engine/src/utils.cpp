@@ -1,5 +1,8 @@
 #include "utils.h"
 
+float MAP_M=24.0F;
+float MAP_PX=768.0F;
+
 float d2r(float d){
     return d*M_PI/180.0;
 }
