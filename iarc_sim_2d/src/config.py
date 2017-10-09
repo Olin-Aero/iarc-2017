@@ -76,6 +76,7 @@ ROOMBA_TARGET_TURN_RADIUS = 1
 ROOMBA_STATE_IDLE = 0
 ROOMBA_STATE_FORWARD = 1
 ROOMBA_STATE_TURNING = 2
+ROOMBA_STATE_OOB = 3 #out of bounds
 
 # Roomba's radius in meters
 ROOMBA_RADIUS = 0.35 / 2
@@ -99,6 +100,7 @@ ROTOR_OFFSET = .15
 #Angle of bottom camera field of view, in radians
 BOTTOM_CAMERA_FOV = PI/3
 
+BOUND = 20.0
 
 def getObstacleHeight():
     return np.random.uniform(.05, 2)

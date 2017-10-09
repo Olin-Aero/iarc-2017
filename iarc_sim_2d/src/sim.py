@@ -137,9 +137,8 @@ class Simulator(object):
         self.drone.update(delta, elapsed)
         # self.drone.velocity_publisher.publish(vel_msg)
 
-    def run_collision(self):
-        """ Handle collision between robots. """
-        #for target robots
+    def get_positions(self):
+        """ Get positions of all robots """
         targets = self.targets # save some typing ...
         obstacles = self.obstacles
         drone = self.drone
@@ -167,6 +166,16 @@ class Simulator(object):
         except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException) as e:
             print("Exception in tf Lookup Drone")
             return
+        return robot_pos, robot_headings, drone_pos, drone_heading
+
+    def run_collision(self, robot_pos, robot_headings, drone_pos, drone_heading):
+        """ Handle collision between robots. """
+
+        #for target robots
+        targets = self.targets # save some typing ...
+        obstacles = self.obstacles
+        drone = self.drone
+        all_robots = np.concatenate((targets, obstacles))
 
         #Calculate all of the collisions between robots
         n_t = len(all_robots)
@@ -204,9 +213,12 @@ class Simulator(object):
 
             # print(all_robots[i] is ObstacleRoomb())
 
-
             # elif drone.pos3d[2] > a
 
+    def run_bounds(self, robot_pos):
+        all_robots = np.concatenate((self.targets, self.obstacles))
+        for r,p in zip(all_robots, robot_pos):
+            r.bounds(p)
 
     def run(self):
         """ Main loop for running simulation. """
@@ -226,7 +238,13 @@ class Simulator(object):
         t2 = t0
 
         while not rospy.is_shutdown():
-            self.run_collision()
+            try:
+                robot_pos, robot_headings, drone_pos, drone_heading = self.get_positions()
+            except:
+                continue
+            self.run_collision(robot_pos, robot_headings, drone_pos, drone_heading)
+            self.run_bounds(robot_pos)
+
             t2=rospy.Time.now().to_sec()
             dt = t2-t1
 

@@ -147,6 +147,9 @@ class TargetRoomba(Roomba):
                 # print("turn completed")
                 self.z_w = 0
                 self.state = cfg.ROOMBA_STATE_FORWARD
+        elif self.state == cfg.ROOMBA_STATE_OOB:
+            self.x_vel = 0
+            self.z_w = 0
 
     def collision(self, self_pos, self_heading, other_pos, other_heading, self_radius=cfg.ROOMBA_RADIUS, other_radius=cfg.ROOMBA_RADIUS):
     	h_i = tf.transformations.euler_from_quaternion(self_heading)[-1] # yaw
@@ -158,6 +161,10 @@ class TargetRoomba(Roomba):
         d = np.sqrt(dx**2 + dy**2)
         if d < self_radius + other_radius and np.dot(u_i, [dx,dy]) > 0:
             self.collisions['front'] = True
+
+    def bounds(self, self_pos):
+        if abs(self_pos[0]) > (cfg.BOUND/2.0) or abs(self_pos[1]) > (cfg.BOUND/2.0):
+            self.state = cfg.ROOMBA_STATE_OOB
 
 
 class ObstacleRoomba(Roomba):
@@ -201,6 +208,10 @@ class ObstacleRoomba(Roomba):
         	self.x_vel = cfg.ROOMBA_LINEAR_SPEED
         	self.z_w = self.x_vel / cfg.ROOMBA_OBSTACLE_TURN_RADIUS
 
+        if self.state == cfg.ROOMBA_STATE_OOB:
+            self.x_vel = 0
+            self.z_w = 0
+
         #elif self.collisions['top']:
         #	self.collisions['top'] = False
         #	self.state = cfg.ROOMBA_STATE_IDLE
@@ -227,6 +238,9 @@ class ObstacleRoomba(Roomba):
             print("Pole height is %f" %(cfg.ROOMBA_HEIGHT+self.pole_height))
             self.collisions['front'] = True
 
+    def bounds(self, self_pos):
+        if abs(self_pos[0]) > (cfg.BOUND/2.0) or abs(self_pos[1]) > (cfg.BOUND/2.0):
+            self.state = cfg.ROOMBA_STATE_OOB
 
 class Drone(object):
     """

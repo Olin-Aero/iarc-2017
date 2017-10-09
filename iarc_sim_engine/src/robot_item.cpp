@@ -50,7 +50,7 @@ void RobotItem::paint(QPainter* painter, const QStyleOptionGraphicsItem* option,
     xform.scale(m2p(dims.x())/w, m2p(dims.y())/h);
 
     painter->setWindow(QRect(-ww/2,-wh/2,ww,wh));
-    painter->setTransform(xform);
+    painter->setTransform(xform, true);
 
     QPointF dp(-w/2.0, -h/2.0);
     painter->drawPixmap(dp, *img);

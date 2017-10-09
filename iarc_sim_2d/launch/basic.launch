@@ -2,7 +2,7 @@
     <param name="use_sim_time" value="true" />
 	<include file="$(find iarc_sim_engine)/launch/basic.launch"/>
 
-	<node name="iarc_simulator" pkg="iarc_sim_2d" cwd="node" type="sim_v2.py" output="screen">
+	<node name="iarc_simulator" pkg="iarc_sim_2d" cwd="node" type="sim.py" output="screen">
         <param name="num_targets" value="8"/>
         <param name="num_obstacles" value="4"/>
     </node>
