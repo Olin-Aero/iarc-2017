@@ -93,7 +93,7 @@ OBSTACLE_POLE_RADIUS = .05
 
 
 # Drone Rotor Radius
-DRONE_RADIUS = .08
+DRONE_RADIUS = .258
 ROTOR_OFFSET = .15
 
 #Angle of bottom camera field of view, in radians
@@ -102,3 +102,4 @@ BOTTOM_CAMERA_FOV = PI/3
 
 def getObstacleHeight():
     return np.random.uniform(.05, 2)
+
