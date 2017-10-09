@@ -99,9 +99,9 @@ class Simulator(object):
         for i in xrange(num_targets):
             theta = float(i)/num_targets * (cfg.PI*2)
             pose = Pose2D(
-                    10 + 4 * np.cos(theta),
-                    10 + 4 * np.sin(theta),
-                    2*cfg.PI -theta
+                    10 + cfg.ROOMBA_TARGET_TURN_RADIUS * np.cos(theta),
+                    10 + cfg.ROOMBA_TARGET_TURN_RADIUS * np.sin(theta),
+                    2*cfg.PI + theta
                     )
             robot = self.spawn_robot(client, pose, robot_class=TargetRoomba)
             targets.append(robot)
@@ -109,8 +109,8 @@ class Simulator(object):
             theta = float(i)/num_obstacles* (cfg.PI*2)
             # print('%f number%d'%(theta, i))
             pose = Pose2D(
-                    10 + 2 * np.cos(theta),
-                    10 + 2 * np.sin(theta),
+                    10 + cfg.ROOMBA_OBSTACLE_TURN_RADIUS * np.cos(theta),
+                    10 + cfg.ROOMBA_OBSTACLE_TURN_RADIUS * np.sin(theta),
                     theta + cfg.PI/2
                     )
             robot = self.spawn_robot(client, pose,footprint=obstacle_footprint, robot_class=ObstacleRoomba )

@@ -72,9 +72,9 @@ class Simulator(object):
         for i in xrange(num_targets):
             theta = float(i)/num_targets * (cfg.PI*2)
             pose = Pose2D(
-                    4 * np.cos(theta),
-                    4 * np.sin(theta),
-                    2*cfg.PI -theta
+                    cfg.ROOMBA_TARGET_TURN_RADIUS * np.cos(theta),
+                    cfg.ROOMBA_TARGET_TURN_RADIUS * np.sin(theta),
+                    theta
                     )
             robot = self.spawn_robot(
                     client,
@@ -87,8 +87,8 @@ class Simulator(object):
             theta = float(i)/num_obstacles* (cfg.PI*2)
             # print('%f number%d'%(theta, i))
             pose = Pose2D(
-                    2 * np.cos(theta),
-                    2 * np.sin(theta),
+                    cfg.ROOMBA_OBSTACLE_TURN_RADIUS * np.cos(theta),
+                    cfg.ROOMBA_OBSTACLE_TURN_RADIUS * np.sin(theta),
                     theta + cfg.PI/2
                     )
             robot = self.spawn_robot(

@@ -68,6 +68,10 @@ ROOMBA_HEADING_NOISE_PERIOD = 5000
 # Maximum heading noise (applied in either direction) in radians
 ROOMBA_HEADING_NOISE_MAX = 20 * (np.pi / 180)
 
+# Turn radius for obstacle roombas
+ROOMBA_OBSTACLE_TURN_RADIUS = 3
+ROOMBA_TARGET_TURN_RADIUS = 1
+
 # Python doesn't have enums...
 ROOMBA_STATE_IDLE = 0
 ROOMBA_STATE_FORWARD = 1

@@ -11,8 +11,8 @@ void Robot::reset(float _x, float _y, float _t){
 }
 void Robot::update(float dt){
     //t w.r.t top
-    x += -v*sin(t)*dt;
-    y += v*cos(t)*dt;
+    x += v*cos(t)*dt;
+    y += v*sin(t)*dt;
     t += w*dt;
 }
 void Robot::set_pos(float _x, float _y, float _t){
