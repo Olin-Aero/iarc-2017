@@ -71,6 +71,7 @@ add_service_files(
     FILES
     KillRobot.srv
     SpawnRobot.srv
+    ResetRobot.srv
 )
 
 ## Generate actions in the 'action' folder
