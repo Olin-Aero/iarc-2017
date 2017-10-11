@@ -64,9 +64,11 @@ ROOMBA_OBSTACLE_STOP_PERIOD = 50
 
 # Time until random heading noise is applied (milliseconds)
 ROOMBA_HEADING_NOISE_PERIOD = 5000
+ROOMBA_OBSTACLE_NOISE_PERIOD = 1000
 
 # Maximum heading noise (applied in either direction) in radians
 ROOMBA_HEADING_NOISE_MAX = 20 * (np.pi / 180)
+ROOMBA_OBSTACLE_NOISE_MAX = 5 * (np.pi / 180)
 
 # Turn radius for obstacle roombas
 ROOMBA_OBSTACLE_TURN_RADIUS = 3

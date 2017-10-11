@@ -3,6 +3,7 @@ import numpy as np
 import config as cfg
 import tf
 from geometry_msgs.msg import Twist
+from random import choice
 '''
 roomba.py
 
@@ -152,7 +153,7 @@ class TargetRoomba(Roomba):
             self.z_w = 0
 
     def collision(self, self_pos, self_heading, other_pos, other_heading, self_radius=cfg.ROOMBA_RADIUS, other_radius=cfg.ROOMBA_RADIUS):
-    	h_i = tf.transformations.euler_from_quaternion(self_heading)[-1] # yaw
+        h_i = tf.transformations.euler_from_quaternion(self_heading)[-1] # yaw
         u_i = [np.cos(h_i), np.sin(h_i)]
 
         dy = other_pos[1] - self_pos[1]
@@ -191,35 +192,41 @@ class ObstacleRoomba(Roomba):
         #self.heading = ang
         # self.x_vel = cfg.ROOMBA_LINEAR_SPEED
 
+        direction = [-1, 1]
+
         if self.collisions['front']:
             self.collisions['front'] = False
             self.state = cfg.ROOMBA_STATE_IDLE
             self.timers['stopped'] = elapsed
 
         if elapsed - self.timers['stopped'] > cfg.ROOMBA_OBSTACLE_STOP_PERIOD:
-        	self.timers['stopped'] = elapsed
-        	self.state = cfg.ROOMBA_STATE_FORWARD
+            self.timers['stopped'] = elapsed
+            self.state = cfg.ROOMBA_STATE_FORWARD
 
         if self.state == cfg.ROOMBA_STATE_IDLE:
-        	self.x_vel = 0
-        	self.z_w = 0
-        	
+            self.x_vel = 0
+            self.z_w = 0
+            
         if self.state == cfg.ROOMBA_STATE_FORWARD:
-        	self.x_vel = cfg.ROOMBA_LINEAR_SPEED
-        	self.z_w = self.x_vel / cfg.ROOMBA_OBSTACLE_TURN_RADIUS
+            self.x_vel = cfg.ROOMBA_LINEAR_SPEED
+            self.z_w = self.x_vel / cfg.ROOMBA_OBSTACLE_TURN_RADIUS
+
+            if elapsed - self.timers['noise'] > cfg.ROOMBA_OBSTACLE_NOISE_PERIOD:
+                self.timers['noise'] = elapsed
+                self.z_w += (choice(direction)) * cfg.ROOMBA_OBSTACLE_NOISE_MAX
 
         if self.state == cfg.ROOMBA_STATE_OOB:
             self.x_vel = 0
             self.z_w = 0
 
         #elif self.collisions['top']:
-        #	self.collisions['top'] = False
-        #	self.state = cfg.ROOMBA_STATE_IDLE
-        #	self.timers['stopped'] = elapsed
+        #   self.collisions['top'] = False
+        #   self.state = cfg.ROOMBA_STATE_IDLE
+        #   self.timers['stopped'] = elapsed
 
         #    if elapsed - self.timers['stopped'] > cfg.ROOMBA_OBSTACLE_STOP_PERIOD:
-        #   	self.timers['stopped'] = elapsed
-        #    	self.state = cfg.ROOMBA_STATE_FORWARD
+        #       self.timers['stopped'] = elapsed
+        #       self.state = cfg.ROOMBA_STATE_FORWARD
 
         # if self.state == cfg.ROOMBA_STATE_FORWARD:
         self.pos[0] += cfg.ROOMBA_LINEAR_SPEED * np.cos(self.heading) * delta
@@ -227,7 +234,7 @@ class ObstacleRoomba(Roomba):
 
 
     def collision(self, self_pos, self_heading, other_pos, other_heading, self_radius=cfg.ROOMBA_RADIUS, other_radius=cfg.ROOMBA_RADIUS):
-    	h_i = tf.transformations.euler_from_quaternion(self_heading)[-1] # yaw
+        h_i = tf.transformations.euler_from_quaternion(self_heading)[-1] # yaw
         u_i = [np.cos(h_i), np.sin(h_i)]
 
         dy = other_pos[1] - self_pos[1]
@@ -268,7 +275,7 @@ class Drone(object):
             self.vel3d = self.vel3d * speedLimit/currentSpeed
 
     def collision(self, self_pos, self_heading, other_pos, other_heading, self_radius=cfg.DRONE_RADIUS, other_radius=cfg.ROOMBA_RADIUS):
-    	pass
+        pass
 
     def record_vel(self, data):
         self.vel3d = data
