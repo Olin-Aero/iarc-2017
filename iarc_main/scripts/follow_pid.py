@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 import rospy
 import math
+
+from iarc_arbiter.msg import RegisterBehavior
 from tf import TransformListener
 from std_msgs.msg import Float64
 from geometry_msgs.msg import Twist, Vector3
@@ -9,6 +11,8 @@ from geometry_msgs.msg import Twist, Vector3
 class FollowBehavior:
     def __init__(self):
         rospy.init_node('FollowBehavior')
+        rospy.Publisher('/arbiter/register', RegisterBehavior, latch=True).publish(name='follow')
+
         self.pub = rospy.Publisher('/follow/cmd_vel', Twist, queue_size=10)
         self.tf = TransformListener()
 
