@@ -12,6 +12,7 @@
 
 #include "iarc_sim_engine/SpawnRobot.h"
 #include "iarc_sim_engine/KillRobot.h"
+#include "iarc_sim_engine/ResetRobot.h"
 
 class ROSInterface{
     private:
@@ -35,8 +36,8 @@ class ROSInterface{
 
             spawn_srv = nh.advertiseService("spawn", &ROSInterface::spawn_cb, this);
             kill_srv = nh.advertiseService("kill", &ROSInterface::kill_cb, this);
+            reset_srv = nh.advertiseService("reset", &ROSInterface::reset_cb, this);
             clock_pub = nh.advertise<rosgraph_msgs::Clock>("/clock", 100);
-            //reset_srv = nh.advertiseService("reset", &ROSInterface::reset_cb, this);
             w.add_cb([&](float dt){return this->update(dt);});
         }
 
@@ -95,11 +96,24 @@ class ROSInterface{
             return false;
         }
 
-        //void reset_cb(
-        //        iarc_sim_engine::ResetRobot::Request& req,
-        //        iarc_sim_engine::ResetRobot::Response& res){
-        //    // not handling for now
-        //}
+        bool reset_cb(
+                iarc_sim_engine::ResetRobot::Request& req,
+                iarc_sim_engine::ResetRobot::Response& res){
+
+            std::string s;
+            auto it = std::find_if(robots.begin(), robots.end(), [&](const std::shared_ptr<QRobot>& r){
+                    r->robot->get_name(s);
+                    return (s == req.name);
+                    });
+            if(it != robots.end()){
+                (*it)->robot->set_pos(req.x, req.y, req.t);
+                res.success = true;
+                return true;
+            }
+            ROS_INFO("Robot Name %s Does not Exist", req.name.c_str());
+            return false;
+            // not handling for now
+        }
         
         void update(float dt){
             for(auto& r : robots){
