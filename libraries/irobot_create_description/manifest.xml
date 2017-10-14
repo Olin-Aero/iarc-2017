@@ -1,0 +1,23 @@
+<package>
+    <description brief="URDF for Create mobile base">
+    URDF description files for the Create mobile robot base from iRobot.
+    </description>
+    <author>Jeff Rousseau</author>
+    <license>BSD</license>
+    <review status="unreviewed" notes=""/>
+    <url>http://ros.org/wiki/irobot_create_description</url>
+
+    <depend package="urdf" />
+    <depend package="xacro" />
+    <depend package="gazebo" />
+    <depend package="gazebo_tools" />
+    <depend package="fake_localization" />
+    <depend package="erratic_gazebo_plugins"/>
+
+    <export>
+        <gazebo gazebo_media_path="${prefix}" />
+    </export>
+
+</package>
+
+
