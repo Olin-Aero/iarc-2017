@@ -1,30 +1,46 @@
 <?xml version="1.0"?>
 
 <robot
+    xmlns:xacro="http://ros.org/wiki/xacro"
     xmlns:sensor="http://playerstage.sourceforge.net/gazebo/xmlschema/#sensor"
     xmlns:controller="http://playerstage.sourceforge.net/gazebo/xmlschema/#controller"
     xmlns:interface="http://playerstage.sourceforge.net/gazebo/xmlschema/#interface">
 
+    <xacro:arg name="ns" default="target0"/>
+
     <!-- Included URDF Files -->
-    <include filename="$(find irobot_create_description)/urdf/materials.urdf.xacro" />
-    <include filename="$(find irobot_create_description)/urdf/create_wheel.xacro" />
+    <xacro:include filename="$(find irobot_create_description)/urdf/materials.urdf.xacro" />
+    <xacro:include filename="$(find irobot_create_description)/urdf/create_wheel.xacro" />
 
     <!-- Properties (Constants) -->
-    <property name="M_PI" value="3.14159"/>
+    <xacro:property name="M_PI" value="3.14159"/>
     
-    <property name="base_size_x" value="0.217" />
-    <property name="base_size_y" value="0.280" />
-    <property name="base_size_z" value="0.155" />
+    <xacro:property name="base_size_x" value="0.217" />
+    <xacro:property name="base_size_y" value="0.280" />
+    <xacro:property name="base_size_z" value="0.155" />
     
-    <property name="top_size_x" value="0.3937" />
-    <property name="top_size_y" value="0.3556" />
-    <property name="top_size_z" value="0.0020" />
+    <xacro:property name="top_size_x" value="0.3937" />
+    <xacro:property name="top_size_y" value="0.3556" />
+    <xacro:property name="top_size_z" value="0.0020" />
     
-    <property name="wheel_radius" value="0.0346" />
-    <property name="wheel_length" value="0.02" />
-    <property name="caster_wheel_offset_y" value="0.17" />
-    
-    <macro name="create">
+    <xacro:property name="wheel_radius" value="0.0346" />
+    <xacro:property name="wheel_length" value="0.02" />
+    <xacro:property name="caster_wheel_offset_y" value="0.17" />
+
+	<xacro:macro name="wheel_xmission" params="wheel_prefix">
+		<transmission name="${wheel_prefix}_wheel_trans">
+			<type>transmission_interface/SimpleTransmission</type>
+			<actuator name="${wheel_prefix}_wheel_motor">
+				<hardwareInterface>VelocityJointInterface</hardwareInterface>
+				<mechanicalReduction>1</mechanicalReduction>
+			</actuator>
+			<joint name="${wheel_prefix}_wheel_joint">
+				<hardwareInterface>VelocityJointInterface</hardwareInterface>
+			</joint>
+		</transmission>
+	</xacro:macro>
+
+    <xacro:macro name="create">
         <!-- base_footprint is a fictitious link(frame) that is on the ground right below base_link origin,
              navigation stack depends on this frame -->
         <link name="base_footprint">
@@ -122,10 +138,10 @@
         </link>
 
         <gazebo reference="rear_wheel_link">
-            <elem key="mu1" value="10.0" />
-            <elem key="mu2" value="10.0" />
-            <elem key="kp"  value="1000000.0" />
-            <elem key="kd"  value="1.0" />
+            <mu1 value="10.0" />
+            <mu2 value="10.0" />
+            <kp  value="1000000.0" />
+            <kd  value="1.0" />
         </gazebo>
 
         <joint name="base_caster_support_joint" type="continuous">
@@ -139,11 +155,14 @@
             <joint_properties damping="0.0" friction="0.0" />
         </joint>
 
+        <wheel_xmission wheel_prefix="rear"/>
+        <!--
         <transmission type="pr2_mechanism_model/SimpleTransmission" name="rear_wheel_trans">
             <actuator name="rear_wheel_motor" />
             <joint name="rear_wheel_joint" />
             <mechanicalReduction>1.0</mechanicalReduction>
         </transmission>
+        -->
 
         <link name="base_caster_support_link">
             <inertial>
@@ -180,11 +199,15 @@
             <joint_properties damping="0.0" friction="0.0" />
         </joint>
 
+        <wheel_xmission wheel_prefix="caster"/>
+
+        <!--
         <transmission type="pr2_mechanism_model/SimpleTransmission" name="caster_wheel_trans">
             <actuator name="caster_wheel_motor" />
             <joint name="caster_wheel_joint" />
             <mechanicalReduction>1.0</mechanicalReduction>
         </transmission>
+        -->
 
         <link name="caster_wheel_link">
             <inertial>
@@ -211,35 +234,67 @@
         </link>
 
         <gazebo reference="caster_wheel_link">
-            <elem key="mu1" value="50.0" />
-            <elem key="mu2" value="50.0" />
-            <elem key="kp"  value="1000000.0" />
-            <elem key="kd"  value="1.0" />
+            <mu1 value="50.0" />
+            <mu2 value="50.0" />
+            <kp  value="1000000.0" />
+            <kd  value="1.0" />
         </gazebo>
 
         <!-- MACRO INSTANTIATION -->
 
-        <create_wheel suffix="left" parent="base_link" reflect="0.75"/>
-        <create_wheel suffix="right" parent="base_link" reflect="-0.75"/>
+        <create_wheel suffix="left" parent="base_link" reflect="-0.75"/>
+        <create_wheel suffix="right" parent="base_link" reflect="0.75"/>
 
+        <wheel_xmission wheel_prefix="base_link_left"/>
+        <wheel_xmission wheel_prefix="base_link_right"/>
         <!-- CONTROLLERS -->
 
         <gazebo>
-            <controller:diffdrive_plugin name="differential_drive_controller" plugin="libdiffdrive_plugin.so">
+
+            <!--
+            <plugin name="differential_drive_controller" filename="libgazebo_ros_diff_drive.so">
+                <robotNamespace>Create</robotNamespace>
+                <robotSimType>gazebo_ros_control/DefaultRobotHWSim</robotSimType>
+            </plugin>
+            -->
+
+            <!--
+            <plugin name="gazebo_ros_control" filename="libgazebo_ros_control.so">
+                <robotNamespace>Create</robotNamespace>
+                <robotSimType>gazebo_ros_control/DefaultRobotHWSim</robotSimType>
+            </plugin>
+            -->
+
+            <plugin name="differential_drive_controller" filename="libgazebo_ros_diff_drive.so">
                 <alwaysOn>true</alwaysOn>
                 <update>100</update>
-                <updateRate>100.0</updateRate>
-                <leftJoint>base_link_right_wheel_joint</leftJoint>
-                <rightJoint>base_link_left_wheel_joint</rightJoint>
+                <robotNamespace>$(arg ns)</robotNamespace>
+                <!-- TF -->
+                <commandTopic>cmd_vel</commandTopic>
+                <odometryTopic>odom</odometryTopic>
+                <odometryFrame>odom</odometryFrame>
+                <robotBaseFrame>base_link</robotBaseFrame>
+                <publishWheelTF>false</publishWheelTF>
+                <publishWheelJointState>false</publishWheelJointState>
+                <legacyMode>false</legacyMode>
+
+                <!-- Config -->
                 <wheelSeparation>${caster_wheel_offset_y*2}</wheelSeparation>
                 <wheelDiameter>${wheel_radius*2}</wheelDiameter>
-                <torque>50</torque>
-                <interface:position name="position_iface_0"/>
-                <robotNamespace>/</robotNamespace>
-                <topicName>cmd_vel</topicName>
-            </controller:diffdrive_plugin>
+                <wheelAcceleration>0</wheelAcceleration>
+                <wheelTorque>50</wheelTorque>
+                <updateRate>100.0</updateRate>
 
-            <controller:gazebo_ros_p3d name="p3d_base_controller" plugin="libgazebo_ros_p3d.so">
+                <leftJoint>base_link_right_wheel_joint</leftJoint>
+                <rightJoint>base_link_left_wheel_joint</rightJoint>
+                <rosDebugLevel>na</rosDebugLevel>
+                <publishTf>true</publishTf>
+                <tf_prefix>$(arg ns)</tf_prefix>
+                <!-- Odometry Source?? -->
+            </plugin>
+
+            <!--
+            <plugin name="p3d_base_controller" filename="libgazebo_ros_p3d.so">
                 <alwaysOn>true</alwaysOn>
                 <updateRate>100.0</updateRate>
                 <bodyName>base_link</bodyName>
@@ -249,18 +304,19 @@
                 <xyzOffsets>0 0 0</xyzOffsets> 
                 <rpyOffsets>0 0 0</rpyOffsets>
                 <interface:position name="p3d_base_position"/>
-            </controller:gazebo_ros_p3d>
+            </plugin>
 
             <canonicalBody>base_footprint</canonicalBody>
 
-            <!-- this publishes empty joint_states due to no transmission, but
-             triggering robot_state_publisher to publish tf between fixed joints in create,
-             (e.g. base_laser_link for the base_scan frame) -->
-            <controller:gazebo_ros_controller_manager name="gazebo_ros_controller_manager" plugin="libgazebo_ros_controller_manager.so">
+            <plugin name="gazebo_ros_controller_manager" filename="libgazebo_ros_controller_manager.so">
                 <alwaysOn>true</alwaysOn>
                 <updateRate>100.0</updateRate>
                 <interface:audio name="gazebo_ros_controller_manager_dummy_iface" />
-            </controller:gazebo_ros_controller_manager>
+            </plugin>
+            -->
+            <!-- this publishes empty joint_states due to no transmission, but
+             triggering robot_state_publisher to publish tf between fixed joints in create,
+             (e.g. base_laser_link for the base_scan frame) -->
         </gazebo>
 
         <!-- GAZEBO MATERIALS -->
@@ -284,5 +340,5 @@
         <gazebo reference="base_caster_support_link">
             <material>Create/Black</material>
         </gazebo>
-    </macro>
+    </xacro:macro>
 </robot>

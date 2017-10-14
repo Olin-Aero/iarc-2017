@@ -1,15 +1,16 @@
 <?xml version="1.0"?>
 
 <robot
+    xmlns:xacro="http://ros.org/wiki/xacro"
     xmlns:sensor="http://playerstage.sourceforge.net/gazebo/xmlschema/#sensor"
     xmlns:controller="http://playerstage.sourceforge.net/gazebo/xmlschema/#controller"
     xmlns:interface="http://playerstage.sourceforge.net/gazebo/xmlschema/#interface">
     
     <!-- Properties (Constants) -->
-    <property name="M_PI" value="3.14159"/>
-    <property name="wheel_offset_z" value="-0.0128" />    
+    <xacro:property name="M_PI" value="3.14159"/>
+    <xacro:property name="wheel_offset_z" value="-0.0128" />    
     
-    <macro name="create_wheel" params="suffix parent reflect">
+    <xacro:macro name="create_wheel" params="suffix parent reflect">
         <joint name="${parent}_${suffix}_motor_joint" type="fixed">
             <origin xyz="0 ${reflect*base_size_y/2} ${wheel_offset_z}" rpy="0 0 0" />
             <parent link="${parent}" />
@@ -76,10 +77,10 @@
         </link>
 
         <gazebo reference="${parent}_${suffix}_wheel_link" >
-            <elem key="mu1" value="50.0" />
-            <elem key="mu2" value="50.0" />
-            <elem key="kp"  value="100000000.0" />
-            <elem key="kd"  value="1.0" />
+            <mu1 value="50.0" />
+            <mu2  value="50.0" />
+            <kp  value="100000000.0" />
+            <kd  value="1.0" />
             <material>Create/Grey</material>
         </gazebo>
 
@@ -87,11 +88,13 @@
             <material>Create/White</material>
         </gazebo>
 
+        <!--
         <transmission type="pr2_mechanism_model/SimpleTransmission" name="${parent}_${suffix}_wheel_trans">
             <actuator name="${parent}_${suffix}_wheel_motor" />
             <joint name="${parent}_${suffix}_wheel_joint" />
             <mechanicalReduction>1.0</mechanicalReduction>
         </transmission>
-    </macro>
+        -->
+    </xacro:macro>
 </robot>
 
