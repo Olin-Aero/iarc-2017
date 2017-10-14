@@ -1,4 +1,5 @@
 <launch>
+    <!-- Create World -->
     <include file="$(find gazebo_ros)/launch/empty_world.launch">
         <arg name="world_name" value="$(find iarc_sim_3d)/worlds/iarc.world"/>
     </include>
