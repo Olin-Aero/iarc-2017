@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <launch>
     <arg name="ns" default="drone"/>
-    <arg name="model" default="$(find cvg_sim_gazebo)/urdf/quadrotor.urdf.xacro"/>
+    <arg name="model" default="$(find cvg_sim_gazebo)/urdf/quadrotor_sensors.urdf.xacro"/>
     <arg name="x" default="0"/>
     <arg name="y" default="0"/>
     <arg name="z" default="0.5"/>
