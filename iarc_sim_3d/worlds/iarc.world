@@ -25,7 +25,97 @@
     </physics>
 
     <!-- Ground Plane -->
-    <model name="ground_plane">
+    <include>
+        <uri>model://iarc_sim_3d/models/floor</uri>
+    </include>
+
+    <model name="wall_l">
+        <pose>-20 0 5 0 0 0</pose>
+        <static>1</static>
+        <link name="link">
+            <visual name="visual">
+                <geometry>
+                    <box>
+                        <size>0.1 40 10</size>
+                    </box>
+                </geometry>
+            </visual>
+
+            <collision name="collision">
+                <geometry>
+                    <box>
+                        <size>0.1 40 10</size>
+                    </box>
+                </geometry>
+            </collision>
+        </link>
+    </model>
+    <model name="wall_r">
+        <pose>20 0 5 0 0 0</pose>
+        <static>1</static>
+        <link name="link">
+            <visual name="visual">
+                <geometry>
+                    <box>
+                        <size>0.1 40 10</size>
+                    </box>
+                </geometry>
+            </visual>
+
+            <collision name="collision">
+                <geometry>
+                    <box>
+                        <size>0.1 40 10</size>
+                    </box>
+                </geometry>
+            </collision>
+        </link>
+    </model>
+    <model name="wall_b">
+        <pose>0 -20 5 0 0 0</pose>
+        <static>1</static>
+        <link name="link">
+            <visual name="visual">
+                <geometry>
+                    <box>
+                        <size>40 0.1 10</size>
+                    </box>
+                </geometry>
+            </visual>
+
+            <collision name="collision">
+                <geometry>
+                    <box>
+                        <size>40 0.1 10</size>
+                    </box>
+                </geometry>
+            </collision>
+        </link>
+    </model>
+    <model name="wall_f">
+        <pose>0 20 5 0 0 0</pose>
+        <static>1</static>
+        <link name="link">
+            <visual name="visual">
+                <geometry>
+                    <box>
+                        <size>40 0.1 10</size>
+                    </box>
+                </geometry>
+            </visual>
+
+            <collision name="collision">
+                <geometry>
+                    <box>
+                        <size>40 0.1 10</size>
+                    </box>
+                </geometry>
+            </collision>
+        </link>
+    </model>
+
+    <!--
+    <model name="floor">
         <static>1</static>
         <link name="body">
             <collision name="collision">
@@ -69,14 +159,15 @@
                 </geometry>
                 <material>
                     <script>
-                        <uri>file://media/materials/scripts/gazebo.material</uri>
-                        <name>Gazebo/Grey</name>
+                        <uri>file://media/materials/scripts/iarc.material</uri>
+                        <name>IARC/Floor1</name>
                     </script>
 
                 </material>
             </visual>
         </link>
     </model>
+    -->
 
     <light type="directional" name="global_light">
 

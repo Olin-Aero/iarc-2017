@@ -2,17 +2,25 @@ cmake_minimum_required(VERSION 2.8.3)
 project(iarc_sim_3d)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
-# add_compile_options(-std=c++11)
+add_compile_options(-std=c++11)
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
-  ardrone_autonomy
-  gazebo_ros
-  roscpp
-  rospy
-)
+    gazebo_msgs
+    std_msgs
+    geometry_msgs
+    visualization_msgs
+
+    roscpp
+    tf
+    ardrone_autonomy
+    gazebo_ros
+    roscpp
+    rospy
+    )
+find_package(gazebo REQUIRED)
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
@@ -104,11 +112,11 @@ find_package(catkin REQUIRED COMPONENTS
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
-#  INCLUDE_DIRS include
-#  LIBRARIES iarc_sim_3d
-#  CATKIN_DEPENDS ardrone_autonomy gazebo_ros roscpp rospy
-#  DEPENDS system_lib
-)
+    INCLUDE_DIRS include
+    #  LIBRARIES iarc_sim_3d
+    #  CATKIN_DEPENDS ardrone_autonomy gazebo_ros roscpp rospy
+    #  DEPENDS system_lib
+    )
 
 ###########
 ## Build ##
@@ -116,15 +124,21 @@ catkin_package(
 
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
+list(APPEND CMAKE_CXX_FLAGS "${GAZEBO_CXX_FLAGS}")
 include_directories(
-# include
-  ${catkin_INCLUDE_DIRS}
-)
-
+    include
+    ${catkin_INCLUDE_DIRS}
+    ${GAZEBO_INCLUDE_DIRS}
+    )
+link_directories(${GAZEBO_LIBRARY_DIRS})
 ## Declare a C++ library
-# add_library(${PROJECT_NAME}
-#   src/${PROJECT_NAME}/iarc_sim_3d.cpp
-# )
+add_library(iarc_marker SHARED
+    src/iarc_marker.cpp
+)
+target_link_libraries(iarc_marker
+    ${GAZEBO_LIBRARIES}
+    ${catkin_LIBRARIES}
+    )
 
 ## Add cmake target dependencies of the library
 ## as an example, code may need to be generated before libraries
