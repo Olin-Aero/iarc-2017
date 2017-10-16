@@ -1,0 +1,13 @@
+<launch>
+    <arg name="gui" default="False" />
+    <!--<arg name="model" default="$(find irobot_create_description)/urdf/create.urdf.xacro"/>-->
+    <arg name="model" default="$(find irobot_create_description)/urdf/roomba.urdf.xacro"/>
+    <arg name="ns" default="target0"/>
+
+ 	<param name="robot_description" command="$(find xacro)/xacro '$(find irobot_create_description)/urdf/roomba.urdf.xacro' color:=white" />
+
+    <param name="use_gui" value="$(arg gui)"/>
+	<node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" />
+	<node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher" />
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find irobot_create_description)/rviz/display.rviz"/>
+</launch>

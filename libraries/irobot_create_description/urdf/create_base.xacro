@@ -25,7 +25,8 @@
 
     <xacro:property name="wheel_radius" value="0.0346" />
     <xacro:property name="wheel_length" value="0.02" />
-    <xacro:property name="caster_wheel_offset_y" value="0.17" />
+    <xacro:property name="wheel_separation" value="0.26" />
+
 
     <xacro:macro name="wheel_xmission" params="wheel_prefix">
         <transmission name="${wheel_prefix}_wheel_trans">
@@ -35,7 +36,7 @@
                 <mechanicalReduction>1</mechanicalReduction>
             </actuator>
             <joint name="${wheel_prefix}_wheel_joint">
-                <hardwareInterface>VelocityJointInterface</hardwareInterface>
+                <hardwareInterface>hardware_interface/VelocityJointInterface</hardwareInterface>
             </joint>
         </transmission>
     </xacro:macro>
@@ -62,7 +63,7 @@
             </visual>
 
             <collision>
-                <origin xyz="0 0 ${base_size_z/2 + 0.051}" rpy="0 0 0" />
+                <origin xyz="0 0 0" rpy="0 0 0" />
                 <geometry>
                     <box size="0.001 0.001 0.001" />
                 </geometry>
@@ -72,7 +73,7 @@
         <joint name="base_footprint_joint" type="fixed">
             <!-- NB: While you would think this would make it go up, it is oddly reversed.
                  This moves the joint to 0,0,0 where we want it for rviz, etc. -->
-            <origin xyz="0 0 ${base_size_z/2 + 0.051}" rpy="0 0 0" />        
+            <origin xyz="0 0 ${base_size_z/2-0.051}" rpy="0 0 0" />        
             <parent link="base_footprint"/>
             <child link="base_link" />
         </joint>
@@ -80,8 +81,8 @@
         <!-- Links and Joints (i.e., the robot) -->
         <link name="base_link">
             <inertial>
-                <mass value="12" />
-                <origin xyz="${-base_size_x/2} 0 ${-base_size_z/2}" />
+                <mass value="3.58" />
+                <origin xyz="${-base_size_x/2} 0 ${base_size_z/2}" />
                 <inertia ixx="1.0" ixy="0.0" ixz="0.0"
                     iyy="1.0" iyz="0.0" 
                     izz="1.0" />
@@ -167,7 +168,7 @@
 
         <link name="base_caster_support_link">
             <inertial>
-                <mass value="25.0"/>
+                <mass value="5.0"/>
                 <origin xyz="0 0 0" />
                 <inertia ixx="0.01" ixy="0.0" ixz="0.0"
                     iyy="0.01" iyz="0.0"
@@ -265,7 +266,7 @@
                 <legacyMode>false</legacyMode>
 
                 <!-- Config -->
-                <wheelSeparation>${caster_wheel_offset_y*2}</wheelSeparation>
+                <wheelSeparation>${wheel_separation}</wheelSeparation>
                 <wheelDiameter>${wheel_radius*2}</wheelDiameter>
                 <wheelAcceleration>0</wheelAcceleration>
                 <wheelTorque>50</wheelTorque>
@@ -278,7 +279,13 @@
                 <tf_prefix>$(arg ns)</tf_prefix>
                 <!-- Odometry Source?? -->
             </plugin>
-
+            <!--
+            <plugin name="gazebo_ros_control" filename="libgazebo_ros_control.so">
+                <robotNamespace>$(arg ns)</robotNamespace>
+                <robotSimType>gazebo_ros_control/DefaultRobotHWSim</robotSimType>
+                <robotParam>$(arg ns)/urdf</robotParam>
+            </plugin>
+            -->
 
         </gazebo>
 

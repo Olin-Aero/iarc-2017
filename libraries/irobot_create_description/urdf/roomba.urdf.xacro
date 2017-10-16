@@ -1,0 +1,428 @@
+<?xml version="1.0"?>
+<robot name="roomba" xmlns:xacro="http://ros.org/wiki/xacro">
+
+    <xacro:arg name="ns" default="target0"/>
+    <xacro:arg name="color" default="white"/>
+
+    <xacro:property name="M_PI" value="3.14159"/>
+    <xacro:property name="wheel_radius" value="0.033" />
+    <xacro:property name="wheel_length" value="0.023" />
+    <xacro:property name="wheel_separation" value="0.24" />
+
+    <xacro:macro name="wheel_xmission" params="wheel_prefix">
+        <transmission name="${wheel_prefix}_wheel_trans">
+            <type>transmission_interface/SimpleTransmission</type>
+            <actuator name="${wheel_prefix}_wheel_motor">
+                <hardwareInterface>VelocityJointInterface</hardwareInterface>
+                <mechanicalReduction>1</mechanicalReduction>
+            </actuator>
+            <joint name="${wheel_prefix}_wheel_joint">
+                <hardwareInterface>hardware_interface/VelocityJointInterface</hardwareInterface>
+            </joint>
+        </transmission>
+    </xacro:macro>
+
+    <material name="Green">
+        <color rgba="0.0 0.8 0.0 1.0"/>
+    </material>
+
+    <!-- base_footprint is a fictitious link(frame) that is on the ground right below base_link origin, navigation stack depends on this frame -->
+    <link name="base_footprint">
+        <collision>
+            <origin xyz="0 0 0" rpy="0 0 0" />
+            <geometry>
+                <cylinder length="0.001" radius="0.16495"/>
+            </geometry>
+        </collision>
+    </link>
+
+    <!-- base link, basically the body of the Roomba -->
+    <link name="base_link">
+        <inertial>
+            <mass value="2" />
+            <origin xyz="0 0 0.0" />
+            <inertia ixx="0.01" ixy="0.0" ixz="0.0" iyy="0.01" iyz="0.0" izz="0.5" />
+        </inertial>
+
+        <visual>
+            <origin xyz="0 0 0.0308" rpy="0 0 1.5708" />
+            <geometry>
+                <mesh filename="package://irobot_create_description/meshes/$(arg color)_roomba.dae"/>
+            </geometry>
+        </visual>
+
+        <collision>
+            <origin xyz="0.0 0.0 0.0358" rpy="0 0 0" />
+            <geometry>
+                <cylinder length="0.0711632" radius="0.16495"/>
+            </geometry>
+        </collision>
+    </link>
+
+    <joint name="base_footprint_joint" type="fixed">
+        <origin xyz="0 0 0.017" rpy="0 0 0" />        
+        <parent link="base_footprint"/>
+        <child link="base_link" />
+    </joint>
+
+
+    <!-- Ignore Unused Sensors
+    <link name="left_cliff_sensor_link">
+        <inertial>
+            <mass value="0.01" />
+            <origin xyz="0 0 0"/>
+            <inertia ixx="0.001" ixy="0.0" ixz="0.0" iyy="0.001" iyz="0.0" izz="0.001" />
+        </inertial>
+    </link>
+
+    <link name="right_cliff_sensor_link">
+        <inertial>
+            <mass value="0.01" />
+            <origin xyz="0 0 0"/>
+            <inertia ixx="0.001" ixy="0.0" ixz="0.0" iyy="0.001" iyz="0.0" izz="0.001" />
+        </inertial>
+    </link>
+
+    <link name="front_left_cliff_sensor_link">
+        <inertial>
+            <mass value="0.01" />
+            <origin xyz="0 0 0"/>
+            <inertia ixx="1.0" ixy="0.0" ixz="0.0" iyy="0.01" iyz="0.0" izz="0.01" />
+        </inertial>
+    </link>
+
+    <link name="front_right_cliff_sensor_link">
+        <inertial>
+            <mass value="0.01" />
+            <origin xyz="0 0 0"/>
+            <inertia ixx="0.001" ixy="0.0" ixz="0.0" iyy="0.001" iyz="0.0" izz="0.001" />
+        </inertial>
+    </link>
+
+    <joint name="left_sensor_joint" type="fixed">
+        <origin xyz="0.07 0.14 0.01" rpy="0 1.57079 0" />        
+        <parent link="base_link"/>
+        <child link="left_cliff_sensor_link" />
+    </joint>
+
+    <joint name="right_cliff_sensor_joint" type="fixed">
+        <origin xyz="0.07 -0.14 0.01" rpy="0 1.57079 0" />        
+        <parent link="base_link"/>
+        <child link="right_cliff_sensor_link" />
+    </joint>
+
+    <joint name="front_left_cliff_sensor_joint" type="fixed">
+        <origin xyz="0.15 0.04 0.01" rpy="0 1.57079 0" />        
+        <parent link="base_link"/>
+        <child link="front_left_cliff_sensor_link" />
+    </joint>
+
+    <joint name="front_right_cliff_sensor_joint" type="fixed">
+        <origin xyz="0.15 -0.04 0.01" rpy="0 1.57079 0" />        
+        <parent link="base_link"/>
+        <child link="front_right_cliff_sensor_link" />
+    </joint>
+
+    <link name="left_ir_sensor_link">
+        <inertial>
+            <mass value="0.01" />
+            <origin xyz="0 0 0"/>
+            <inertia ixx="0.001" ixy="0.0" ixz="0.0" iyy="0.001" iyz="0.0" izz="0.001" />
+        </inertial>
+    </link>
+
+    <link name="front_left_ir_sensor_link">
+        <inertial>
+            <mass value="0.01" />
+            <origin xyz="0 0 0"/>
+            <inertia ixx="0.001" ixy="0.0" ixz="0.0" iyy="0.001" iyz="0.0" izz="0.001" />
+        </inertial>
+    </link>
+
+    <link name="center_left_ir_sensor_link">
+        <inertial>
+            <mass value="0.01" />
+            <origin xyz="0 0 0"/>
+            <inertia ixx="0.001" ixy="0.0" ixz="0.0" iyy="0.001" iyz="0.0" izz="0.001" />
+        </inertial>
+    </link>
+
+    <link name="center_right_ir_sensor_link">
+        <inertial>
+            <mass value="0.01" />
+            <origin xyz="0 0 0"/>
+            <inertia ixx="0.001" ixy="0.0" ixz="0.0" iyy="0.001" iyz="0.0" izz="0.001" />
+        </inertial>
+    </link>
+
+    <link name="front_right_ir_sensor_link">
+        <inertial>
+            <mass value="0.01" />
+            <origin xyz="0 0 0"/>
+            <inertia ixx="0.001" ixy="0.0" ixz="0.0" iyy="0.001" iyz="0.0" izz="0.001" />
+        </inertial>
+    </link>
+
+    <link name="right_ir_sensor_link">
+        <inertial>
+            <mass value="0.01" />
+            <origin xyz="0 0 0"/>
+            <inertia ixx="0.001" ixy="0.0" ixz="0.0" iyy="0.001" iyz="0.0" izz="0.001" />
+        </inertial>
+    </link>
+
+    <joint name="left_ir_sensor_joint" type="fixed">
+        <origin xyz="0.01 0.15 0.042" rpy="0 0 1.5" />        
+        <parent link="base_link"/>
+        <child link="left_ir_sensor_link" />
+    </joint>
+
+    <joint name="front_left_ir_sensor_joint" type="fixed">
+        <origin xyz="0.09 0.12 0.042" rpy="0 0 1.0" />        
+        <parent link="base_link"/>
+        <child link="front_left_ir_sensor_link" />
+    </joint>
+
+    <joint name="center_left_ir_sensor_joint" type="fixed">
+        <origin xyz="0.15 0.04 0.042" rpy="0 0 0.4" />        
+        <parent link="base_link"/>
+        <child link="center_left_ir_sensor_link" />
+    </joint>
+
+    <joint name="center_right_ir_sensor_joint" type="fixed">
+        <origin xyz="0.15 -0.04 0.042" rpy="0 0 -0.4" />        
+        <parent link="base_link"/>
+        <child link="center_right_ir_sensor_link" />
+    </joint>
+
+    <joint name="front_right_ir_sensor_joint" type="fixed">
+        <origin xyz="0.09 -0.120 0.042" rpy="0 0 -1.0" />        
+        <parent link="base_link"/>
+        <child link="front_right_ir_sensor_link" />
+    </joint>
+
+    <joint name="right_ir_sensor_joint" type="fixed">
+        <origin xyz="0.01 -0.15 0.042" rpy="0 0 -1.5" />        
+        <parent link="base_link"/>
+        <child link="right_ir_sensor_link" />
+    </joint>
+
+    <link name="left_bumper_link">
+        <inertial>
+            <mass value="0.01" />
+            <origin xyz="0 0 0"/>
+            <inertia ixx="0.001" ixy="0.0" ixz="0.0" iyy="0.001" iyz="0.0" izz="0.001" />
+        </inertial>
+    </link>
+
+    <link name="right_bumper_link">
+        <inertial>
+            <mass value="0.01" />
+            <origin xyz="0 0 0"/>
+            <inertia ixx="0.001" ixy="0.0" ixz="0.0" iyy="0.001" iyz="0.0" izz="0.001" />
+        </inertial>
+    </link>
+
+    <joint name="left_bumper_joint" type="fixed">
+        <origin xyz="0.115 -0.115 0.042" rpy="0 0 -0.75" />        
+        <parent link="base_link"/>
+        <child link="left_bumper_link" />
+    </joint>
+
+    <joint name="right_bumper_joint" type="fixed">
+        <origin xyz="0.115 0.115 0.042" rpy="0 0 0.75" />        
+        <parent link="base_link"/>
+        <child link="right_bumper_link" />
+    </joint>
+    -->
+
+    <!-- Collision Detections -->
+    <link name="front_bumper_link">
+        <collision>
+            <origin xyz="0.0 0.0 0.07" rpy="0 0 0" />
+            <geometry>
+                <mesh filename="package://irobot_create_description/meshes/half_cylinder.stl"/>
+                <!--<cylinder length="0.050" radius="0.17424"/>-->
+            </geometry>
+        </collision>
+    </link>
+
+    <joint name="front_bumper_joint" type="fixed">
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <parent link="base_link"/>
+        <child link="front_bumper_link"/>
+    </joint>
+
+    <link name="top_tap_link">
+        <collision>
+            <origin xyz="0.0 0.0 0.1" rpy="0 0 0" />
+            <geometry>
+                <cylinder length="0.01" radius="0.15"/>
+            </geometry>
+        </collision>
+    </link>
+
+    <joint name="top_tap_joint" type="fixed">
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <parent link="base_link"/>
+        <child link="top_tap_link"/>
+    </joint>
+
+
+    <!-- wheels and caster wheel -->
+    <link name="left_wheel_link">
+        <inertial>
+            <origin xyz="0 0 0"/>
+            <mass value="0.01" />
+            <inertia ixx="0.001" ixy="0.0" ixz="0.0" iyy="0.001" iyz="0.0" izz="0.001" />
+        </inertial>
+
+        <visual>
+            <origin xyz="0 0 0" rpy="0 1.5707 1.5707" />
+            <geometry>
+                <cylinder radius="${wheel_radius}" length="${wheel_length}"/>
+            </geometry>
+            <material name="DarkGray" />
+        </visual>
+
+        <collision>
+            <origin xyz="0 0 0" rpy="0 1.5707 1.5707" />
+            <geometry>
+                <cylinder radius="${wheel_radius}" length="${wheel_length}"/>
+            </geometry>
+        </collision>
+    </link>
+
+    <joint name="left_wheel_joint" type="continuous">
+        <origin xyz="0 ${wheel_separation/2} 0.015" rpy="0 0 0"/>
+        <parent link="base_link"/>
+        <child link="left_wheel_link"/>
+        <axis xyz="0 1 0"/>
+    </joint>
+
+    <link name="right_wheel_link">
+        <inertial>
+            <origin xyz="0 0 0"/>
+            <mass value="0.01" />
+            <inertia ixx="0.001" ixy="0.0" ixz="0.0" iyy="0.001" iyz="0.0" izz="0.001" />
+        </inertial>
+
+        <visual>
+            <origin xyz="0 0 0" rpy="0 1.5707 1.5707" />
+            <geometry>
+                <cylinder radius="${wheel_radius}" length="${wheel_length}"/>
+            </geometry>
+            <material name="DarkGray" />
+        </visual>
+
+        <collision>
+            <origin xyz="0 0 0" rpy="0 1.5707 1.5707" />
+            <geometry>
+                <cylinder radius="${wheel_radius}" length="${wheel_length}"/>
+            </geometry>
+        </collision>
+    </link>
+
+    <joint name="right_wheel_joint" type="continuous">
+        <origin xyz="0 ${-wheel_separation/2} 0.015" rpy="0 0 0"/>
+        <parent link="base_link"/>
+        <child link="right_wheel_link"/>
+        <axis xyz="0 1 0"/>
+    </joint>
+
+    <link name="caster_wheel_link">
+        <inertial>
+            <origin xyz="0 0 0" />
+            <mass value="0.01" />
+            <inertia ixx="0.001" ixy="0.0" ixz="0.0" iyy="0.001" iyz="0.0" izz="0.001" />
+        </inertial>
+
+        <visual>
+            <origin xyz="0 0 0" rpy="0 1.5707 1.5707"/>
+            <geometry>
+                <sphere radius="0.018" />
+            </geometry>
+            <material name="DarkGray" />
+        </visual>
+
+        <collision>
+            <origin xyz="0 0 0" rpy="0 1.5707 1.5707" />
+            <geometry>
+                <sphere radius="0.018" />
+            </geometry>
+        </collision>
+    </link>
+
+    <joint name="caster_wheel_joint" type="fixed">
+        <origin xyz="0.12 0 0.0" rpy="0 0 0"/>
+        <parent link="base_link"/>
+        <child link="caster_wheel_link"/>
+        <axis xyz="0 1 0"/>
+    </joint>
+
+    <wheel_xmission wheel_prefix="left"/>
+    <wheel_xmission wheel_prefix="right"/>
+
+    <gazebo>
+        <plugin name="differential_drive_controller" filename="libgazebo_ros_diff_drive.so">
+            <alwaysOn>true</alwaysOn>
+            <update>100</update>
+            <robotNamespace>$(arg ns)</robotNamespace>
+            <!-- TF -->
+            <commandTopic>cmd_vel</commandTopic>
+            <odometryTopic>odom</odometryTopic>
+            <odometryFrame>odom</odometryFrame>
+            <robotBaseFrame>base_link</robotBaseFrame>
+            <publishWheelTF>false</publishWheelTF>
+            <publishWheelJointState>false</publishWheelJointState>
+            <legacyMode>false</legacyMode>
+
+            <!-- Config -->
+            <wheelSeparation>${wheel_separation}</wheelSeparation>
+            <wheelDiameter>${wheel_radius*2}</wheelDiameter>
+            <wheelAcceleration>0</wheelAcceleration>
+            <wheelTorque>50</wheelTorque>
+            <updateRate>100.0</updateRate>
+
+            <leftJoint>left_wheel_joint</leftJoint>
+            <rightJoint>right_wheel_joint</rightJoint>
+            <rosDebugLevel>na</rosDebugLevel>
+            <publishTf>true</publishTf>
+            <tf_prefix>$(arg ns)</tf_prefix>
+            <!-- Odometry Source?? -->
+        </plugin>
+    </gazebo>
+    <gazebo reference="front_bumper_link">
+        <sensor name="front_bumper" type="contact">
+            <always_on>true</always_on>
+            <update_rate>50</update_rate>
+            <contact>
+                <!-- unfortunately, urdf->xacro lumps fixed joints into ridiculous names -->.
+                <collision>base_footprint_fixed_joint_lump__front_bumper_link_collision_3</collision>
+            </contact>
+            <plugin name="front_bumper" filename="libgazebo_ros_bumper.so">
+                <alwaysOn>true</alwaysOn>
+                <updateRate>50</updateRate>
+                <bumperTopicName>$(arg ns)/front_bumper</bumperTopicName>
+                <frameName>$(arg ns)</frameName>
+            </plugin>
+        </sensor>
+    </gazebo>
+    <gazebo reference="top_tap_link">
+        <sensor name="top_tap" type="contact">
+            <always_on>true</always_on>
+            <update_rate>50</update_rate>
+            <contact>
+                <!-- unfortunately, urdf->xacro lumps fixed joints into ridiculous names -->.
+                <collision>base_footprint_fixed_joint_lump__top_tap_link_collision_4</collision>
+            </contact>
+            <plugin name="top_tap" filename="libgazebo_ros_bumper.so">
+                <alwaysOn>true</alwaysOn>
+                <updateRate>50</updateRate>
+                <bumperTopicName>$(arg ns)/top_tap</bumperTopicName>
+                <frameName>$(arg ns)</frameName>
+            </plugin>
+        </sensor>
+    </gazebo>
+
+</robot>

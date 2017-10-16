@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <launch>
     <arg name="ns" default="target1"/>
-    <arg name="model" default="$(find irobot_create_description)/urdf/create.urdf.xacro"/>
+    <arg name="model" default="$(find irobot_create_description)/urdf/roomba.urdf.xacro"/>
     <arg name="x" default="0"/>
     <arg name="y" default="0"/>
     <arg name="z" default="0.01"/>
@@ -9,7 +9,7 @@
     <arg name="P" default="0"/>
     <arg name="Y" default="0"/>
     <!-- send the robot XML to param server -->
-    <param name="$(arg ns)/urdf" command="$(find xacro)/xacro '$(arg model)' ns:=$(arg ns) --inorder" />
+    <param name="$(arg ns)/urdf" command="$(find xacro)/xacro '$(arg model)' color:=white ns:=$(arg ns) --inorder" />
 
     <!-- push robot_description to factory and spawn robot in gazebo -->
     <node name="$(arg ns)_spawn" pkg="gazebo_ros" type="spawn_model"
@@ -23,9 +23,15 @@
         -Y '$(arg Y)'
         -model create"
         respawn="false" output="screen"/>
+    
 
     <!-- start robot state publisher -->
     <group ns="$(arg ns)">
+        <!--
+        <rosparam file="$(find iarc_sim_3d)/config/joint_state_controller.yaml" command="load"/>
+        <node name="controller_spawner" pkg="controller_manager" type="spawner" respawn="false"
+            output="screen" args="joint_state_controller"/>
+        -->
         <node pkg="robot_state_publisher" type="robot_state_publisher" name="state" output="screen" >
             <remap from="robot_description" to="$(arg ns)/urdf" />
             <param name="publish_frequency" type="double" value="50.0" />
