@@ -1,17 +1,14 @@
 <launch>
-	<include file="$(find stdr_robot)/launch/robot_manager.launch" />
-	<node type="stdr_server_node" pkg="stdr_server" name="stdr_server" output="screen" args="$(find iarc_sim_2d)/src/herd_map.yaml"/>
-	<node pkg="tf" type="static_transform_publisher" name="world2map" args="0 0 0 0 0 0  world map 100 " />	
+    <param name="use_sim_time" value="true" />
+	<include file="$(find iarc_sim_engine)/launch/basic.launch"/>
 
-
-	<include file="$(find stdr_gui)/launch/stdr_gui.launch"/>
-
-	<node name="neato_simulator" pkg="iarc_sim_2d" cwd="node" type="neato.py" />
+	<node name="iarc_simulator" pkg="iarc_sim_2d" cwd="node" type="sim.py" output="screen">
+        <param name="num_targets" value="8"/>
+        <param name="num_obstacles" value="4"/>
+    </node>
 	
-	<node name="cmd_vel_fwd" pkg="topic_tools" type="relay" args="/cmd_vel /robot0/cmd_vel" />
+	<node name="cmd_vel_fwd" pkg="topic_tools" type="relay" args="/cmd_vel /drone/cmd_vel" />
 
-	<node name="base_link_tf" pkg="tf" type="static_transform_publisher" args="0 0 0 0 0 0 robot0 base_link 30" />	
-
-	<node name="target_tf" pkg="tf" type="static_transform_publisher" args="0 0 0 0 0 0 robot1 target0 30" />
+	<node name="base_link_tf" pkg="tf" type="static_transform_publisher" args="0 0 0 0 0 0 drone base_link 30" />	
 
 </launch>
