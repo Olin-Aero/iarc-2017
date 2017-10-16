@@ -1,0 +1,73 @@
+
+<launch>
+    <include file="$(find iarc_sim_3d)/launch/spawn_roomba.launch">
+        <arg name="ns" value="target0"/>
+        <arg name="x" value="1.00000000000000000000"/>
+        <arg name="y" value="0"/>
+        <arg name="Y" value="0"/>
+    </include>
+
+    <include file="$(find iarc_sim_3d)/launch/spawn_roomba.launch">
+        <arg name="ns" value="target1"/>
+        <arg name="x" value=".80901699437494742410"/>
+        <arg name="y" value=".58778525229247312915"/>
+        <arg name="Y" value=".62831853071795864768"/>
+    </include>
+
+    <include file="$(find iarc_sim_3d)/launch/spawn_roomba.launch">
+        <arg name="ns" value="target2"/>
+        <arg name="x" value=".30901699437494742411"/>
+        <arg name="y" value=".95105651629515357211"/>
+        <arg name="Y" value="1.25663706143591729537"/>
+    </include>
+
+    <include file="$(find iarc_sim_3d)/launch/spawn_roomba.launch">
+        <arg name="ns" value="target3"/>
+        <arg name="x" value="-.30901699437494742408"/>
+        <arg name="y" value=".95105651629515357212"/>
+        <arg name="Y" value="1.88495559215387594306"/>
+    </include>
+
+    <include file="$(find iarc_sim_3d)/launch/spawn_roomba.launch">
+        <arg name="ns" value="target4"/>
+        <arg name="x" value="-.80901699437494742409"/>
+        <arg name="y" value=".58778525229247312918"/>
+        <arg name="Y" value="2.51327412287183459075"/>
+    </include>
+
+    <include file="$(find iarc_sim_3d)/launch/spawn_roomba.launch">
+        <arg name="ns" value="target5"/>
+        <arg name="x" value="-1.00000000000000000000"/>
+        <arg name="y" value=".00000000000000000002"/>
+        <arg name="Y" value="3.14159265358979323844"/>
+    </include>
+
+    <include file="$(find iarc_sim_3d)/launch/spawn_roomba.launch">
+        <arg name="ns" value="target6"/>
+        <arg name="x" value="-.80901699437494742412"/>
+        <arg name="y" value="-.58778525229247312914"/>
+        <arg name="Y" value="3.76991118430775188612"/>
+    </include>
+
+    <include file="$(find iarc_sim_3d)/launch/spawn_roomba.launch">
+        <arg name="ns" value="target7"/>
+        <arg name="x" value="-.30901699437494742413"/>
+        <arg name="y" value="-.95105651629515357210"/>
+        <arg name="Y" value="4.39822971502571053381"/>
+    </include>
+
+    <include file="$(find iarc_sim_3d)/launch/spawn_roomba.launch">
+        <arg name="ns" value="target8"/>
+        <arg name="x" value=".30901699437494742406"/>
+        <arg name="y" value="-.95105651629515357212"/>
+        <arg name="Y" value="5.02654824574366918150"/>
+    </include>
+
+    <include file="$(find iarc_sim_3d)/launch/spawn_roomba.launch">
+        <arg name="ns" value="target9"/>
+        <arg name="x" value=".80901699437494742407"/>
+        <arg name="y" value="-.58778525229247312920"/>
+        <arg name="Y" value="5.65486677646162782919"/>
+    </include>
+</launch>
+

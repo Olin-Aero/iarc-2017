@@ -4,10 +4,11 @@
         <arg name="world_name" value="$(find iarc_sim_3d)/worlds/iarc.world"/>
     </include>
     <!-- Spawn simulated quadrotor uav -->
-    <include file="$(find iarc_sim_3d)/launch/spawn_drone.launch" >
-    </include>
+    <include file="$(find iarc_sim_3d)/launch/spawn_drone.launch"/>
 
     <!-- Spawn Targets -->
-    <node name="spawn_targets" pkg="iarc_sim_3d" type="spawn.sh" output="screen"/>
+    <include file="$(find iarc_sim_3d)/launch/spawn_targets.launch"/>
+    <!-- Spawn Obstacles -->
+    <include file="$(find iarc_sim_3d)/launch/spawn_obstacles.launch"/>
 
 </launch>
