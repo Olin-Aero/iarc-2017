@@ -37,11 +37,8 @@
             <param name="publish_frequency" type="double" value="50.0" />
             <param name="tf_prefix" type="string" value="$(arg ns)" />
         </node>
-
-        <node name="gt_tf" pkg="message_to_tf" type="message_to_tf" output="screen">
-            <param name="odometry_topic" value="ground_truth/state" />
-            <param name="frame_id" value="nav" />
-        </node>
+        <node name="$(arg ns)_odom_tf" pkg="tf" type="static_transform_publisher" args="0 0 0 0 0 0 map $(arg ns)/odom 30" />	
+        <!-- seemingly map frame == odom frame -->
     </group>
 
 </launch>
