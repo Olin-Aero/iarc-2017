@@ -364,11 +364,13 @@
     <wheel_xmission wheel_prefix="right"/>
 
     <gazebo>
-        <plugin name="differential_drive_controller" filename="libgazebo_ros_diff_drive.so">
+
+        <!--
+       <plugin name="differential_drive_controller" filename="libgazebo_ros_diff_drive.so">
             <alwaysOn>true</alwaysOn>
             <update>100</update>
             <robotNamespace>$(arg ns)</robotNamespace>
-            <!-- TF -->
+
             <commandTopic>cmd_vel</commandTopic>
             <odometryTopic>odom</odometryTopic>
             <odometryFrame>odom</odometryFrame>
@@ -377,7 +379,6 @@
             <publishWheelJointState>false</publishWheelJointState>
             <legacyMode>false</legacyMode>
 
-            <!-- Config -->
             <wheelSeparation>${wheel_separation}</wheelSeparation>
             <wheelDiameter>${wheel_radius*2}</wheelDiameter>
             <wheelAcceleration>0</wheelAcceleration>
@@ -389,7 +390,19 @@
             <rosDebugLevel>na</rosDebugLevel>
             <publishTf>true</publishTf>
             <tf_prefix>$(arg ns)</tf_prefix>
-            <!-- Odometry Source?? -->
+        </plugin>
+        -->
+
+
+        <plugin name="target_roomba" filename="libtarget_roomba.so">
+            <front_bumper>base_footprint_fixed_joint_lump__front_bumper_link_collision_3</front_bumper>
+            <top_tap>base_footprint_fixed_joint_lump__top_tap_link_collision_4</top_tap>
+            <wheel_separation>${wheel_separation}</wheel_separation>
+            <wheel_radius>${wheel_radius}</wheel_radius>
+            <left_joint>left_wheel_joint</left_joint>
+            <right_joint>right_wheel_joint</right_joint>
+            <lin_vel>0.33</lin_vel>
+            <ang_vel>1.375</ang_vel>
         </plugin>
     </gazebo>
     <gazebo reference="front_bumper_link">
@@ -424,5 +437,6 @@
             </plugin>
         </sensor>
     </gazebo>
+
 
 </robot>

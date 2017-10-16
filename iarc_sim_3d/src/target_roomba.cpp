@@ -5,90 +5,159 @@
 #include <gazebo/physics/Model.hh>
 #include <gazebo/common/common.hh>
 #include <gazebo/common/Exception.hh>
-#include <stdio.h>
+#include <gazebo/transport/transport.hh>
+
+#include <map>
+#include <iostream>
 
 // durations
-#define T_COL (2.15F)
-#define T_TOPTAP (0.5375F)
+#define T_180 (2.15F)
+#define T_45 (0.5375F)
 #define T_NOISE (0.85F)
 
 // intervals
 #define INT_NOISE (5.0F)
 #define INT_REVERSE (20.0F)
-
-#define LIN_VEL (0.33F)
-#define WHEEL_SEP (0.34F)
-#define ANG_VEL (LIN_VEL/(WHEEL_SEP/2.0))
+#define MAX_NOISE (0.41F) //max noise ang vel
 
 namespace gazebo
 {
     class TargetRoomba : public ModelPlugin
     {
-        enum State{WAIT,RUN,TURN};
+        enum State{WAIT,RUN,NOISE,TURN};
+        struct{
+            std::string left_joint;
+            std::string right_joint;
+            float wheel_radius;
+            float wheel_separation;
+            std::string top_tap;
+            std::string front_bumper;
+            float lin_vel;
+            float ang_vel;
+        } params;
+
         private:
         // Pointer to the model
         physics::ModelPtr model;
+        physics::JointPtr joint_l;
+        physics::JointPtr joint_r;
+
         // Connection to Gazebo
         event::ConnectionPtr cxn;
 
+        transport::NodePtr node;
+        transport::SubscriberPtr contactSub;
+
         // Data
         State state;
-        float s_begin; // time since state
-        float t_turn; // how long to turn for
+        float t_trans; // how long to turn for
 
+        bool tap_flag;
+        bool col_flag;
+        float noise_ang_vel;
         float prv; //previous call-time
+
         public:
         void Load(physics::ModelPtr _parent, sdf::ElementPtr _sdf)
         {
             // Store the pointer to the model
             this->model = _parent;
+            
+            for(auto& tag : {"front_bumper", "top_tap", "wheel_separation", "wheel_radius", "left_joint", "right_joint", "lin_vel", "ang_vel"}){
+                if(!_sdf->HasElement(tag)){
+                    gzerr << "SDF Element <" << tag << "> undefined" << std::endl;
+                }
+            }
+
+            params.left_joint = _sdf->Get<std::string>("left_joint");
+            params.right_joint = _sdf->Get<std::string>("right_joint");
+            params.wheel_radius = _sdf->Get<float>("wheel_radius");
+            params.wheel_separation = _sdf->Get<float>("wheel_separation");
+            params.top_tap = _sdf->Get<std::string>("top_tap");
+            params.front_bumper = _sdf->Get<std::string>("front_bumper");
+            params.lin_vel = _sdf->Get<float>("lin_vel");
+            params.ang_vel = _sdf->Get<float>("ang_vel");
+
+            this->joint_l = model->GetJoint(params.left_joint);
+            this->joint_r = model->GetJoint(params.right_joint);
 
             // Listen to the update event. This event is broadcast every
             // simulation iteration.
             this->cxn = event::Events::ConnectWorldUpdateBegin(
-                    std::bind(&ModelPush::OnUpdate, this, _1));
+                    std::bind(&TargetRoomba::OnUpdate, this, std::placeholders::_1));
             this->prv = model->GetWorld()->GetSimTime().Float();
 
-            if(_sdf->HasElement("collision")){
-                _sdf->G
-            }else{
-                gzthrow("[Target Roomba] SDF Must Specify Element <collision>");
-            }
             state = WAIT;
-            //_sdf->HasElement("...")
+
+            this->node = transport::NodePtr(new transport::Node());
+            this->node->Init(this->model->GetWorld()->GetName());
+
+            std::string topic = "~/" + model->GetName() + "/contact";
+            auto cmgr = model->GetWorld()->GetPhysicsEngine()->GetContactManager();
+            topic = cmgr->CreateFilter(topic,std::vector<std::string>({params.front_bumper, params.top_tap}));
+            this->contactSub = this->node->Subscribe(topic, &TargetRoomba::OnContact, this);
         }
 
         State wait(float){
             return RUN;
         }
+
         State run(float now){
-            this->model->SetLinearVel(math::Vector3(LIN_VEL,0,0));
-            this->model->SetAngularVel(math::Vector3(0,0,0));
-
-            /*
-            if(fmod(prv, INT_NOISE) > fmod(now, INT_NOISE)){ // every 5-sec
-                //addNoiseToVel();
-                auto p = model->GetWorldPose;
-                auto yaw = math::Rand::GetDblUniform(0.0, 20.0);
-                Quaternion(0,0,yaw);
-                p.CoordRotationAdd(r);
-                model->SetWorldPose(p);
-            }
-
+            setVelocity(params.lin_vel, 0);
             if(fmod(prv, INT_REVERSE) > fmod(now, INT_REVERSE)){ //every 20-sec
-                //Reverse();
-
+                t_trans = now + T_180;
+                return TURN;
             }
-            */
+            if(fmod(prv, INT_NOISE) > fmod(now, INT_NOISE)){ // every 5-sec
+                t_trans = now + T_NOISE;
+                return NOISE;
+            }
+            return RUN;
+        }
+
+        State noise(float now){
+            setVelocity(params.lin_vel,noise_ang_vel);
+            if(now > t_trans){
+                return RUN;
+            }
+            return NOISE;
         }
 
         State turn(float now){
-            this->model->SetLinearVel(math::Vector3(0,0,0));
-            this->model->SetAngularVel(math::Vector3(0,0,-ANG_VEL)); //clockwise
-            if(now > s_begin + t_turn){
+            setVelocity(0,-params.ang_vel);
+            if(now > t_trans){
                 return RUN;
-            }else{
-                return TURN;
+            }
+            return TURN;
+        }
+
+        void setVelocity(float v, float w){
+            // (vw_r + vw_l)/2 = v
+            // vw_r - vw_l = w * wheel_sep
+            // w_wheel = v_wheel / wheel_rad
+            // joint->SetVelocity( w_wheel )
+            // v = w*r
+            // w = vr-vl/l == (w_r*WR - w_l*WR)/l
+            auto l = params.wheel_separation;
+            auto wr = params.wheel_radius;
+            
+            auto vw_r = v + w*l/2.0;
+            auto vw_l = v - w*l/2.0;
+            auto w_r = vw_r / wr;
+            auto w_l = vw_l / wr;
+            if(joint_l && joint_r){
+                joint_l->SetVelocity(0, w_l);
+                joint_r->SetVelocity(0, w_r);
+            }
+        }
+        void OnContact(ConstContactsPtr& _msg){
+            for(int i=0; i<_msg->contact_size();++i){
+                if(_msg->contact(i).collision1().find("top_tap") != std::string::npos){
+                    tap_flag = true;
+                }
+                if(_msg->contact(i).collision1().find("front_bumper") != std::string::npos){
+                    col_flag = true;
+                }
             }
         }
 
@@ -96,6 +165,20 @@ namespace gazebo
         void OnUpdate(const common::UpdateInfo & /*_info*/)
         {
             auto now = this->model->GetWorld()->GetSimTime().Float();
+
+            // check and clear flags
+            if(tap_flag){
+                tap_flag = false;
+                t_trans = now + T_45;
+                state = TURN;
+            }
+            if(col_flag){
+                col_flag = false;
+                t_trans = now + T_180;
+                state = TURN;
+            }
+
+            // run FSM
             State s_nxt;
             switch(state){
                 case WAIT:
@@ -104,17 +187,21 @@ namespace gazebo
                 case RUN:
                     s_nxt=run(now);
                     break;
+                case NOISE:
+                    s_nxt=noise(now);
+                    break;
                 case TURN:
                     s_nxt=turn(now);
                     break;
             }
 
-            if(s_nxt != state){
-                s_begin = now;
+            if(state!=s_nxt && s_nxt == NOISE){
+                noise_ang_vel = math::Rand::GetDblUniform(-1.0,1.0) * MAX_NOISE;
             }
 
+            state = s_nxt;
+
             this->prv = now;
-            this->model->SetLinearVel(math::Vector3(.33, 0, 0)); //always go forward!
         }
     };
     // Register this plugin with the simulator
