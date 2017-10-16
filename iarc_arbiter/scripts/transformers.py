@@ -112,11 +112,11 @@ class PIDController(object):
 
 
 if __name__ == '__main__':
-    msg = PoseStamped()
-    msg.pose.position.x = 1
-    msg.pose.position.y = 1
-    msg.pose.position.z = 0
-    msg.header.frame_id = "target0"
+    test_msg = PoseStamped()
+    test_msg.pose.position.x = 1
+    test_msg.pose.position.y = 1
+    test_msg.pose.position.z = 0
+    test_msg.header.frame_id = "target0"
 
     rospy.init_node('transformer_test')
     r = rospy.Rate(10)
@@ -125,4 +125,4 @@ if __name__ == '__main__':
     rospy.sleep(0.5)
     while not rospy.is_shutdown():
         r.sleep()
-        pub.publish(controller.cmd_pos(msg).vel)
+        pub.publish(controller.cmd_pos(test_msg).vel)
