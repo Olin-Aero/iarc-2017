@@ -6,8 +6,8 @@
     <!-- Spawn simulated quadrotor uav -->
     <include file="$(find iarc_sim_3d)/launch/spawn_drone.launch" >
     </include>
-    <!-- Spawn Roombas -->
-    <include file="$(find iarc_sim_3d)/launch/spawn_roomba.launch">
-        <arg name="x" value="3"/>
-    </include>
+
+    <!-- Spawn Targets -->
+    <node name="spawn_targets" pkg="iarc_sim_3d" type="spawn.sh" output="screen"/>
+
 </launch>

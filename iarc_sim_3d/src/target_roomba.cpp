@@ -118,5 +118,5 @@ namespace gazebo
         }
     };
     // Register this plugin with the simulator
-    GZ_REGISTER_MODEL_PLUGIN(ModelPush)
+    GZ_REGISTER_MODEL_PLUGIN(TargetRoomba)
 }

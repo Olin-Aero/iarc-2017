@@ -21,7 +21,7 @@
         -R '$(arg R)'
         -P '$(arg P)'
         -Y '$(arg Y)'
-        -model create"
+        -model $(arg ns)"
         respawn="false" output="screen"/>
     
 
