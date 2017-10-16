@@ -5,6 +5,8 @@ from geometry_msgs.msg import Twist, PoseStamped
 from std_msgs.msg import Empty, String
 from iarc_arbiter.srv import *
 
+from tf import TransformListener
+
 rospy.init_node('arbiter')
 
 
@@ -16,13 +18,15 @@ class Arbiter:
         self.active_behavior_name = ''
         self.set_active_behavior('zero')
 
+        self.tf = TransformListener()
+
         # Transformers are functions capable of processing incoming data in a variety of formats.
         self.transformers = {
             'cmd_vel_raw': (Twist, transformers.cmd_vel_raw),
             'cmd_vel': (Twist, transformers.cmd_vel),
             'cmd_takeoff': (Empty, transformers.cmd_takeoff),
             'cmd_land': (Empty, transformers.cmd_land),
-            'cmd_pos': (PoseStamped, transformers.cmd_pos),
+            'cmd_pos': (PoseStamped, transformers.PIDController(self.tf).cmd_pos),
         }
 
         self.secondaries = []
