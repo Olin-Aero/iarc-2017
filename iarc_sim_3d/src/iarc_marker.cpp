@@ -42,6 +42,9 @@ namespace gazebo{
             fail = this->visual->CreateDynamicLine(RENDERING_LINE_LIST);
             fail->setMaterial("IARC/RedLine");
 
+            std::cout << "FAIL :::::: " << fail->getMaterial()->GetPointSize() << std::endl;
+
+
             const float z = 0.01;
 
             for(int d = -DIM+1; d <= DIM-1; ++d){

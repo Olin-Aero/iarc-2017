@@ -23,6 +23,9 @@
     <include>
         <uri>model://iarc_sim_3d/models/floor</uri>
     </include>
+    <include>
+        <uri>model://iarc_sim_3d/models/grid</uri>
+    </include>
 
     <model name="wall_l">
         <pose>-20 0 5 0 0 0</pose>

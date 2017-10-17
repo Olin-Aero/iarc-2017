@@ -132,12 +132,6 @@ namespace gazebo
         }
 
         void setVelocity(float v, float w){
-            // (vw_r + vw_l)/2 = v
-            // vw_r - vw_l = w * wheel_sep
-            // w_wheel = v_wheel / wheel_rad
-            // joint->SetVelocity( w_wheel )
-            // v = w*r
-            // w = vr-vl/l == (w_r*WR - w_l*WR)/l
             auto l = params.wheel_separation;
             auto wr = params.wheel_radius;
             

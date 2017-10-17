@@ -49,18 +49,6 @@
                     </script>
                 </material>
             </visual>
-
-            <visual name="marker">
-                <plugin name="iarc_marker" filename="libiarc_marker.so"/>
-                <transparency>1.0</transparency>
-                <geometry>
-                    <plane>
-                        <normal>0 0 1</normal>
-                        <size>1 1</size>
-                    </plane>
-                </geometry>
-            </visual>
-
         </link>
     </model>
 </sdf>
