@@ -19,8 +19,6 @@ def follow_roomba(roomba, des_x=0, des_y=0, des_z=0):
     :param roomba: an roomba object
     :param des_x: desired position x
     :param des_y: desired position y
-    :param aborted: if aborted, stop following
-    :return:
     """
     test_msg = PoseStamped()
     test_msg.pose.position.x = des_x
