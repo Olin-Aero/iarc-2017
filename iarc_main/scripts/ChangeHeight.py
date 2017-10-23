@@ -13,7 +13,7 @@ class ChangingHeight:
         self.cmdHeight = rospy.Publisher('/cmd_height', Float64, queue_size=10)
         rospy.init_node('Example')        
         rospy.Subscriber("/drone/height", Float64, self.callback)
-        time.sleep(1)
+        rospy.sleep(0.1)
     def callback(self, msg):
         self.actualHeight = msg.data
     def changeHeight(self,height):
@@ -21,12 +21,12 @@ class ChangingHeight:
         currentHeight = self.actualHeight
         if(currentHeight < heightRequested - 0.05):
             output = Twist()
-            output.linear = Vector3(0, 0, 1)
+            output.linear = Vector3(0, 0, 2)
             output.angular = Vector3(0,0,0)
             self.heightPub.publish(output)
         elif(currentHeight > heightRequested + 0.05):
             output = Twist()
-            output.linear = Vector3(0, 0, -1)
+            output.linear = Vector3(0, 0, -2)
             output.angular = Vector3(0,0,0)
             self.heightPub.publish(output)
         else:
@@ -38,7 +38,7 @@ class ChangingHeight:
         while(True):
             self.changeHeight(height)
             rospy.sleep(.1)
-            print(self.actualHeight)
+            #print(self.actualHeight)
 if __name__ == '__main__':
     ex = ChangingHeight()
     ex.heightLoop(3.0)
