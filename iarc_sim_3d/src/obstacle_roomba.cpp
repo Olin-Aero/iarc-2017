@@ -21,9 +21,11 @@ namespace gazebo
         struct{
             std::string left_joint;
             std::string right_joint;
+            std::string front_bumper;
+            std::string pole_link;
+
             float wheel_radius;
             float wheel_separation;
-            std::string front_bumper;
             float lin_vel;
             float ang_vel;
         } params;
@@ -50,7 +52,7 @@ namespace gazebo
             // Store the pointer to the model
             this->model = _parent;
             
-            for(auto& tag : {"front_bumper", "wheel_separation", "wheel_radius", "left_joint", "right_joint", "lin_vel", "ang_vel"}){
+            for(auto& tag : {"front_bumper", "wheel_separation", "wheel_radius", "pole_link", "left_joint", "right_joint", "lin_vel", "ang_vel"}){
                 if(!_sdf->HasElement(tag)){
                     gzerr << "SDF Element <" << tag << "> undefined" << std::endl;
                 }
@@ -58,9 +60,11 @@ namespace gazebo
 
             params.left_joint = _sdf->Get<std::string>("left_joint");
             params.right_joint = _sdf->Get<std::string>("right_joint");
+            params.front_bumper = _sdf->Get<std::string>("front_bumper");
+            params.pole_link = _sdf->Get<std::string>("pole_link");
+
             params.wheel_radius = _sdf->Get<float>("wheel_radius");
             params.wheel_separation = _sdf->Get<float>("wheel_separation");
-            params.front_bumper = _sdf->Get<std::string>("front_bumper");
             params.lin_vel = _sdf->Get<float>("lin_vel");
             params.ang_vel = _sdf->Get<float>("ang_vel");
 
@@ -81,6 +85,12 @@ namespace gazebo
             auto cmgr = model->GetWorld()->GetPhysicsEngine()->GetContactManager();
             topic = cmgr->CreateFilter(topic,std::vector<std::string>({params.front_bumper}));
             this->contactSub = this->node->Subscribe(topic, &ObstacleRoomba::OnContact, this);
+
+            //set to random height
+            auto ph = math::Rand::GetDblUniform(1.0, 2.0);
+            std::cout << "POLE _________________ " << params.pole_link << std::endl;
+            auto pole = model->GetLink(params.pole_link);
+            pole->SetScale(math::Vector3(1.0, 1.0, ph)); //1.0 ~ 2.0
         }
 
         State wait(float){
@@ -97,7 +107,7 @@ namespace gazebo
             if(now > t_trans){
                 return RUN;
             }
-            return TURN;
+            return STOP;
         }
 
         void setVelocity(float v, float w){
@@ -108,11 +118,13 @@ namespace gazebo
             auto vw_l = v - w*l/2.0;
             auto w_r = vw_r / wr;
             auto w_l = vw_l / wr;
+
             if(joint_l && joint_r){
                 joint_l->SetVelocity(0, w_l);
                 joint_r->SetVelocity(0, w_r);
             }
         }
+
         void OnContact(ConstContactsPtr& _msg){
             for(int i=0; i<_msg->contact_size();++i){
                 if(_msg->contact(i).collision1().find("front_bumper") != std::string::npos){
@@ -130,7 +142,7 @@ namespace gazebo
             if(col_flag){
                 col_flag = false;
                 t_trans = now + T_DELAY;
-                state = TURN;
+                state = STOP;
             }
 
             // run FSM

@@ -3,6 +3,7 @@
 
     <xacro:arg name="ns" default="target0"/>
     <xacro:arg name="color" default="white"/>
+    <xacro:arg name="obs" default="false"/>
 
     <xacro:property name="M_PI" value="3.14159"/>
     <xacro:property name="wheel_radius" value="0.033" />
@@ -363,6 +364,29 @@
     <wheel_xmission wheel_prefix="left"/>
     <wheel_xmission wheel_prefix="right"/>
 
+    <xacro:if value="$(arg obs)">
+        <link name="pole_link">
+            <visual>
+                <origin xyz="0 0 0" rpy="0 0 0"/>
+                <geometry>
+                    <cylinder length="1.0" radius="0.05"/>
+                </geometry>
+            </visual>
+            <collision>
+                <origin xyz="0 0 0" rpy="0 0 0"/>
+                <geometry>
+                    <cylinder length="1.0" radius="0.05"/>
+                </geometry>
+            </collision>
+        </link>
+        <joint name="pole_joint" type="fixed">
+            <origin xyz="0 0 0.0" rpy="0 0 0"/>
+            <parent link="base_link"/>
+            <child link="pole_link"/>
+            <axis xyz="0 0 1"/>
+        </joint>
+    </xacro:if>
+
     <gazebo>
 
         <!--
@@ -393,17 +417,32 @@
         </plugin>
         -->
 
+        <xacro:if value="$(arg obs)">
+            <plugin name="obstacle_roomba" filename="libobstacle_roomba.so">
+                <front_bumper>base_footprint_fixed_joint_lump__front_bumper_link_collision_3</front_bumper>
+                <pole_link>pole_link</pole_link>
+                <!--<top_tap>base_footprint_fixed_joint_lump__top_tap_link_collision_4</top_tap>-->
+                <wheel_separation>${wheel_separation}</wheel_separation>
+                <wheel_radius>${wheel_radius}</wheel_radius>
+                <left_joint>left_wheel_joint</left_joint>
+                <right_joint>right_wheel_joint</right_joint>
+                <lin_vel>0.33</lin_vel>
+                <ang_vel>0.066</ang_vel>
+            </plugin>
+        </xacro:if>
 
-        <plugin name="target_roomba" filename="libtarget_roomba.so">
-            <front_bumper>base_footprint_fixed_joint_lump__front_bumper_link_collision_3</front_bumper>
-            <top_tap>base_footprint_fixed_joint_lump__top_tap_link_collision_4</top_tap>
-            <wheel_separation>${wheel_separation}</wheel_separation>
-            <wheel_radius>${wheel_radius}</wheel_radius>
-            <left_joint>left_wheel_joint</left_joint>
-            <right_joint>right_wheel_joint</right_joint>
-            <lin_vel>0.33</lin_vel>
-            <ang_vel>1.375</ang_vel>
-        </plugin>
+        <xacro:unless value="$(arg obs)">
+            <plugin name="target_roomba" filename="libtarget_roomba.so">
+                <front_bumper>base_footprint_fixed_joint_lump__front_bumper_link_collision_3</front_bumper>
+                <top_tap>base_footprint_fixed_joint_lump__top_tap_link_collision_4</top_tap>
+                <wheel_separation>${wheel_separation}</wheel_separation>
+                <wheel_radius>${wheel_radius}</wheel_radius>
+                <left_joint>left_wheel_joint</left_joint>
+                <right_joint>right_wheel_joint</right_joint>
+                <lin_vel>0.33</lin_vel>
+                <ang_vel>1.375</ang_vel>
+            </plugin>
+        </xacro:unless>
     </gazebo>
     <gazebo reference="front_bumper_link">
         <sensor name="front_bumper" type="contact">
@@ -421,22 +460,25 @@
             </plugin>
         </sensor>
     </gazebo>
-    <gazebo reference="top_tap_link">
-        <sensor name="top_tap" type="contact">
-            <always_on>true</always_on>
-            <update_rate>50</update_rate>
-            <contact>
-                <!-- unfortunately, urdf->xacro lumps fixed joints into ridiculous names -->.
-                <collision>base_footprint_fixed_joint_lump__top_tap_link_collision_4</collision>
-            </contact>
-            <plugin name="top_tap" filename="libgazebo_ros_bumper.so">
-                <alwaysOn>true</alwaysOn>
-                <updateRate>50</updateRate>
-                <bumperTopicName>$(arg ns)/top_tap</bumperTopicName>
-                <frameName>$(arg ns)</frameName>
-            </plugin>
-        </sensor>
-    </gazebo>
+
+    <xacro:if value="$(arg obs)">
+        <gazebo reference="top_tap_link">
+            <sensor name="top_tap" type="contact">
+                <always_on>true</always_on>
+                <update_rate>50</update_rate>
+                <contact>
+                    <!-- unfortunately, urdf->xacro lumps fixed joints into ridiculous names -->.
+                    <collision>base_footprint_fixed_joint_lump__top_tap_link_collision_4</collision>
+                </contact>
+                <plugin name="top_tap" filename="libgazebo_ros_bumper.so">
+                    <alwaysOn>true</alwaysOn>
+                    <updateRate>50</updateRate>
+                    <bumperTopicName>$(arg ns)/top_tap</bumperTopicName>
+                    <frameName>$(arg ns)</frameName>
+                </plugin>
+            </sensor>
+        </gazebo>
+    </xacro:if>
 
 
 </robot>

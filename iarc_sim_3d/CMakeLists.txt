@@ -132,17 +132,18 @@ include_directories(
     )
 link_directories(${GAZEBO_LIBRARY_DIRS})
 ## Declare a C++ library
-add_library(iarc_marker SHARED
-    src/iarc_marker.cpp
-)
+
 add_library(target_roomba SHARED
     src/target_roomba.cpp
 )
-target_link_libraries(iarc_marker
+add_library(obstacle_roomba SHARED
+    src/obstacle_roomba.cpp
+)
+target_link_libraries(target_roomba
     ${GAZEBO_LIBRARIES}
     ${catkin_LIBRARIES}
     )
-target_link_libraries(target_roomba
+target_link_libraries(obstacle_roomba
     ${GAZEBO_LIBRARIES}
     ${catkin_LIBRARIES}
     )
