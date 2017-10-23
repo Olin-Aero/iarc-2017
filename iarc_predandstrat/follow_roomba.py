@@ -27,13 +27,13 @@ def follow_roomba(roomba, des_x=0, des_y=0, des_z=0, pub=None):
     pose_stamped.pose.position.y = des_y
     pose_stamped.pose.position.z = des_z
     pose_stamped.header.frame_id = roomba.frame_id
-    if pub is not None:
-        pub.publish(pose_stamped)
+
+    pub.publish(pose_stamped)
 
 
 if __name__ == '__main__':
     # Create a target object just for testing
-    target = Roomba("target0")
+    target = Roomba("target1")
 
     # Init FollowBehavior node
     rospy.init_node('FollowBehavior')
@@ -43,9 +43,10 @@ if __name__ == '__main__':
 
     # This command tell the arbiter that this behavior will take command from now on and abort other behaviors
     rospy.Publisher('/arbiter/activate_behavior', String, latch=True, queue_size=10).publish('follow')
-
+    r = rospy.Rate(10)
     # Create a follow publisher
     pub = rospy.Publisher('/follow/cmd_pos', PoseStamped, queue_size=10)
 
     while not rospy.is_shutdown():
+        r.sleep()
         follow_roomba(roomba=target, des_x=0, des_y=0, pub=pub)
