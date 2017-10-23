@@ -6,6 +6,7 @@ import rospy
 import tf
 import actionlib
 import rospkg
+from std_msgs.msg import Float64
 from geometry_msgs.msg import Twist, Pose2D, Point
 rospack = rospkg.RosPack()
 
@@ -232,7 +233,7 @@ class Simulator(object):
 
         self.drone.velocity_publisher = rospy.Publisher('/%s/cmd_vel' %self.drone.tag, Twist, queue_size=10)
         self.drone.velocity_subscriber = rospy.Subscriber('/%s/cmd_vel' %self.drone.tag, Twist, self.drone.record_vel)
-
+        self.drone.heightPublisher = rospy.Publisher('/drone/height',Float64,queue_size = 10)
         t0 = rospy.Time.now().to_sec()
         t1 = t0 
         t2 = t0
