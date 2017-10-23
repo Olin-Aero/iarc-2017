@@ -146,6 +146,8 @@ namespace gazebo
         }
         void OnContact(ConstContactsPtr& _msg){
             for(int i=0; i<_msg->contact_size();++i){
+                std::cout << _msg->contact(i).collision1() << std::endl;
+                
                 if(_msg->contact(i).collision1().find("top_tap") != std::string::npos){
                     tap_flag = true;
                 }
@@ -166,6 +168,7 @@ namespace gazebo
                 t_trans = now + T_45;
                 state = TURN;
             }
+
             if(col_flag){
                 col_flag = false;
                 t_trans = now + T_180;

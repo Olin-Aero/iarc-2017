@@ -254,20 +254,22 @@
         <child link="front_bumper_link"/>
     </joint>
 
-    <link name="top_tap_link">
-        <collision>
-            <origin xyz="0.0 0.0 0.1" rpy="0 0 0" />
-            <geometry>
-                <cylinder length="0.01" radius="0.15"/>
-            </geometry>
-        </collision>
-    </link>
+    <xacro:unless value="$(arg obs)">
+        <link name="top_tap_link">
+            <collision>
+                <origin xyz="0.0 0.0 0.1" rpy="0 0 0" />
+                <geometry>
+                    <cylinder length="0.01" radius="0.15"/>
+                </geometry>
+            </collision>
+        </link>
 
-    <joint name="top_tap_joint" type="fixed">
-        <origin xyz="0 0 0" rpy="0 0 0"/>
-        <parent link="base_link"/>
-        <child link="top_tap_link"/>
-    </joint>
+        <joint name="top_tap_joint" type="fixed">
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <parent link="base_link"/>
+            <child link="top_tap_link"/>
+        </joint>
+    </xacro:unless>
 
 
     <!-- wheels and caster wheel -->
@@ -367,20 +369,20 @@
     <xacro:if value="$(arg obs)">
         <link name="pole_link">
             <visual>
-                <origin xyz="0 0 0" rpy="0 0 0"/>
+                <origin xyz="0 0 0.5" rpy="0 0 0"/>
                 <geometry>
                     <cylinder length="1.0" radius="0.05"/>
                 </geometry>
             </visual>
             <collision>
-                <origin xyz="0 0 0" rpy="0 0 0"/>
+                <origin xyz="0 0 0.5" rpy="0 0 0"/>
                 <geometry>
                     <cylinder length="1.0" radius="0.05"/>
                 </geometry>
             </collision>
         </link>
         <joint name="pole_joint" type="fixed">
-            <origin xyz="0 0 0.0" rpy="0 0 0"/>
+            <origin xyz="0 0 0.082" rpy="0 0 0"/>
             <parent link="base_link"/>
             <child link="pole_link"/>
             <axis xyz="0 0 1"/>
@@ -444,12 +446,13 @@
             </plugin>
         </xacro:unless>
     </gazebo>
+
     <gazebo reference="front_bumper_link">
         <sensor name="front_bumper" type="contact">
             <always_on>true</always_on>
             <update_rate>50</update_rate>
             <contact>
-                <!-- unfortunately, urdf->xacro lumps fixed joints into ridiculous names -->.
+                <!-- unfortunately, gazebo lumps fixed joints into ridiculous names -->.
                 <collision>base_footprint_fixed_joint_lump__front_bumper_link_collision_3</collision>
             </contact>
             <plugin name="front_bumper" filename="libgazebo_ros_bumper.so">
@@ -461,13 +464,13 @@
         </sensor>
     </gazebo>
 
-    <xacro:if value="$(arg obs)">
+    <xacro:unless value="$(arg obs)">
         <gazebo reference="top_tap_link">
             <sensor name="top_tap" type="contact">
                 <always_on>true</always_on>
                 <update_rate>50</update_rate>
                 <contact>
-                    <!-- unfortunately, urdf->xacro lumps fixed joints into ridiculous names -->.
+                    <!-- unfortunately, gazebo lumps fixed joints into ridiculous names -->.
                     <collision>base_footprint_fixed_joint_lump__top_tap_link_collision_4</collision>
                 </contact>
                 <plugin name="top_tap" filename="libgazebo_ros_bumper.so">
@@ -478,7 +481,6 @@
                 </plugin>
             </sensor>
         </gazebo>
-    </xacro:if>
-
+    </xacro:unless>
 
 </robot>
