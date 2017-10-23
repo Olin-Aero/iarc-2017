@@ -62,7 +62,7 @@ namespace gazebo
         {
             // Store the pointer to the model
             this->model = _parent;
-            
+
             for(auto& tag : {"front_bumper", "top_tap", "wheel_separation", "wheel_radius", "left_joint", "right_joint", "lin_vel", "ang_vel"}){
                 if(!_sdf->HasElement(tag)){
                     gzerr << "SDF Element <" << tag << "> undefined" << std::endl;
@@ -92,9 +92,20 @@ namespace gazebo
             this->node = transport::NodePtr(new transport::Node());
             this->node->Init(this->model->GetWorld()->GetName());
 
-            std::string topic = "~/" + model->GetName() + "/contact";
+            std::vector<std::string> cols;
+            for(auto& l : model->GetLinks()){
+                for(auto& c : l->GetCollisions()){
+                    auto s = c->GetScopedName();
+                    if (s.find(params.top_tap) != std::string::npos ||
+                            s.find(params.front_bumper) != std::string::npos){
+                        //filter s
+                        cols.push_back(s);
+                    }
+                }
+            }
+
             auto cmgr = model->GetWorld()->GetPhysicsEngine()->GetContactManager();
-            topic = cmgr->CreateFilter(topic,std::vector<std::string>({params.front_bumper, params.top_tap}));
+            std::string topic = cmgr->CreateFilter(model->GetName(),cols);
             this->contactSub = this->node->Subscribe(topic, &TargetRoomba::OnContact, this);
         }
 
@@ -134,7 +145,7 @@ namespace gazebo
         void setVelocity(float v, float w){
             auto l = params.wheel_separation;
             auto wr = params.wheel_radius;
-            
+
             auto vw_r = v + w*l/2.0;
             auto vw_l = v - w*l/2.0;
             auto w_r = vw_r / wr;
@@ -146,12 +157,11 @@ namespace gazebo
         }
         void OnContact(ConstContactsPtr& _msg){
             for(int i=0; i<_msg->contact_size();++i){
-                std::cout << _msg->contact(i).collision1() << std::endl;
-                
-                if(_msg->contact(i).collision1().find("top_tap") != std::string::npos){
+                std::string c = _msg->contact(i).collision1();
+                if(c.find("top_tap") != std::string::npos){
                     tap_flag = true;
                 }
-                if(_msg->contact(i).collision1().find("front_bumper") != std::string::npos){
+                if(c.find("front_bumper") != std::string::npos){
                     col_flag = true;
                 }
             }

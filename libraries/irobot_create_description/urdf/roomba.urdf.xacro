@@ -435,8 +435,8 @@
 
         <xacro:unless value="$(arg obs)">
             <plugin name="target_roomba" filename="libtarget_roomba.so">
-                <front_bumper>base_footprint_fixed_joint_lump__front_bumper_link_collision_3</front_bumper>
-                <top_tap>base_footprint_fixed_joint_lump__top_tap_link_collision_4</top_tap>
+                <front_bumper>front_bumper_link</front_bumper>
+                <top_tap>top_tap_link</top_tap>
                 <wheel_separation>${wheel_separation}</wheel_separation>
                 <wheel_radius>${wheel_radius}</wheel_radius>
                 <left_joint>left_wheel_joint</left_joint>
@@ -452,7 +452,7 @@
             <always_on>true</always_on>
             <update_rate>50</update_rate>
             <contact>
-                <!-- unfortunately, gazebo lumps fixed joints into ridiculous names -->.
+                <!-- unfortunately, gazebo lumps fixed joints into ridiculous names -->
                 <collision>base_footprint_fixed_joint_lump__front_bumper_link_collision_3</collision>
             </contact>
             <plugin name="front_bumper" filename="libgazebo_ros_bumper.so">
@@ -470,7 +470,7 @@
                 <always_on>true</always_on>
                 <update_rate>50</update_rate>
                 <contact>
-                    <!-- unfortunately, gazebo lumps fixed joints into ridiculous names -->.
+                    <!-- unfortunately, gazebo lumps fixed joints into ridiculous names -->
                     <collision>base_footprint_fixed_joint_lump__top_tap_link_collision_4</collision>
                 </contact>
                 <plugin name="top_tap" filename="libgazebo_ros_bumper.so">
