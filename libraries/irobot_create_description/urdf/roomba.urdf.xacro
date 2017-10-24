@@ -466,8 +466,8 @@
             <plugin name="front_bumper" filename="libgazebo_ros_bumper.so">
                 <alwaysOn>true</alwaysOn>
                 <updateRate>50</updateRate>
-                <bumperTopicName>$(arg ns)/front_bumper</bumperTopicName>
-                <frameName>$(arg ns)</frameName>
+                <bumperTopicName>${ns}/front_bumper</bumperTopicName>
+                <frameName>${ns}</frameName>
             </plugin>
         </sensor>
     </gazebo>
@@ -484,8 +484,8 @@
                 <plugin name="top_tap" filename="libgazebo_ros_bumper.so">
                     <alwaysOn>true</alwaysOn>
                     <updateRate>50</updateRate>
-                    <bumperTopicName>$(arg ns)/top_tap</bumperTopicName>
-                    <frameName>$(arg ns)</frameName>
+                    <bumperTopicName>${ns}/top_tap</bumperTopicName>
+                    <frameName>${ns}</frameName>
                 </plugin>
             </sensor>
         </gazebo>
