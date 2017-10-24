@@ -31,13 +31,24 @@
             <param name="publish_frequency" type="double" value="50.0" />
             <param name="tf_prefix" type="string" value="$(arg ns)" />
         </node>
-
-        <node name="gt_tf" pkg="message_to_tf" type="message_to_tf" output="screen">
-            <param name="odometry_topic" value="ground_truth/state" />
-            <param name="frame_id" value="drone/base_link" /> <!-- maybe? -->
-        </node>
-
     </group>
+
+    <node name="gt_tf" pkg="message_to_tf" type="message_to_tf" output="screen">
+        <param name="odometry_topic" value="ground_truth/state" />
+        <param name="frame_id" value="map" /> <!-- maybe? -->
+        <param name="tf_prefix" type="string" value="$(arg ns)" />
+        <remap from="tf" to="tf_drone"/> <!-- No support for tf_prefix, quite terrible. -->
+    </node>
+
+    <node pkg="tf" type="tf_remap" name="tf_remap_drone" output="screen">
+        <rosparam param="mappings">
+            [{old: base_footprint, new: /drone/base_footprint},
+            {old: base_stabilized, new: /drone/base_stabilized},
+            {old: base_link, new: /drone/base_link}]
+        </rosparam>
+        <remap from="tf_old" to="tf_drone"/>
+    </node>
+
     <!-- node name="hector_pose_estimation" pkg="hector_pose_estimation" type="hector_pose_estimation_node" output="screen"/-->
 
 </launch>
