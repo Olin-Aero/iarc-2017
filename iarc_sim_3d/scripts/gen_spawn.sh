@@ -12,12 +12,6 @@ name=$1
 num=$2
 rad=$3
 
-if [ "$name" = "obstacle" ]; then
-    obs='true'
-else
-    obs='false'
-fi
-
 echo "<launch>"
 for ((i=0;i<$num;++i)); do
     Y=$(echo "$i*2*${pi}/$num" | bc -l)
@@ -35,7 +29,6 @@ for ((i=0;i<$num;++i)); do
         <arg name=\"x\" value=\"$x\"/>
         <arg name=\"y\" value=\"$y\"/>
         <arg name=\"Y\" value=\"$Y\"/>
-        <arg name=\"obs\" value=\"$obs\"/>
     </include>"
     #echo "roslaunch iarc_sim_3d spawn_roomba.launch ns:=target$i x:=$x y:=$y Y:=$Y"
 done

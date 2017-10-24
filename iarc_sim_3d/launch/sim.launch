@@ -7,10 +7,10 @@
     <include file="$(find iarc_sim_3d)/launch/spawn_drone.launch"/>
 
     <!-- Spawn Targets -->
-    <include file="$(find iarc_sim_3d)/launch/spawn_targets.launch"/>
+    <!--<include file="$(find iarc_sim_3d)/launch/spawn_targets.launch"/>-->
 
     <!-- Spawn Obstacles -->
-    <!--<include file="$(find iarc_sim_3d)/launch/spawn_obstacles.launch"/>-->
+    <include file="$(find iarc_sim_3d)/launch/spawn_obstacles.launch"/>
 
     <!--
     <include file="$(find iarc_sim_3d)/launch/spawn_roomba.launch">

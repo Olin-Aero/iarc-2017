@@ -3,12 +3,14 @@
 
     <xacro:arg name="ns" default="target0"/>
     <xacro:arg name="color" default="white"/>
-    <xacro:arg name="obs" default="false"/>
+    <xacro:arg name="pole" default="1.0"/>
 
     <xacro:property name="M_PI" value="3.14159"/>
     <xacro:property name="wheel_radius" value="0.033" />
     <xacro:property name="wheel_length" value="0.023" />
     <xacro:property name="wheel_separation" value="0.24" />
+    <xacro:property name="ns" value="$(arg ns)"/>
+    <xacro:property name="obs" value="${ns.startswith('obs')}" />
 
     <xacro:macro name="wheel_xmission" params="wheel_prefix">
         <transmission name="${wheel_prefix}_wheel_trans">
@@ -254,7 +256,7 @@
         <child link="front_bumper_link"/>
     </joint>
 
-    <xacro:unless value="$(arg obs)">
+    <xacro:unless value="${obs}">
         <link name="top_tap_link">
             <collision>
                 <origin xyz="0.0 0.0 0.1" rpy="0 0 0" />
@@ -366,23 +368,29 @@
     <wheel_xmission wheel_prefix="left"/>
     <wheel_xmission wheel_prefix="right"/>
 
-    <xacro:if value="$(arg obs)">
+    <xacro:if value="${obs}">
         <link name="pole_link">
+            <gravity>true</gravity>
+            <inertial>
+                <mass value="0.01" />
+                <origin xyz="0 0 0" />
+                <inertia ixx="0.01" ixy="0.0" ixz="0.0" iyy="0.01" iyz="0.0" izz="0.5" />
+            </inertial>
             <visual>
-                <origin xyz="0 0 0.5" rpy="0 0 0"/>
+                <origin xyz="0 0 ${$(arg pole)/2.0}" rpy="0 0 0"/>
                 <geometry>
-                    <cylinder length="1.0" radius="0.05"/>
+                    <cylinder length="$(arg pole)" radius="0.05"/>
                 </geometry>
             </visual>
             <collision>
-                <origin xyz="0 0 0.5" rpy="0 0 0"/>
+                <origin xyz="0 0 ${$(arg pole)/2.0}" rpy="0 0 0"/>
                 <geometry>
-                    <cylinder length="1.0" radius="0.05"/>
+                    <cylinder length="$(arg pole)" radius="0.05"/>
                 </geometry>
             </collision>
         </link>
         <joint name="pole_joint" type="fixed">
-            <origin xyz="0 0 0.082" rpy="0 0 0"/>
+            <origin xyz="0 0 0.0358" rpy="0 0 0"/>
             <parent link="base_link"/>
             <child link="pole_link"/>
             <axis xyz="0 0 1"/>
@@ -419,7 +427,7 @@
         </plugin>
         -->
 
-        <xacro:if value="$(arg obs)">
+        <xacro:if value="${obs}">
             <plugin name="obstacle_roomba" filename="libobstacle_roomba.so">
                 <front_bumper>base_footprint_fixed_joint_lump__front_bumper_link_collision_3</front_bumper>
                 <pole_link>pole_link</pole_link>
@@ -433,7 +441,7 @@
             </plugin>
         </xacro:if>
 
-        <xacro:unless value="$(arg obs)">
+        <xacro:unless value="${obs}">
             <plugin name="target_roomba" filename="libtarget_roomba.so">
                 <front_bumper>front_bumper_link</front_bumper>
                 <top_tap>top_tap_link</top_tap>
@@ -464,7 +472,7 @@
         </sensor>
     </gazebo>
 
-    <xacro:unless value="$(arg obs)">
+    <xacro:unless value="${obs}">
         <gazebo reference="top_tap_link">
             <sensor name="top_tap" type="contact">
                 <always_on>true</always_on>

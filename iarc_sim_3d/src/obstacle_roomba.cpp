@@ -85,19 +85,6 @@ namespace gazebo
             auto cmgr = model->GetWorld()->GetPhysicsEngine()->GetContactManager();
             topic = cmgr->CreateFilter(topic,std::vector<std::string>({params.front_bumper}));
             this->contactSub = this->node->Subscribe(topic, &ObstacleRoomba::OnContact, this);
-
-            //set to random height
-            auto ph = math::Rand::GetDblUniform(1.0, 2.0);
-
-            auto base = model->GetLink("base_footprint");
-            if(base){
-                auto pole = model->GetLink("base_footprint_fixed_joint_lump__pole_link_collision_4");
-                if(pole){
-                    std::cout << "POLE!!!!!!!!!!!! " << std::endl;
-                    pole->SetScale(math::Vector3(1.0, 1.0, ph)); //1.0 ~ 2.0
-                    pole->SetRelativePose(math::Pose(0,0,0.082+ph/2,0,0,0));
-                }
-            }
         }
 
         State wait(float){

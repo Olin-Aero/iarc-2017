@@ -8,10 +8,10 @@
     <arg name="R" default="0"/>
     <arg name="P" default="0"/>
     <arg name="Y" default="0"/>
-    <arg name="obs" default="false"/>
+    <arg name="pole" default="1.0"/>
 
     <!-- send the robot XML to param server -->
-    <param name="$(arg ns)/urdf" command="$(find xacro)/xacro '$(arg model)' color:=white ns:=$(arg ns) obs:=$(arg obs) --inorder" />
+    <param name="$(arg ns)/urdf" command='$(find xacro)/xacro "$(arg model)" color:=white ns:=$(arg ns) pole:=$(arg pole) --inorder' />
 
     <!-- push robot_description to factory and spawn robot in gazebo -->
     <node name="$(arg ns)_spawn" pkg="gazebo_ros" type="spawn_model"
