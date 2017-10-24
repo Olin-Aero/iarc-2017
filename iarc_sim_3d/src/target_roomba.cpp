@@ -25,7 +25,7 @@ namespace gazebo
 {
     class TargetRoomba : public ModelPlugin
     {
-        enum State{WAIT,RUN,NOISE,TURN};
+        enum State{WAIT,RUN,NOISE,TURN,END};
         struct{
             std::string left_joint;
             std::string right_joint;
@@ -35,6 +35,7 @@ namespace gazebo
             std::string front_bumper;
             float lin_vel;
             float ang_vel;
+            float bound;
         } params;
 
         private:
@@ -64,7 +65,7 @@ namespace gazebo
             // Store the pointer to the model
             this->model = _parent;
 
-            for(auto& tag : {"front_bumper", "top_tap", "wheel_separation", "wheel_radius", "left_joint", "right_joint", "lin_vel", "ang_vel"}){
+            for(auto& tag : {"front_bumper", "top_tap", "wheel_separation", "wheel_radius", "left_joint", "right_joint", "lin_vel", "ang_vel", "bound"}){
                 if(!_sdf->HasElement(tag)){
                     gzerr << "SDF Element <" << tag << "> undefined" << std::endl;
                 }
@@ -78,6 +79,7 @@ namespace gazebo
             params.front_bumper = _sdf->Get<std::string>("front_bumper");
             params.lin_vel = _sdf->Get<float>("lin_vel");
             params.ang_vel = _sdf->Get<float>("ang_vel");
+            params.bound = _sdf->Get<float>("bound");
 
             this->joint_l = model->GetJoint(params.left_joint);
             this->joint_r = model->GetJoint(params.right_joint);
@@ -146,6 +148,11 @@ namespace gazebo
             return TURN;
         }
 
+        State end(float){
+            setVelocity(0,0);
+            return END;
+        }
+
         void setVelocity(float v, float w){
             auto l = params.wheel_separation;
             auto wr = params.wheel_radius;
@@ -178,7 +185,10 @@ namespace gazebo
         // Called by the world update start event
         void OnUpdate(const common::UpdateInfo & /*_info*/)
         {
-            auto now = this->model->GetWorld()->GetSimTime().Float();
+            if(state==END)
+                return;
+
+            auto now = model->GetWorld()->GetSimTime().Float();
 
             // check and clear flags
             if(tap_flag){
@@ -208,6 +218,9 @@ namespace gazebo
                 case TURN:
                     s_nxt=turn(now);
                     break;
+                case END:
+                    s_nxt=end(now);
+                    break;
             }
 
             if(state!=s_nxt && s_nxt == NOISE){
@@ -217,6 +230,10 @@ namespace gazebo
             state = s_nxt;
 
             this->prv = now;
+
+            auto p = model->GetWorldPose().pos;
+            if(fabs(p.x) > params.bound || fabs(p.y) > params.bound)
+                state=END;
         }
     };
     // Register this plugin with the simulator

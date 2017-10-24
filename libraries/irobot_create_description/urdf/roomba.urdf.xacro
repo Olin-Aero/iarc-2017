@@ -437,6 +437,7 @@
                 <right_joint>right_wheel_joint</right_joint>
                 <lin_vel>0.33</lin_vel>
                 <ang_vel>0.066</ang_vel>
+                <bound>10.0</bound>
             </plugin>
         </xacro:if>
 
@@ -450,6 +451,7 @@
                 <right_joint>right_wheel_joint</right_joint>
                 <lin_vel>0.33</lin_vel>
                 <ang_vel>1.375</ang_vel>
+                <bound>10.0</bound>
             </plugin>
         </xacro:unless>
     </gazebo>
