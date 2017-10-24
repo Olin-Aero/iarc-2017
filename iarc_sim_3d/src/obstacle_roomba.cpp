@@ -11,6 +11,7 @@
 #include <iostream>
 
 // durations
+#define T_INIT (5.00F)
 #define T_DELAY (0.015F)
 
 namespace gazebo
@@ -77,6 +78,7 @@ namespace gazebo
                     std::bind(&ObstacleRoomba::OnUpdate, this, std::placeholders::_1));
 
             state = WAIT;
+            t_trans = T_INIT;
 
             this->node = transport::NodePtr(new transport::Node());
             this->node->Init(this->model->GetWorld()->GetName());
@@ -98,8 +100,10 @@ namespace gazebo
             this->contactSub = this->node->Subscribe(topic, &ObstacleRoomba::OnContact, this);
         }
 
-        State wait(float){
-            return RUN;
+        State wait(float now){
+            if(now > t_trans)
+                return RUN;
+            return WAIT;
         }
 
         State run(float now){

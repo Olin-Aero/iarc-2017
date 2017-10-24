@@ -11,6 +11,7 @@
 #include <iostream>
 
 // durations
+#define T_INIT (5.00F)
 #define T_180 (2.15F)
 #define T_45 (0.5375F)
 #define T_NOISE (0.85F)
@@ -88,6 +89,7 @@ namespace gazebo
             this->prv = model->GetWorld()->GetSimTime().Float();
 
             state = WAIT;
+            t_trans = T_INIT;
 
             this->node = transport::NodePtr(new transport::Node());
             this->node->Init(this->model->GetWorld()->GetName());
@@ -109,8 +111,10 @@ namespace gazebo
             this->contactSub = this->node->Subscribe(topic, &TargetRoomba::OnContact, this);
         }
 
-        State wait(float){
-            return RUN;
+        State wait(float now){
+            if(now > t_trans)
+                return RUN;
+            return WAIT;
         }
 
         State run(float now){
