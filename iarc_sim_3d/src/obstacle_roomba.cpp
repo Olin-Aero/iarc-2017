@@ -81,9 +81,20 @@ namespace gazebo
             this->node = transport::NodePtr(new transport::Node());
             this->node->Init(this->model->GetWorld()->GetName());
 
-            std::string topic = "~/" + model->GetName() + "/contact";
+            std::vector<std::string> cols;
+            for(auto& l : model->GetLinks()){
+                for(auto& c : l->GetCollisions()){
+                    auto s = c->GetScopedName();
+                    if (s.find(params.pole_link) != std::string::npos ||
+                            s.find(params.front_bumper) != std::string::npos){
+                        //filter s
+                        cols.push_back(s);
+                    }
+                }
+            }
+
             auto cmgr = model->GetWorld()->GetPhysicsEngine()->GetContactManager();
-            topic = cmgr->CreateFilter(topic,std::vector<std::string>({params.front_bumper}));
+            std::string topic = cmgr->CreateFilter(model->GetName(),cols);
             this->contactSub = this->node->Subscribe(topic, &ObstacleRoomba::OnContact, this);
         }
 
@@ -121,8 +132,16 @@ namespace gazebo
 
         void OnContact(ConstContactsPtr& _msg){
             for(int i=0; i<_msg->contact_size();++i){
-                if(_msg->contact(i).collision1().find("front_bumper") != std::string::npos){
-                    col_flag = true;
+                if(_msg->contact(i).has_collision1()){
+                    std::string c = _msg->contact(i).collision1();
+                    col_flag |= c.find(params.front_bumper) != std::string::npos;
+                    col_flag |= c.find(params.pole_link) != std::string::npos;
+                }
+
+                if(_msg->contact(i).has_collision2()){
+                    std::string c = _msg->contact(i).collision2();
+                    col_flag |= c.find(params.front_bumper) != std::string::npos;
+                    col_flag |= c.find(params.pole_link) != std::string::npos;
                 }
             }
         }

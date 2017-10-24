@@ -157,12 +157,16 @@ namespace gazebo
         }
         void OnContact(ConstContactsPtr& _msg){
             for(int i=0; i<_msg->contact_size();++i){
-                std::string c = _msg->contact(i).collision1();
-                if(c.find("top_tap") != std::string::npos){
-                    tap_flag = true;
+                if(_msg->contact(i).has_collision1()){
+                    std::string c = _msg->contact(i).collision1();
+                    tap_flag |= c.find(params.top_tap) != std::string::npos;
+                    col_flag |= c.find(params.front_bumper) != std::string::npos;
                 }
-                if(c.find("front_bumper") != std::string::npos){
-                    col_flag = true;
+
+                if(_msg->contact(i).has_collision2()){
+                    std::string c = _msg->contact(i).collision2();
+                    tap_flag |= c.find(params.top_tap) != std::string::npos;
+                    col_flag |= c.find(params.front_bumper) != std::string::npos;
                 }
             }
         }

@@ -370,7 +370,6 @@
 
     <xacro:if value="${obs}">
         <link name="pole_link">
-            <gravity>true</gravity>
             <inertial>
                 <mass value="0.01" />
                 <origin xyz="0 0 0" />
