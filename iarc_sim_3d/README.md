@@ -22,3 +22,5 @@ Run `roscore` first, and in a new terminal:
 ```
 roslaunch iarc_sim_3d sim.launch
 ```
+
+Wait 5 seconds in simulation time for all the robots to start running.
