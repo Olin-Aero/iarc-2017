@@ -22,13 +22,16 @@ import numpy as np
 from numpy.random import random_sample
 from sklearn.neighbors import NearestNeighbors
 
+
 def convert_translation_rotation_to_pose(translation, rotation):
     """ Convert from representation of a pose as translation and rotation (Quaternion) tuples to a geometry_msgs/Pose message """
-    return Pose(position=Point(x=translation[0],y=translation[1],z=translation[2]), orientation=Quaternion(x=rotation[0],y=rotation[1],z=rotation[2],w=rotation[3]))
+    return Pose(position=Point(x=translation[0], y=translation[1], z=translation[2]),
+                orientation=Quaternion(x=rotation[0], y=rotation[1], z=rotation[2], w=rotation[3]))
+
 
 def convert_pose_inverse_transform(pose):
     """ Helper method to invert a transform (this is built into the tf C++ classes, but ommitted from Python) """
-    translation = np.zeros((4,1))
+    translation = np.zeros((4, 1))
     translation[0] = -pose.position.x
     translation[1] = -pose.position.y
     translation[2] = -pose.position.z
@@ -36,12 +39,13 @@ def convert_pose_inverse_transform(pose):
 
     rotation = (pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w)
     euler_angle = euler_from_quaternion(rotation)
-    rotation = np.transpose(rotation_matrix(euler_angle[2], [0,0,1]))       # the angle is a yaw
+    rotation = np.transpose(rotation_matrix(euler_angle[2], [0, 0, 1]))  # the angle is a yaw
     transformed_translation = rotation.dot(translation)
 
     translation = (transformed_translation[0], transformed_translation[1], transformed_translation[2])
     rotation = quaternion_from_matrix(rotation)
     return (translation, rotation)
+
 
 def convert_pose_to_xy_and_theta(pose):
     """ Convert pose (geometry_msgs.Pose) to a (x,y,yaw) tuple """
@@ -49,9 +53,11 @@ def convert_pose_to_xy_and_theta(pose):
     angles = euler_from_quaternion(orientation_tuple)
     return (pose.position.x, pose.position.y, angles[2])
 
+
 def angle_normalize(z):
     """ convenience function to map an angle to the range [-pi,pi] """
     return math.atan2(math.sin(z), math.cos(z))
+
 
 def angle_diff(a, b):
     """ Calculates the difference between angle a and angle b (both should be in radians)
@@ -63,8 +69,8 @@ def angle_diff(a, b):
     """
     a = angle_normalize(a)
     b = angle_normalize(b)
-    d1 = a-b
-    d2 = 2*math.pi - math.fabs(d1)
+    d1 = a - b
+    d2 = 2 * math.pi - math.fabs(d1)
     if d1 > 0:
         d2 *= -1.0
     if math.fabs(d1) < math.fabs(d2):

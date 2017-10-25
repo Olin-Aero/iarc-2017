@@ -29,6 +29,7 @@ from helper_functions import (convert_pose_inverse_transform,
                               convert_pose_to_xy_and_theta,
                               angle_diff)
 
+
 class Particle(object):
     """ Represents a hypothesis (particle) of the robot's pose consisting of x,y and theta (yaw)
         Attributes:
@@ -38,12 +39,12 @@ class Particle(object):
             w: the particle weight (the class does not ensure that particle weights are normalized
     """
 
-    def __init__(self,x=0.0,y=0.0,theta=0.0,w=1.0):
+    def __init__(self, x=0.0, y=0.0, theta=0.0, w=1.0):
         """ Construct a new Particle
             x: the x-coordinate of the hypothesis relative to the map frame
             y: the y-coordinate of the hypothesis relative ot the map frame
             theta: the yaw of the hypothesis relative to the map frame
-            w: the particle weight (the class does not ensure that particle weights are normalized """ 
+            w: the particle weight (the class does not ensure that particle weights are normalized """
         self.w = w
         self.theta = theta
         self.x = x
@@ -51,10 +52,13 @@ class Particle(object):
 
     def as_pose(self):
         """ A helper function to convert a particle to a geometry_msgs/Pose message """
-        orientation_tuple = tf.transformations.quaternion_from_euler(0,0,self.theta)
-        return Pose(position=Point(x=self.x,y=self.y,z=0), orientation=Quaternion(x=orientation_tuple[0], y=orientation_tuple[1], z=orientation_tuple[2], w=orientation_tuple[3]))
+        orientation_tuple = tf.transformations.quaternion_from_euler(0, 0, self.theta)
+        return Pose(position=Point(x=self.x, y=self.y, z=0),
+                    orientation=Quaternion(x=orientation_tuple[0], y=orientation_tuple[1], z=orientation_tuple[2],
+                                           w=orientation_tuple[3]))
 
-    # TODO: define additional helper functions if needed
+        # TODO: define additional helper functions if needed
+
 
 class ParticleFilter:
     """ The class that represents a Particle Filter ROS Node
@@ -78,21 +82,22 @@ class ParticleFilter:
                                    The pose is expressed as a list [x,y,theta] (where theta is the yaw)
             map: the map we will be localizing ourselves in.  The map should be of type nav_msgs/OccupancyGrid
     """
+
     def __init__(self):
-        self.initialized = False        # make sure we don't perform updates before everything is setup
-        rospy.init_node('pf')           # tell roscore that we are creating a new node named "pf"
+        self.initialized = False  # make sure we don't perform updates before everything is setup
+        rospy.init_node('pf')  # tell roscore that we are creating a new node named "pf"
 
-        self.base_frame = "base_link"   # the frame of the robot base
-        self.map_frame = "map"          # the name of the map coordinate frame
-        self.odom_frame = "odom"        # the name of the odometry coordinate frame
-        self.scan_topic = "scan"        # the topic where we will get laser scans from 
+        self.base_frame = "base_link"  # the frame of the robot base
+        self.map_frame = "map"  # the name of the map coordinate frame
+        self.odom_frame = "odom"  # the name of the odometry coordinate frame
+        self.scan_topic = "scan"  # the topic where we will get laser scans from
 
-        self.n_particles = 300          # the number of particles to use
+        self.n_particles = 300  # the number of particles to use
 
-        self.d_thresh = 0.2             # the amount of linear movement before performing an update
-        self.a_thresh = math.pi/6       # the amount of angular movement before performing an update
+        self.d_thresh = 0.2  # the amount of linear movement before performing an update
+        self.a_thresh = math.pi / 6  # the amount of angular movement before performing an update
 
-        self.laser_max_distance = 2.0   # maximum penalty to assess in the likelihood field model
+        self.laser_max_distance = 2.0  # maximum penalty to assess in the likelihood field model
 
         # TODO: define additional constants if needed
 
@@ -127,7 +132,7 @@ class ParticleFilter:
         #       into the init method for OccupancyField
 
         # for now we have commented out the occupancy field initialization until you can successfully fetch the map
-        #self.occupancy_field = OccupancyField(map)
+        # self.occupancy_field = OccupancyField(map)
         self.initialized = True
 
     def update_robot_pose(self):
@@ -167,10 +172,10 @@ class ParticleFilter:
             self.current_odom_xy_theta = new_odom_xy_theta
             return
 
-        # TODO: modify particles using delta
-        # For added difficulty: Implement sample_motion_odometry (Prob Rob p 136)
+            # TODO: modify particles using delta
+            # For added difficulty: Implement sample_motion_odometry (Prob Rob p 136)
 
-    def map_calc_range(self,x,y,theta):
+    def map_calc_range(self, x, y, theta):
         """ Difficulty Level 3: implement a ray tracing likelihood model... Let me know if you are interested """
         # TODO: nothing unless you want to try this alternate likelihood model
         pass
@@ -237,23 +242,23 @@ class ParticleFilter:
             particles_conv.append(p.as_pose())
         # actually send the message so that we can view it in rviz
         self.particle_pub.publish(PoseArray(header=Header(stamp=rospy.Time.now(),
-                                            frame_id=self.map_frame),
-                                  poses=particles_conv))
+                                                          frame_id=self.map_frame),
+                                            poses=particles_conv))
 
     def scan_received(self, msg):
         """ This is the default logic for what to do when processing scan data.
             Feel free to modify this, however, I hope it will provide a good
             guide.  The input msg is an object of type sensor_msgs/LaserScan """
-        if not(self.initialized):
+        if not (self.initialized):
             # wait for initialization to complete
             return
 
-        if not(self.tf_listener.canTransform(self.base_frame,msg.header.frame_id,msg.header.stamp)):
+        if not (self.tf_listener.canTransform(self.base_frame, msg.header.frame_id, msg.header.stamp)):
             # need to know how to transform the laser to the base frame
             # this will be given by either Gazebo or neato_node
             return
 
-        if not(self.tf_listener.canTransform(self.base_frame,self.odom_frame,msg.header.stamp)):
+        if not (self.tf_listener.canTransform(self.base_frame, self.odom_frame, msg.header.stamp)):
             # need to know how to transform between base and odometric frames
             # this will eventually be published by either Gazebo or neato_node
             return
@@ -261,7 +266,7 @@ class ParticleFilter:
         # calculate pose of laser relative ot the robot base
         p = PoseStamped(header=Header(stamp=rospy.Time(0),
                                       frame_id=msg.header.frame_id))
-        self.laser_pose = self.tf_listener.transformPose(self.base_frame,p)
+        self.laser_pose = self.tf_listener.transformPose(self.base_frame, p)
 
         # find out where the robot thinks it is based on its odometry
         p = PoseStamped(header=Header(stamp=msg.header.stamp,
@@ -270,7 +275,7 @@ class ParticleFilter:
         self.odom_pose = self.tf_listener.transformPose(self.odom_frame, p)
         # store the the odometry pose in a more convenient format (x,y,theta)
         new_odom_xy_theta = convert_pose_to_xy_and_theta(self.odom_pose.pose)
-        if not(self.particle_cloud):
+        if not (self.particle_cloud):
             # now that we have all of the necessary transforms we can update the particle cloud
             self.initialize_particle_cloud()
             # cache the last odometric pose so we can only update our particle filter if we move more than self.d_thresh or self.a_thresh
@@ -278,19 +283,20 @@ class ParticleFilter:
             # update our map to odom transform now that the particles are initialized
             self.fix_map_to_odom_transform(msg)
         elif (math.fabs(new_odom_xy_theta[0] - self.current_odom_xy_theta[0]) > self.d_thresh or
-              math.fabs(new_odom_xy_theta[1] - self.current_odom_xy_theta[1]) > self.d_thresh or
-              math.fabs(new_odom_xy_theta[2] - self.current_odom_xy_theta[2]) > self.a_thresh):
+                      math.fabs(new_odom_xy_theta[1] - self.current_odom_xy_theta[1]) > self.d_thresh or
+                      math.fabs(new_odom_xy_theta[2] - self.current_odom_xy_theta[2]) > self.a_thresh):
             # we have moved far enough to do an update!
-            self.update_particles_with_odom(msg)    # update based on odometry
+            self.update_particles_with_odom(msg)  # update based on odometry
             if self.last_projected_stable_scan:
                 last_projected_scan_timeshift = deepcopy(self.last_projected_stable_scan)
                 last_projected_scan_timeshift.header.stamp = msg.header.stamp
-                self.scan_in_base_link = self.tf_listener.transformPointCloud("base_link", last_projected_scan_timeshift)
+                self.scan_in_base_link = self.tf_listener.transformPointCloud("base_link",
+                                                                              last_projected_scan_timeshift)
 
-            self.update_particles_with_laser(msg)   # update based on laser scan
-            self.update_robot_pose()                # update robot's pose
-            self.resample_particles()               # resample particles to focus on areas of high density
-            self.fix_map_to_odom_transform(msg)     # update map to odom transform now that we have new particles
+            self.update_particles_with_laser(msg)  # update based on laser scan
+            self.update_robot_pose()  # update robot's pose
+            self.resample_particles()  # resample particles to focus on areas of high density
+            self.fix_map_to_odom_transform(msg)  # update map to odom transform now that we have new particles
         # publish particles (so things like rviz can see them)
         self.publish_particles(msg)
 
@@ -301,8 +307,8 @@ class ParticleFilter:
             TODO: if you want to learn a lot about tf, reimplement this... I can provide
                   you with some hints as to what is going on here. """
         (translation, rotation) = convert_pose_inverse_transform(self.robot_pose)
-        p = PoseStamped(pose=convert_translation_rotation_to_pose(translation,rotation),
-                        header=Header(stamp=msg.header.stamp,frame_id=self.base_frame))
+        p = PoseStamped(pose=convert_translation_rotation_to_pose(translation, rotation),
+                        header=Header(stamp=msg.header.stamp, frame_id=self.base_frame))
         self.tf_listener.waitForTransform(self.base_frame, self.odom_frame, msg.header.stamp, rospy.Duration(1.0))
         self.odom_to_map = self.tf_listener.transformPose(self.odom_frame, p)
         (self.translation, self.rotation) = convert_pose_inverse_transform(self.odom_to_map.pose)
@@ -311,7 +317,7 @@ class ParticleFilter:
         """ Make sure that we are always broadcasting the last map
             to odom transformation.  This is necessary so things like
             move_base can work properly. """
-        if not(hasattr(self,'translation') and hasattr(self,'rotation')):
+        if not (hasattr(self, 'translation') and hasattr(self, 'rotation')):
             return
         self.tf_broadcaster.sendTransform(self.translation,
                                           self.rotation,
@@ -319,11 +325,12 @@ class ParticleFilter:
                                           self.odom_frame,
                                           self.map_frame)
 
+
 if __name__ == '__main__':
     n = ParticleFilter()
     r = rospy.Rate(5)
 
-    while not(rospy.is_shutdown()):
+    while not (rospy.is_shutdown()):
         # in the main loop all we do is continuously broadcast the latest map to odom transform
         n.broadcast_last_transform()
         r.sleep()
