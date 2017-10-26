@@ -16,7 +16,6 @@
             <max_step_size>0.001</max_step_size>
             <real_time_update_rate>1000</real_time_update_rate>
             <gravity>0 0 -9.8</gravity>
-            <!--
             <ode>
                 <solver>
                     <type>quick</type>
@@ -30,7 +29,6 @@
                     <contact_surface_layer>0</contact_surface_layer>
                 </constraints>
             </ode>
-            -->
         </physics>
 
         <!-- Ground Plane -->

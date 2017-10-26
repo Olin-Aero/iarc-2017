@@ -64,3 +64,32 @@ material IARC/WhiteLine{
         }
     }
 }
+
+material IARC/TopRed{
+    receive_shadows on
+    lighting on
+    technique
+    {
+        pass
+        {
+            ambient 0.69 0.086 0.015 1.0
+            diffuse 0.69 0.086 0.015 1.0
+            specular 1.0 1.0 1.0 1.0 12.5
+        }
+    }
+}
+
+material IARC/TopGreen{
+    receive_shadows on
+    lighting on
+    technique
+    {
+        pass
+        {
+
+            ambient 0.0863 0.337 0.0627 1.0
+            diffuse 0.0863 0.337 0.0627 1.0
+            specular 1.0 1.0 1.0 1.0 12.5
+        }
+    }
+}
