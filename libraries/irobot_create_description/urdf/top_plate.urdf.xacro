@@ -1,0 +1,63 @@
+<?xml version="1.0"?>
+<robot name="top_plate" xmlns:xacro="http://ros.org/wiki/xacro">
+
+    <xacro:property name="INCH" value="0.0254"/>
+    <xacro:property name="x" value="${6*INCH}"/>
+    <xacro:property name="y" value="${10*INCH}"/>
+    <xacro:property name="z" value="${0.25*INCH}"/>
+    <xacro:property name="m" value="0.33"/>
+    <xacro:property name="x_offset" value="${-(3-2.2175)*INCH}"/>
+
+    <xacro:include filename="$(find irobot_create_description)/urdf/common.xacro" />
+
+    <xacro:macro name="top_plate" params="parent height red:=True">
+        <joint name="top_plate_joint" type="fixed">
+            <origin xyz="0 0 ${height}" rpy="0 0 0" />
+            <parent link="${parent}" />
+            <child link="top_plate_link" />
+        </joint>
+
+        <link name="top_plate_link">
+            <box_inertial_with_origin x="${x}" y="${y}" z="${z}" mass="${m}">
+                <origin xyz="${x_offset} 0 ${z/2.0}" rpy="0 0 0" />
+            </box_inertial_with_origin>
+
+            <!-- big-plate -->
+            <visual>
+                <origin xyz="-${1.5325*INCH} 0 ${z/2.0}" rpy="0 0 0" />
+                <geometry>
+                    <box size="${4.5*INCH} ${10*INCH} ${z}" />
+                </geometry>
+            </visual>
+
+            <!-- small-plate -->
+            <visual>
+                <origin xyz="${1.4675*INCH} 0 ${z/2.0}" rpy="0 0 0" />
+                <geometry>
+                    <box size="${1.5*INCH} ${5*INCH} ${z}" />
+                </geometry>
+            </visual>
+
+            <collision>
+                <origin xyz="${x_offset} 0 ${z/2.0}" rpy="0 0 0" />
+                <geometry>
+                    <box size="${x} ${y} ${z}" />
+                </geometry>
+            </collision>
+        </link>
+
+        <xacro:if value="${red}">
+            <gazebo reference="top_plate_link">
+                <material>IARC/TopRed</material>
+            </gazebo>
+        </xacro:if>
+
+        <xacro:unless value="${red}">
+            <gazebo reference="top_plate_link">
+                <material>IARC/TopGreen</material>
+            </gazebo>
+        </xacro:unless>
+
+    </xacro:macro> 
+
+</robot>

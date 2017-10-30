@@ -1,10 +1,11 @@
 #!/usr/bin/env python2
 import rospy
+import transformers
 from geometry_msgs.msg import Twist, PoseStamped
 from std_msgs.msg import Empty, String
 from iarc_arbiter.msg import RegisterBehavior
 
-import transformers
+from tf import TransformListener
 
 
 class Arbiter:
@@ -27,14 +28,19 @@ class Arbiter:
         self.active_behavior_name = ''
         self.set_active_behavior('zero')
 
+        self.tf = TransformListener()
+
         # Transformers are functions capable of processing incoming data in a variety of formats.
         # They are functions that take input of whatever type the topic is, and produce a transformers.Command
         # object.
+
+        pid = transformers.PIDController(self.tf)
+        print pid.cmd_pos
         self.transformers = {
             'cmd_vel': (Twist, transformers.cmd_vel),
             'cmd_takeoff': (Empty, transformers.cmd_takeoff),
             'cmd_land': (Empty, transformers.cmd_land),
-            'cmd_pos': (PoseStamped, transformers.cmd_pos),
+            'cmd_pos': (PoseStamped, pid.cmd_pos),
         }
         """:type : dict[str, (str, (Any) -> transformers.Command)]"""
 
@@ -59,6 +65,8 @@ class Arbiter:
         rospy.Subscriber('/arbiter/register', RegisterBehavior, self.handle_register)
 
         rospy.Subscriber('/arbiter/activate_behavior', String, self.handle_activate)
+
+        rospy.sleep(0.5)
 
     def handle_activate(self, msg):
         """
@@ -194,8 +202,11 @@ class Behavior:
         """
 
         for (topic, (msg_type, _)) in topics.iteritems():
-            def callback(msg):
-                self.handle_message(topic, msg)
+            # The selftopic=topic part makes a copy of the topic variable, so it doesn't get changed before
+            # the callback is called.
+            # https://stackoverflow.com/a/235764
+            def callback(msg, selftopic=topic):
+                self.handle_message(selftopic, msg)
 
             sub = rospy.Subscriber("/{}/{}".format(self.name, topic), msg_type, callback)
             self.subscribers[topic] = sub

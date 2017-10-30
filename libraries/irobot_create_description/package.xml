@@ -1,0 +1,25 @@
+<package>
+    <name>irobot_create_description</name>
+    <version>0.0.0</version>
+    <description>iRobot Create URDF Package</description>
+    <author>Jeff Rousseau</author>
+    <maintainer email="jchocholate@gmail.com">Jamie Cho</maintainer>
+    <license>MIT</license>
+    <url>http://ros.org/wiki/irobot_create_description</url>
+
+    <buildtool_depend>catkin</buildtool_depend>
+    <build_depend>geometry_msgs</build_depend>
+
+    <run_depend>urdf</run_depend>
+    <run_depend>xacro</run_depend>
+    <run_depend>gazebo</run_depend>
+    <run_depend>gazebo_ros</run_depend>
+
+    <export>
+        <gazebo_ros
+            gazebo_media_path="${prefix}"
+            gazebo_model_path="${prefix}/.."
+            />
+    </export>
+
+</package>
