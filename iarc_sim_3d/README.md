@@ -15,6 +15,14 @@ Currently, the package depends on (listing external packages):
     * **NOT** The standard version; needs to be from this repository.
     * Be sure to also install its dependencies.
 
+### Building
+
+```
+catkin_make -C ~/catkin_ws
+```
+
+Note that multiple `catkin_make` may be necessary.
+
 ### Running
 
 ```
@@ -22,3 +30,6 @@ roslaunch iarc_sim_3d sim.launch
 ```
 
 **Wait 5 seconds** in simulation time for all the robots to start running.
+
+
+**WARNING :** The simulation will run extremely slow on a VM, and may appear broken as a result.

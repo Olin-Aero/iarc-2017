@@ -40,13 +40,13 @@
         </include>
 
         <model name="wall_l">
-            <pose>-20 0 5 0 0 0</pose>
+            <pose>-20 0 1.5 0 0 0</pose>
             <static>1</static>
             <link name="link">
                 <visual name="visual">
                     <geometry>
                         <box>
-                            <size>0.1 40 10</size>
+                            <size>0.1 40 3</size>
                         </box>
                     </geometry>
                 </visual>
@@ -54,20 +54,20 @@
                 <collision name="collision">
                     <geometry>
                         <box>
-                            <size>0.1 40 10</size>
+                            <size>0.1 40 3</size>
                         </box>
                     </geometry>
                 </collision>
             </link>
         </model>
         <model name="wall_r">
-            <pose>20 0 5 0 0 0</pose>
+            <pose>20 0 1.5 0 0 0</pose>
             <static>1</static>
             <link name="link">
                 <visual name="visual">
                     <geometry>
                         <box>
-                            <size>0.1 40 10</size>
+                            <size>0.1 40 3</size>
                         </box>
                     </geometry>
                 </visual>
@@ -75,20 +75,20 @@
                 <collision name="collision">
                     <geometry>
                         <box>
-                            <size>0.1 40 10</size>
+                            <size>0.1 40 3</size>
                         </box>
                     </geometry>
                 </collision>
             </link>
         </model>
         <model name="wall_b">
-            <pose>0 -20 5 0 0 0</pose>
+            <pose>0 -20 1.5 0 0 0</pose>
             <static>1</static>
             <link name="link">
                 <visual name="visual">
                     <geometry>
                         <box>
-                            <size>40 0.1 10</size>
+                            <size>40 0.1 3</size>
                         </box>
                     </geometry>
                 </visual>
@@ -96,20 +96,20 @@
                 <collision name="collision">
                     <geometry>
                         <box>
-                            <size>40 0.1 10</size>
+                            <size>40 0.1 3</size>
                         </box>
                     </geometry>
                 </collision>
             </link>
         </model>
         <model name="wall_f">
-            <pose>0 20 5 0 0 0</pose>
+            <pose>0 20 1.5 0 0 0</pose>
             <static>1</static>
             <link name="link">
                 <visual name="visual">
                     <geometry>
                         <box>
-                            <size>40 0.1 10</size>
+                            <size>40 0.1 3</size>
                         </box>
                     </geometry>
                 </visual>
@@ -117,7 +117,7 @@
                 <collision name="collision">
                     <geometry>
                         <box>
-                            <size>40 0.1 10</size>
+                            <size>40 0.1 3</size>
                         </box>
                     </geometry>
                 </collision>
