@@ -1,0 +1,534 @@
+<?xml version=1.0?>
+<sdf version=1.4>
+<model name=IARCGrid>
+    <static>true</static>
+    
+<link name="x-10">
+    <pose>-10 0 0.01 0 0 0</pose>
+    <visual name="visual">
+      <geometry>
+        <box>
+            <size>.08 20 .01</size>
+        </box>
+      </geometry>
+    </visual>
+    </link>
+
+    <link name="y-10">
+    <pose>0 -10 0.01 0 0 0</pose>
+    <visual name="visual">
+      <geometry>
+        <box>
+            <size>20 .08 .01</size>
+        </box>
+      </geometry>
+      <material>
+<ambient>1 0 0 1</ambient><diffuse>1 0 0 1</diffuse>
+      </material>
+    </visual>
+    </link>
+    
+<link name="x-9">
+    <pose>-9 0 0.01 0 0 0</pose>
+    <visual name="visual">
+      <geometry>
+        <box>
+            <size>.08 20 .01</size>
+        </box>
+      </geometry>
+    </visual>
+    </link>
+
+    <link name="y-9">
+    <pose>0 -9 0.01 0 0 0</pose>
+    <visual name="visual">
+      <geometry>
+        <box>
+            <size>20 .08 .01</size>
+        </box>
+      </geometry>
+      <material>
+<diffuse>1 1 1 1</diffuse>
+      </material>
+    </visual>
+    </link>
+    
+<link name="x-8">
+    <pose>-8 0 0.01 0 0 0</pose>
+    <visual name="visual">
+      <geometry>
+        <box>
+            <size>.08 20 .01</size>
+        </box>
+      </geometry>
+    </visual>
+    </link>
+
+    <link name="y-8">
+    <pose>0 -8 0.01 0 0 0</pose>
+    <visual name="visual">
+      <geometry>
+        <box>
+            <size>20 .08 .01</size>
+        </box>
+      </geometry>
+      <material>
+<diffuse>1 1 1 1</diffuse>
+      </material>
+    </visual>
+    </link>
+    
+<link name="x-7">
+    <pose>-7 0 0.01 0 0 0</pose>
+    <visual name="visual">
+      <geometry>
+        <box>
+            <size>.08 20 .01</size>
+        </box>
+      </geometry>
+    </visual>
+    </link>
+
+    <link name="y-7">
+    <pose>0 -7 0.01 0 0 0</pose>
+    <visual name="visual">
+      <geometry>
+        <box>
+            <size>20 .08 .01</size>
+        </box>
+      </geometry>
+      <material>
+<diffuse>1 1 1 1</diffuse>
+      </material>
+    </visual>
+    </link>
+    
+<link name="x-6">
+    <pose>-6 0 0.01 0 0 0</pose>
+    <visual name="visual">
+      <geometry>
+        <box>
+            <size>.08 20 .01</size>
+        </box>
+      </geometry>
+    </visual>
+    </link>
+
+    <link name="y-6">
+    <pose>0 -6 0.01 0 0 0</pose>
+    <visual name="visual">
+      <geometry>
+        <box>
+            <size>20 .08 .01</size>
+        </box>
+      </geometry>
+      <material>
+<diffuse>1 1 1 1</diffuse>
+      </material>
+    </visual>
+    </link>
+    
+<link name="x-5">
+    <pose>-5 0 0.01 0 0 0</pose>
+    <visual name="visual">
+      <geometry>
+        <box>
+            <size>.08 20 .01</size>
+        </box>
+      </geometry>
+    </visual>
+    </link>
+
+    <link name="y-5">
+    <pose>0 -5 0.01 0 0 0</pose>
+    <visual name="visual">
+      <geometry>
+        <box>
+            <size>20 .08 .01</size>
+        </box>
+      </geometry>
+      <material>
+<diffuse>1 1 1 1</diffuse>
+      </material>
+    </visual>
+    </link>
+    
+<link name="x-4">
+    <pose>-4 0 0.01 0 0 0</pose>
+    <visual name="visual">
+      <geometry>
+        <box>
+            <size>.08 20 .01</size>
+        </box>
+      </geometry>
+    </visual>
+    </link>
+
+    <link name="y-4">
+    <pose>0 -4 0.01 0 0 0</pose>
+    <visual name="visual">
+      <geometry>
+        <box>
+            <size>20 .08 .01</size>
+        </box>
+      </geometry>
+      <material>
+<diffuse>1 1 1 1</diffuse>
+      </material>
+    </visual>
+    </link>
+    
+<link name="x-3">
+    <pose>-3 0 0.01 0 0 0</pose>
+    <visual name="visual">
+      <geometry>
+        <box>
+            <size>.08 20 .01</size>
+        </box>
+      </geometry>
+    </visual>
+    </link>
+
+    <link name="y-3">
+    <pose>0 -3 0.01 0 0 0</pose>
+    <visual name="visual">
+      <geometry>
+        <box>
+            <size>20 .08 .01</size>
+        </box>
+      </geometry>
+      <material>
+<diffuse>1 1 1 1</diffuse>
+      </material>
+    </visual>
+    </link>
+    
+<link name="x-2">
+    <pose>-2 0 0.01 0 0 0</pose>
+    <visual name="visual">
+      <geometry>
+        <box>
+            <size>.08 20 .01</size>
+        </box>
+      </geometry>
+    </visual>
+    </link>
+
+    <link name="y-2">
+    <pose>0 -2 0.01 0 0 0</pose>
+    <visual name="visual">
+      <geometry>
+        <box>
+            <size>20 .08 .01</size>
+        </box>
+      </geometry>
+      <material>
+<diffuse>1 1 1 1</diffuse>
+      </material>
+    </visual>
+    </link>
+    
+<link name="x-1">
+    <pose>-1 0 0.01 0 0 0</pose>
+    <visual name="visual">
+      <geometry>
+        <box>
+            <size>.08 20 .01</size>
+        </box>
+      </geometry>
+    </visual>
+    </link>
+
+    <link name="y-1">
+    <pose>0 -1 0.01 0 0 0</pose>
+    <visual name="visual">
+      <geometry>
+        <box>
+            <size>20 .08 .01</size>
+        </box>
+      </geometry>
+      <material>
+<diffuse>1 1 1 1</diffuse>
+      </material>
+    </visual>
+    </link>
+    
+<link name="x0">
+    <pose>0 0 0.01 0 0 0</pose>
+    <visual name="visual">
+      <geometry>
+        <box>
+            <size>.08 20 .01</size>
+        </box>
+      </geometry>
+    </visual>
+    </link>
+
+    <link name="y0">
+    <pose>0 0 0.01 0 0 0</pose>
+    <visual name="visual">
+      <geometry>
+        <box>
+            <size>20 .08 .01</size>
+        </box>
+      </geometry>
+      <material>
+<diffuse>1 1 1 1</diffuse>
+      </material>
+    </visual>
+    </link>
+    
+<link name="x1">
+    <pose>1 0 0.01 0 0 0</pose>
+    <visual name="visual">
+      <geometry>
+        <box>
+            <size>.08 20 .01</size>
+        </box>
+      </geometry>
+    </visual>
+    </link>
+
+    <link name="y1">
+    <pose>0 1 0.01 0 0 0</pose>
+    <visual name="visual">
+      <geometry>
+        <box>
+            <size>20 .08 .01</size>
+        </box>
+      </geometry>
+      <material>
+<diffuse>1 1 1 1</diffuse>
+      </material>
+    </visual>
+    </link>
+    
+<link name="x2">
+    <pose>2 0 0.01 0 0 0</pose>
+    <visual name="visual">
+      <geometry>
+        <box>
+            <size>.08 20 .01</size>
+        </box>
+      </geometry>
+    </visual>
+    </link>
+
+    <link name="y2">
+    <pose>0 2 0.01 0 0 0</pose>
+    <visual name="visual">
+      <geometry>
+        <box>
+            <size>20 .08 .01</size>
+        </box>
+      </geometry>
+      <material>
+<diffuse>1 1 1 1</diffuse>
+      </material>
+    </visual>
+    </link>
+    
+<link name="x3">
+    <pose>3 0 0.01 0 0 0</pose>
+    <visual name="visual">
+      <geometry>
+        <box>
+            <size>.08 20 .01</size>
+        </box>
+      </geometry>
+    </visual>
+    </link>
+
+    <link name="y3">
+    <pose>0 3 0.01 0 0 0</pose>
+    <visual name="visual">
+      <geometry>
+        <box>
+            <size>20 .08 .01</size>
+        </box>
+      </geometry>
+      <material>
+<diffuse>1 1 1 1</diffuse>
+      </material>
+    </visual>
+    </link>
+    
+<link name="x4">
+    <pose>4 0 0.01 0 0 0</pose>
+    <visual name="visual">
+      <geometry>
+        <box>
+            <size>.08 20 .01</size>
+        </box>
+      </geometry>
+    </visual>
+    </link>
+
+    <link name="y4">
+    <pose>0 4 0.01 0 0 0</pose>
+    <visual name="visual">
+      <geometry>
+        <box>
+            <size>20 .08 .01</size>
+        </box>
+      </geometry>
+      <material>
+<diffuse>1 1 1 1</diffuse>
+      </material>
+    </visual>
+    </link>
+    
+<link name="x5">
+    <pose>5 0 0.01 0 0 0</pose>
+    <visual name="visual">
+      <geometry>
+        <box>
+            <size>.08 20 .01</size>
+        </box>
+      </geometry>
+    </visual>
+    </link>
+
+    <link name="y5">
+    <pose>0 5 0.01 0 0 0</pose>
+    <visual name="visual">
+      <geometry>
+        <box>
+            <size>20 .08 .01</size>
+        </box>
+      </geometry>
+      <material>
+<diffuse>1 1 1 1</diffuse>
+      </material>
+    </visual>
+    </link>
+    
+<link name="x6">
+    <pose>6 0 0.01 0 0 0</pose>
+    <visual name="visual">
+      <geometry>
+        <box>
+            <size>.08 20 .01</size>
+        </box>
+      </geometry>
+    </visual>
+    </link>
+
+    <link name="y6">
+    <pose>0 6 0.01 0 0 0</pose>
+    <visual name="visual">
+      <geometry>
+        <box>
+            <size>20 .08 .01</size>
+        </box>
+      </geometry>
+      <material>
+<diffuse>1 1 1 1</diffuse>
+      </material>
+    </visual>
+    </link>
+    
+<link name="x7">
+    <pose>7 0 0.01 0 0 0</pose>
+    <visual name="visual">
+      <geometry>
+        <box>
+            <size>.08 20 .01</size>
+        </box>
+      </geometry>
+    </visual>
+    </link>
+
+    <link name="y7">
+    <pose>0 7 0.01 0 0 0</pose>
+    <visual name="visual">
+      <geometry>
+        <box>
+            <size>20 .08 .01</size>
+        </box>
+      </geometry>
+      <material>
+<diffuse>1 1 1 1</diffuse>
+      </material>
+    </visual>
+    </link>
+    
+<link name="x8">
+    <pose>8 0 0.01 0 0 0</pose>
+    <visual name="visual">
+      <geometry>
+        <box>
+            <size>.08 20 .01</size>
+        </box>
+      </geometry>
+    </visual>
+    </link>
+
+    <link name="y8">
+    <pose>0 8 0.01 0 0 0</pose>
+    <visual name="visual">
+      <geometry>
+        <box>
+            <size>20 .08 .01</size>
+        </box>
+      </geometry>
+      <material>
+<diffuse>1 1 1 1</diffuse>
+      </material>
+    </visual>
+    </link>
+    
+<link name="x9">
+    <pose>9 0 0.01 0 0 0</pose>
+    <visual name="visual">
+      <geometry>
+        <box>
+            <size>.08 20 .01</size>
+        </box>
+      </geometry>
+    </visual>
+    </link>
+
+    <link name="y9">
+    <pose>0 9 0.01 0 0 0</pose>
+    <visual name="visual">
+      <geometry>
+        <box>
+            <size>20 .08 .01</size>
+        </box>
+      </geometry>
+      <material>
+<diffuse>1 1 1 1</diffuse>
+      </material>
+    </visual>
+    </link>
+    
+<link name="x10">
+    <pose>10 0 0.01 0 0 0</pose>
+    <visual name="visual">
+      <geometry>
+        <box>
+            <size>.08 20 .01</size>
+        </box>
+      </geometry>
+    </visual>
+    </link>
+
+    <link name="y10">
+    <pose>0 10 0.01 0 0 0</pose>
+    <visual name="visual">
+      <geometry>
+        <box>
+            <size>20 .08 .01</size>
+        </box>
+      </geometry>
+      <material>
+<ambient>1 0 0 1</ambient><diffuse>0 1 0 1</diffuse>
+      </material>
+    </visual>
+    </link>
+    
+
+    </model>
+</sdf>
+

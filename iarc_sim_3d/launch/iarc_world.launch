@@ -1,0 +1,14 @@
+<launch>
+  <param name="/use_sim_time" value="true" />
+
+  <include file="$(find gazebo_ros)/launch/empty_world.launch">
+    <arg name="world_name" value="$(find iarc_sim_3d)/worlds/iarc.world"/>
+  </include>
+
+  <!--<node name="iarc_world_server" pkg="gazebo" type="gazebo"
+      args="$(find iarc_sim_3d)/worlds/iarc.world"
+      respawn="false" output="screen">
+  </node>-->
+  <node name="gazebo_gui" pkg="gazebo" type="gui" respawn="false" output="screen"/>
+</launch>
+
