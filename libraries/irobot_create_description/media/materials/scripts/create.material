@@ -1,0 +1,152 @@
+material Create/Black
+{
+  receive_shadows on
+  lighting on
+
+  technique
+  {
+    pass
+    {
+      ambient 0.1 0.1 0.1 1.0
+      diffuse 0.1 0.1 0.1 1.0
+      specular 0.0 0.0 0.0 0.0
+    }
+  }
+}
+
+material Create/Blue
+{
+  receive_shadows on
+
+  technique
+  {
+    pass
+    {
+      ambient 0.0 0.0 0.2 1.0
+      diffuse 0.0 0.0 0.8 1.0
+      specular 0.0 0.0 0.2 1.0
+      emissive 0.0 0.0 0.0 1.0
+      shading gouraud
+    }
+  }
+}
+
+material Create/Green
+{
+  receive_shadows on
+
+  technique
+  {
+    pass
+    {
+      ambient 0.0 0.2 0.0 1.0
+      diffuse 0.0 0.8 0.0 1.0
+      specular 0.0 0.2 0.0 1.0
+      emissive 0.0 0.0 0.0 0.0
+      lighting on
+      shading phong
+    }
+  }
+}
+
+material Create/Grey
+{
+  receive_shadows on
+  lighting on
+
+  technique
+  {
+    pass
+    {
+      ambient 0.1 0.1 0.1 1.0
+      diffuse 0.7 0.7 0.7 1.0
+      specular 0.8 0.8 0.8 1
+    }
+  }
+}
+
+material Create/Grey2
+{
+  receive_shadows on
+  lighting on
+
+  technique
+  {
+    pass
+    {
+      ambient 0.5 0.5 0.5 1.0
+      diffuse 0.9 0.9 0.9 1.0
+      specular 0.8 0.8 0.8 1
+      lighting on
+    }
+  }
+}
+
+material Create/Red
+{
+  receive_shadows on
+  technique
+  {
+    pass
+    {
+      ambient 0.2 0.0 0.0 1.0
+      diffuse 0.8 0.0 0.0 1.0
+      specular 0.2 0.0 0.0 1.0
+      emissive 0.0 0.0 0.0 1.0
+      lighting on
+      shading phong
+    }
+  }
+}
+
+material Create/White
+{
+  receive_shadows on
+  lighting on
+
+  technique
+  {
+    pass
+    {
+      ambient 0.5 0.5 0.5 1.0
+      diffuse 1.0 1.0 1.0 1.0
+      specular 1.0 1.0 1.0 1.0
+      shading gouraud
+    }
+  }
+}
+
+material Create/Yellow
+{
+  receive_shadows on
+
+  technique
+  {
+    pass
+    {
+      ambient 0.2 0.2 0.0 1.0
+      diffuse 0.8 0.8 0.0 1.0
+      specular 0.2 0.2 0.0 1.0
+      emissive 0.0 0.0 0.0 1.0
+      lighting on
+    }
+  }
+}
+
+material Create/GreyTextured
+{
+  technique
+  {
+    pass
+    {
+      ambient 0.75 0.75 0.75
+      cull_hardware none
+      cull_software none
+      texture_unit
+      {
+        texture grey_texture.jpg
+      }
+    }
+  }
+}
+

@@ -1,0 +1,34 @@
+<launch>
+    <include file="$(find iarc_sim_3d)/launch/spawn_roomba.launch">
+        <arg name="ns" value="obstacle0"/>
+        <arg name="x" value="5.00000000000000000000"/>
+        <arg name="y" value="0"/>
+        <arg name="Y" value="-1.57079632679489661922"/>
+        <arg name="pole" value="1.404"/>
+    </include>
+
+    <include file="$(find iarc_sim_3d)/launch/spawn_roomba.launch">
+        <arg name="ns" value="obstacle1"/>
+        <arg name="x" value=".00000000000000000005"/>
+        <arg name="y" value="5.00000000000000000000"/>
+        <arg name="Y" value="0"/>
+        <arg name="pole" value="1.05"/>
+    </include>
+
+    <include file="$(find iarc_sim_3d)/launch/spawn_roomba.launch">
+        <arg name="ns" value="obstacle2"/>
+        <arg name="x" value="-5.00000000000000000000"/>
+        <arg name="y" value=".00000000000000000010"/>
+        <arg name="Y" value="1.57079632679489661922"/>
+        <arg name="pole" value="1.81"/>
+    </include>
+
+    <include file="$(find iarc_sim_3d)/launch/spawn_roomba.launch">
+        <arg name="ns" value="obstacle3"/>
+        <arg name="x" value="-.00000000000000000015"/>
+        <arg name="y" value="-4.99999999999999999995"/>
+        <arg name="Y" value="3.14159265358979323844"/>
+        <arg name="pole" value="1.03"/>
+    </include>
+</launch>
+
