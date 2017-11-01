@@ -331,3 +331,4 @@ $RECYCLE.BIN/
 
 # data folders
 iarc_vision_data/data
+*.hdf5
