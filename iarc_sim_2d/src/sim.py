@@ -157,7 +157,7 @@ class Simulator(object):
 
         drone = self.drone
         drone.get_visible_roombas(all_robots, robot_pos)
-        print(drone.visible_roombas)
+        print(drone.tag)
         try:
             drone_pos, drone_heading = self.tf.lookupTransform(
                 'map', '%s'%drone.tag, rospy.Time(0)
