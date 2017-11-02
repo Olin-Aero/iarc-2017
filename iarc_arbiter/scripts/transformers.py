@@ -1,6 +1,7 @@
 import rospy
 import math
 from geometry_msgs.msg import Twist, PoseStamped
+from std_msgs.msg import Float64
 from tf import TransformListener
 
 
@@ -37,8 +38,13 @@ class PIDController(object):
         :type tf: TransformListener
         """
         self.tf = tf
-
+        rospy.Subscriber("/drone/height", Float64, self.callback)
         # Testing follow behavior at position (x, y) = (1, 1) relative to target
+
+        #Get the existing velocity being sent to the drone
+        rospy.Subscriber('/cmd_vel', Twist, self.record_vel)
+        self.vel3d = Twist()
+
         self.last_time = rospy.Time(0)
 
         self.maxvelocity = rospy.get_param('~max_velocity', 1.0)  # Max velocity the drone can reach
@@ -51,6 +57,13 @@ class PIDController(object):
         self.previous_error_x = 0.0
         self.integral_y = 0.0
         self.previous_error_y = 0.0
+
+    def record_vel(self, msg):
+        self.vel3d = msg
+        # print(self.vel3d)
+
+    def callback(self, msg):
+        self.actualHeight = msg.data
 
     def cmd_pos(self, msg):
         """
@@ -102,6 +115,9 @@ class PIDController(object):
             # Reset integral until we start using it
             self.integral_x = 0.0
             self.integral_y = 0.0
+
+        #Preserve the z value of velocity
+        vel.linear.z = self.vel3d.linear.z
 
         # Turn drone to where it's heading to
         vel.angular.z = self.kpturn * math.atan2(vel.linear.y, vel.linear.x)
