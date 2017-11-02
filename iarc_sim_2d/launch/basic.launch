@@ -1,10 +1,13 @@
 <launch>
+	<arg name="num_targets" default="8"/>
+	<arg name="num_obstacles" value="4"/>
+
     <param name="use_sim_time" value="true" />
 	<include file="$(find iarc_sim_engine)/launch/basic.launch"/>
 
 	<node name="iarc_simulator" pkg="iarc_sim_2d" cwd="node" type="sim.py" output="screen">
-        <param name="num_targets" value="8"/>
-        <param name="num_obstacles" value="4"/>
+        <param name="num_targets" value="$(arg num_targets)"/>
+        <param name="num_obstacles" value="$(arg num_obstacles)"/>
     </node>
 	
 	<node name="cmd_vel_fwd" pkg="topic_tools" type="relay" args="/cmd_vel /drone/cmd_vel" />
