@@ -20,7 +20,6 @@ class Drone(object):
         heading is an angle in radians (0 is +x and pi/2 is +y)
         """
 
-
         self.vel3d = Twist()
 
         # self.pos3d = [pos2d[0], pos2d[1], initial_height]
@@ -33,8 +32,8 @@ class Drone(object):
                 'map', '%s'%drone.tag, rospy.Time(0)
                 )
     	# self.height = 
-		
 
+    def 
 
 class Target(object):
 	pass
