@@ -6,7 +6,7 @@ import rospy
 import tf
 import actionlib
 import rospkg
-from std_msgs.msg import Float64
+from std_msgs.msg import Float64, String
 from geometry_msgs.msg import Twist, Pose2D, Point
 from iarc_sim_2d.msg import Roomba, Roombas
 rospack = rospkg.RosPack()
@@ -22,6 +22,7 @@ class Simulator(object):
         self.tf = tf.TransformListener()
         self.drone, self.targets, self.obstacles = self.spawn_robots(num_targets, num_obstacles)
         self.Vis_Roombas = rospy.Publisher('Vis_Roombas', Roombas, queue_size=10)
+        self.Failure_Conditions = rospy.Publisher('Failure_Conditions', String, queue_size=10)
 
     def spawn_robot(self,
             client,
@@ -33,7 +34,7 @@ class Simulator(object):
         try:
             client(name=name,img=img,radius=radius,x=pose.x,y=pose.y,t=pose.theta)
         except rospy.ServiceException as e:
-            print ('Service Call Failed : %s' % e)
+            print ('Service Call Failed : %s' % e) #replace with publisher
             return
 
         return robot_class(
@@ -50,7 +51,7 @@ class Simulator(object):
         try:
             client = rospy.ServiceProxy('/spawn', SpawnRobot)
         except rospy.ServiceException as e:
-            print ('Client Creation Failed : %s' % e)
+            print ('Client Creation Failed : %s' % e) #replace with publisher
 
         img = {
                 'drone' : os.path.join(rospack.get_path('iarc_sim_engine'),'data','drone.jpg'),
@@ -110,7 +111,7 @@ class Simulator(object):
             client = rospy.ServiceProxy('/spawn', SpawnRobot)
             return client(name)
         except rospy.ServiceException as e:
-            print ('Service Call Failed : %s' % e)
+            print ('Service Call Failed : %s' % e) #replace with publisher
         return False
 
     def reset(self):
@@ -153,7 +154,7 @@ class Simulator(object):
                 ) for i in xrange(len(all_robots))
                 ])
         except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException) as e:
-            print("Exception in tf Lookup Robots")
+            print("Exception in tf Lookup Robots") #replace with publisher
             return
 
         drone = self.drone
@@ -193,7 +194,7 @@ class Simulator(object):
             drone.pos3d[0], drone.pos3d[1] = [drone_pos[0], drone_pos[1]]
 
         except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException) as e:
-            print("Exception in tf Lookup Drone")
+            print("Exception in tf Lookup Drone")#replace with publisher
             return
         return robot_pos, robot_headings, drone_pos, drone_heading
 
@@ -261,11 +262,10 @@ class Simulator(object):
 
         self.drone.velocity_publisher = rospy.Publisher('/%s/cmd_vel' %self.drone.tag, Twist, queue_size=10)
         self.drone.velocity_subscriber = rospy.Subscriber('/%s/cmd_vel' %self.drone.tag, Twist, self.drone.record_vel)
-<<<<<<< HEAD
+
         #self.drone.visible_roomba_publisher = rospy.Publisher('/%s/vis_room' %self.drone.tag, , queue_size=10)
-=======
+
         self.drone.heightPublisher = rospy.Publisher('/drone/height',Float64,queue_size = 10)
->>>>>>> 0a2b2d3f4a1d5bf34fd5a056df9e967fcb760796
         t0 = rospy.Time.now().to_sec()
         t1 = t0
         t2 = t0
