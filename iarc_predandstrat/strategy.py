@@ -1,15 +1,19 @@
 # from transitions import Machine
 from transitions.extensions import HierarchicalGraphMachine as Machine
 from geometry_msgs.msg import Twist, Pose2D, Point
+from std_msgs.msg import Float64
+
 # from pygraphviz import *
 
 import sys
 import os
 import rospkg
+import rospy
 rospack = rospkg.RosPack()
 iarc_sim_path = rospack.get_path('iarc_sim_2d')
 sys.path.append(os.path.join(iarc_sim_path, 'src'))
 import config as cfg
+
 
 class Drone(object):
     def __init__(self):
@@ -21,19 +25,25 @@ class Drone(object):
         """
 
         self.vel3d = Twist()
-
+        rospy.Subscriber('/cmd_vel', Twist, self.recordVisible)
+        rospy.Subscriber('/drone/height', Float64, self.recordHeight)
+        # rospy.Subscriber('/drone/visibleRoombs', Roombas, self.recordVisible)
         # self.pos3d = [pos2d[0], pos2d[1], initial_height]
         # self.heading = heading
         # self.tag = tag
         # self.visible_roombas = []
 
+    def recordVisible(self, msg):
+    	self.visibleRoombs = msg
+
+    def recordHeight(self, msg):
+    	self.height = msg
+
     def getPose(self):
     	self.drone_pos, self.drone_heading = self.tf.lookupTransform(
                 'map', '%s'%drone.tag, rospy.Time(0)
                 )
-    	# self.height = 
 
-    def 
 
 class Target(object):
 	pass
@@ -94,7 +104,7 @@ drone.start()
 print(drone.state)
 
 
-
+print(cfg.ROOMBA_HEIGHT)
 drone.goodRoombaFound()
 
 print(drone.state)
