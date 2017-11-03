@@ -261,11 +261,9 @@ class Simulator(object):
 
         self.drone.velocity_publisher = rospy.Publisher('/%s/cmd_vel' %self.drone.tag, Twist, queue_size=10)
         self.drone.velocity_subscriber = rospy.Subscriber('/%s/cmd_vel' %self.drone.tag, Twist, self.drone.record_vel)
-<<<<<<< HEAD
-        #self.drone.visible_roomba_publisher = rospy.Publisher('/%s/vis_room' %self.drone.tag, , queue_size=10)
-=======
+
         self.drone.heightPublisher = rospy.Publisher('/drone/height',Float64,queue_size = 10)
->>>>>>> 0a2b2d3f4a1d5bf34fd5a056df9e967fcb760796
+
         t0 = rospy.Time.now().to_sec()
         t1 = t0
         t2 = t0
