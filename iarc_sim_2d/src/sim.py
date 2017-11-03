@@ -6,6 +6,7 @@ import rospy
 import tf
 import actionlib
 import rospkg
+from std_msgs.msg import Float64
 from geometry_msgs.msg import Twist, Pose2D, Point
 from iarc_sim_2d.msg import Roomba, Roombas
 rospack = rospkg.RosPack()
@@ -157,7 +158,6 @@ class Simulator(object):
 
         drone = self.drone
         drone.get_visible_roombas(all_robots, robot_pos)
-
         roombaArray = Roombas()
 
         for robot in range(len(drone.index_list)):
@@ -261,7 +261,11 @@ class Simulator(object):
 
         self.drone.velocity_publisher = rospy.Publisher('/%s/cmd_vel' %self.drone.tag, Twist, queue_size=10)
         self.drone.velocity_subscriber = rospy.Subscriber('/%s/cmd_vel' %self.drone.tag, Twist, self.drone.record_vel)
+<<<<<<< HEAD
         #self.drone.visible_roomba_publisher = rospy.Publisher('/%s/vis_room' %self.drone.tag, , queue_size=10)
+=======
+        self.drone.heightPublisher = rospy.Publisher('/drone/height',Float64,queue_size = 10)
+>>>>>>> 0a2b2d3f4a1d5bf34fd5a056df9e967fcb760796
         t0 = rospy.Time.now().to_sec()
         t1 = t0
         t2 = t0

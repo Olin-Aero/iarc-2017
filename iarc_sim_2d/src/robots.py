@@ -283,7 +283,7 @@ class Drone(object):
     def update(self, delta, elapsed):
         z_vel = self.vel3d.linear.z
         self.pos3d[2] += z_vel * delta
-
+        self.heightPublisher.publish(self.pos3d[2])
     def get_visible_roombas(self, roomba_array, pos_array):
         visible_roombas = []
         index_list = []
