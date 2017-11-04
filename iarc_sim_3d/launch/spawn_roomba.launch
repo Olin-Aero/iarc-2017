@@ -1,0 +1,50 @@
+<?xml version="1.0"?>
+<launch>
+    <arg name="ns" default="target1"/>
+    <arg name="model" default="$(find irobot_create_description)/urdf/roomba.urdf.xacro"/>
+    <arg name="x" default="0"/>
+    <arg name="y" default="0"/>
+    <arg name="z" default="0.01"/>
+    <arg name="R" default="0"/>
+    <arg name="P" default="0"/>
+    <arg name="Y" default="0"/>
+    <arg name="pole" default="1.0"/>
+
+    <!-- send the robot XML to param server -->
+    <param name="$(arg ns)/urdf" command='$(find xacro)/xacro "$(arg model)" color:=white ns:=$(arg ns) pole:=$(arg pole) --inorder' />
+
+    <!-- push robot_description to factory and spawn robot in gazebo -->
+    <node name="$(arg ns)_spawn" pkg="gazebo_ros" type="spawn_model"
+        args="-param $(arg ns)/urdf
+        -urdf
+        -x '$(arg x)'
+        -y '$(arg y)'
+        -z '$(arg z)'
+        -R '$(arg R)'
+        -P '$(arg P)'
+        -Y '$(arg Y)'
+        -model $(arg ns)"
+        respawn="false" output="screen"/>
+    
+
+    <!-- start robot state publisher -->
+    <group ns="$(arg ns)">
+        <!--
+        <rosparam file="$(find iarc_sim_3d)/config/joint_state_controller.yaml" command="load"/>
+        <node name="controller_spawner" pkg="controller_manager" type="spawner" respawn="false"
+            output="screen" args="joint_state_controller"/>
+        -->
+
+        <!--
+        <node pkg="robot_state_publisher" type="robot_state_publisher" name="state" output="screen" >
+            <remap from="robot_description" to="$(arg ns)/urdf" />
+            <param name="publish_frequency" type="double" value="50.0" />
+            <param name="tf_prefix" type="string" value="$(arg ns)" />
+        </node>
+        <node name="$(arg ns)_odom_tf" pkg="tf" type="static_transform_publisher" args="0 0 0 0 0 0 map $(arg ns)/odom 30" />	
+        -->
+
+        <!-- seemingly map frame == odom frame -->
+    </group>
+
+</launch>

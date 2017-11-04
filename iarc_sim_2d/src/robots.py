@@ -142,7 +142,7 @@ class TargetRoomba(Roomba):
                 # print("Turning counterclockwise")
                 self.z_w = cfg.ROOMBA_ANGULAR_SPEED
                 self.heading += amount
-            
+
             if self.turn_target < 0:
                 # we have completed the turn, reset to forward motion
                 # print("turn completed")
@@ -187,7 +187,7 @@ class ObstacleRoomba(Roomba):
         delta - change in time since last update (seconds)
         elapsed - total time elapsed since start (milliseconds)
         '''
-        # reorient so we tangent to a circle centered at the origin 
+        # reorient so we tangent to a circle centered at the origin
         #ang = np.arctan2(10 - self.pos[1], 10 - self.pos[0])
         #self.heading = ang
         # self.x_vel = cfg.ROOMBA_LINEAR_SPEED
@@ -206,7 +206,7 @@ class ObstacleRoomba(Roomba):
         if self.state == cfg.ROOMBA_STATE_IDLE:
             self.x_vel = 0
             self.z_w = 0
-            
+
         if self.state == cfg.ROOMBA_STATE_FORWARD:
             self.x_vel = cfg.ROOMBA_LINEAR_SPEED
             self.z_w = self.x_vel / cfg.ROOMBA_OBSTACLE_TURN_RADIUS
@@ -283,9 +283,10 @@ class Drone(object):
     def update(self, delta, elapsed):
         z_vel = self.vel3d.linear.z
         self.pos3d[2] += z_vel * delta
-
+        self.heightPublisher.publish(self.pos3d[2])
     def get_visible_roombas(self, roomba_array, pos_array):
         visible_roombas = []
+        index_list = []
         for i in xrange(0, len(pos_array)):
 
             dy = pos_array[i][1] - self.pos3d[1]
@@ -295,4 +296,6 @@ class Drone(object):
 
             if d < np.sin(cfg.BOTTOM_CAMERA_FOV)*self.pos3d[2]:
                 visible_roombas = np.append(visible_roombas, roomba_array[i])
+                index_list.append(i)
         self.visible_roombas = visible_roombas
+        self.index_list = index_list
