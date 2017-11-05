@@ -261,7 +261,7 @@ class Drone(object):
         vel3d is a vector [x',y',z']
         heading is an angle in radians (0 is +x and pi/2 is +y)
         """
-        initial_height = 0 #Make this an arugment at some point
+        initial_height = 3 #Make this an arugment at some point
         self.vel3d = Twist()
 
         self.pos3d = [pos2d[0], pos2d[1], initial_height]

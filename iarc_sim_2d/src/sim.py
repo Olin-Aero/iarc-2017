@@ -261,7 +261,7 @@ class Simulator(object):
             obstacle_neato.start()
 
         self.drone.velocity_publisher = rospy.Publisher('/%s/cmd_vel' %self.drone.tag, Twist, queue_size=10)
-        self.drone.velocity_subscriber = rospy.Subscriber('/%s/cmd_vel' %self.drone.tag, Twist, self.drone.record_vel)
+        rospy.Subscriber('/%s/cmd_vel' %self.drone.tag, Twist, self.drone.record_vel)
 
         self.drone.heightPublisher = rospy.Publisher('/drone/height',Float64,queue_size = 10)
 

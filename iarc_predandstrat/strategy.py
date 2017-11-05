@@ -2,47 +2,112 @@
 from transitions.extensions import HierarchicalGraphMachine as Machine
 from geometry_msgs.msg import Twist, Pose2D, Point
 from std_msgs.msg import Float64
+from iarc_sim_2d.msg import Roomba, Roombas
 
 # from pygraphviz import *
-
+import time
+import pdb
 import sys
 import os
 import rospkg
 import rospy
+import numpy as np
 rospack = rospkg.RosPack()
 iarc_sim_path = rospack.get_path('iarc_sim_2d')
 sys.path.append(os.path.join(iarc_sim_path, 'src'))
 import config as cfg
 
-
 class Drone(object):
-    def __init__(self):
-        """
-        Initialize the Drone object where:
-        pos3d is a vector [x,y,z]
-        vel3d is a vector [x',y',z']
-        heading is an angle in radians (0 is +x and pi/2 is +y)
-        """
 
-        self.vel3d = Twist()
-        rospy.Subscriber('/cmd_vel', Twist, self.recordVisible)
-        rospy.Subscriber('/drone/height', Float64, self.recordHeight)
-        # rospy.Subscriber('/drone/visibleRoombs', Roombas, self.recordVisible)
-        # self.pos3d = [pos2d[0], pos2d[1], initial_height]
-        # self.heading = heading
-        # self.tag = tag
-        # self.visible_roombas = []
+	def __init__(self, C1=1, C2=1, C3=1, C4=1, C5=1, MIN_OBSTACLE_DISTANCE=1.5):
+		"""
+		Initialize the Drone object where:
+		pos3d is a vector [x,y,z]
+		vel3d is a vector [x',y',z']
+		heading is an angle in radians (0 is +x and pi/2 is +y)
+		"""
 
-    def recordVisible(self, msg):
-    	self.visibleRoombs = msg
+		rospy.Subscriber('/Vis_Roombas', Roombas, self.recordVisible)
+		rospy.Subscriber('/drone/height', Float64, self.recordHeight)
+		self.vel3d = Twist()
+		self.visibleRoombas = []
+		self.visibleObstacles = []
 
-    def recordHeight(self, msg):
-    	self.height = msg
+		self.C1 = C1
+		self.C2 = C2
+		self.C3 = C3
+		self.C4 = C4
+		self.C5 = C5
+		self.MIN_OBSTACLE_DISTANCE = MIN_OBSTACLE_DISTANCE
 
-    def getPose(self):
-    	self.drone_pos, self.drone_heading = self.tf.lookupTransform(
-                'map', '%s'%drone.tag, rospy.Time(0)
-                )
+	def recordVisible(self, msg):
+		self.visibleRoombas = filter(lambda x: 'target' in x.tag, msg.roombas)
+		self.visibleObstacles =  filter(lambda x: 'obstacle' in x.tag, msg.roombas)
+
+
+	def recordHeight(self, msg):
+		self.height = msg
+
+	def getPose(self):
+		self.drone_pos, self.drone_heading = self.tf.lookupTransform(
+				'map', '%s'%drone.tag, rospy.Time(0)
+				)
+	def goodnessScore(self):
+		"""
+		Determines which Roomba we pick to lead to the goal.
+		Higher score is better.
+
+		Returns: [(Roomba, Score)]
+		"""
+
+		def headingScore(roomba):
+			return np.sin(roomba.heading)
+
+		def positionScore(roomba):
+			return roomba.y
+
+		def distanceFromObstaclesScore(roomba, obstacles):
+			"""
+			(-infinity, 0)
+			"""
+
+			score = 0
+			for obstacle in obstacles:
+				x = roomba.x - obstacle.x
+				y = roomba.y - obstacle.y
+				dist = np.sqrt(x**2 + y**2)
+
+				if dist < MIN_OBSTACLE_DISTANCE:
+					return -math.inf
+
+				score -= 1/dist**2
+
+			return score
+
+			
+
+		def stateQualtityScore(roomba):
+			"""
+			How precisely we know the Roombas' state.
+			"""
+			return 0
+
+		def futureGoodnessScore(roomba):
+			return 0
+
+		result = []
+
+		for i in xrange(0,len(self.visibleRoombas)):
+			roomba = self.visibleRoombas[i]
+			score = self.C1*headingScore(roomba) + \
+				self.C2*positionScore(roomba) + \
+				self.C3*distanceFromObstaclesScore(roomba, self.visibleObstacles) + \
+				self.C4*stateQualtityScore(roomba) + \
+				self.C5*futureGoodnessScore(roomba)
+			result.append((roomba, score))
+
+		return result
+
 
 
 class Target(object):
@@ -56,8 +121,14 @@ class StratModel(object):
 		self.tf = tf.TransformListener()
 
 
-drone = Drone()
+rospy.init_node('strategy')
 
+drone = Drone()
+while True:
+	time.sleep(1)
+	print('-'*80)
+	for roomba, score in drone.goodnessScore():
+		print('score: %f roomba: %s'%(score, roomba.tag))
 
 states = [
 		'init',
