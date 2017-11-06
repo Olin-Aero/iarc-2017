@@ -24,7 +24,8 @@ class ColorTracker(object):
         self.bridge = CvBridge() # used to convert ROS messages to OpenCV
         rospy.Subscriber("/usb_cam/image_raw", Image, self.process_image)
         print "Initializing Color Tracker"
-		# cv2.namedWindow('video_window')
+        cv2.namedWindow('preview_window')
+        cv2.namedWindow('binary')
 
     def process_image(self, msg):
         """
@@ -35,12 +36,12 @@ class ColorTracker(object):
         try:
             cv_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding="bgr8")
             # do image processing here
-            
-
+            binary_image = cv2.inRange(cv_image, (128,128,128),(255,255,255))
+            self.binary_image = binary_image
             self.cv_image = cv_image
         except CvBridgeError as e:
+            print "Error loading image"
             print(e)
-        # cv2.waitKey(3)
 
     def run(self):
         """ The main run loop, in this node it doesn't do anything """
@@ -49,7 +50,9 @@ class ColorTracker(object):
             # start out not issuing any motor commands
             if not self.cv_image is None:
                 print self.cv_image.shape
-                cv2.imshow('video_window', self.cv_image)
+                cv2.imshow('preview_window', self.cv_image)
+                cv2.imshow('binary', self.binary_image)
+                cv2.waitKey(5)
             r.sleep()
 
 if __name__ == '__main__':
