@@ -63,7 +63,7 @@ class Drone:
 
         self.followPub.publish(pose_stamped)
 
-    def follow_roomba_global(self, roomba=None, des_x=0.0, des_y=0.0, des_z=0.0):
+    def follow_roomba_global(self, des_x=0.0, des_y=0.0, des_z=0.0):
         """
         Follow roomba X with desired position des_x, des_y
         :param roomba: an roomba object
@@ -71,11 +71,12 @@ class Drone:
         :param des_y: desired position y
         :param des_z: desired position z
         """
-        if roomba is None:
-            roomba = self.current_target
+        if self.current_target is None:
+            return
+        position = self.position_of_roomba()
         pose_stamped = PoseStamped()
-        pose_stamped.pose.position.x = des_x
-        pose_stamped.pose.position.y = des_y
+        pose_stamped.pose.position.x = position[0] + des_x
+        pose_stamped.pose.position.y = position[1] + des_y
         pose_stamped.pose.position.z = des_z
         pose_stamped.header.frame_id = "map"
 
@@ -103,6 +104,10 @@ class Drone:
         self.heightPub.publish(self.vel3d)
 
         return height - self.actual_height
+
+    def stand_still(self):
+        self.vel3d = Twist()
+        self.heightPub.publish(self.vel3d)
 
     def push_button(self):
         if self.distance_from_target() is None:
@@ -139,8 +144,7 @@ class Drone:
                     self.change_height(self.NORMAL_HEIGHT)
                 elif self.distance_from_target() <= 0.8:
                     print "Landed in front and waiting for roomba"
-                    self.vel3d = Twist()
-                    self.heightPub.publish(self.vel3d)
+                    self.stand_still()
 
     def distance_from_target(self):
         """
@@ -215,38 +219,51 @@ class Drone:
         self.test_change_height(3)
         r = rospy.Rate(10)
         while True:
-            pos = self.position_of_roomba()
+            # pos = self.position_of_roomba()
             r.sleep()
-            print format(pos)
+            # print format(pos)
             # self.follow_roomba()
-            self.follow_roomba_global(des_x=pos[0], des_y=pos[1])
+            self.follow_roomba_global(des_x=0, des_y=0)
 
     def test_change_height(self, height=0.0):
         error = height - self.actual_height
         while abs(error) >= 0.5:
             print "error", error
             error = self.change_height(height)
+        self.stand_still()
 
     def test_push_button(self):
         self.test_change_height(height=2.0)
+        r = rospy.Rate(10)
         while True:
             angle, is_rotating = self.target_facing_angle()
-            if not is_rotating and self.check_push_button():
-                self.push_button()
+            r.sleep()
+            # print is_rotating
+            if not is_rotating or self.should_hit_button:
+                if self.check_push_button():
+                    self.should_hit_button = True
+                else:
+                    self.should_hit_button = False
+
+                # Perform push button if applicable
+                if self.should_hit_button:
+                    self.push_button()
+                    self.follow_roomba_global()
+
+                # Otherwise perform back to normal height
+                else:
+                    self.follow_roomba_global(des_x=0, des_y=-0.5)
+                    self.change_height(self.NORMAL_HEIGHT + 0.2)
             else:
                 self.should_hit_button = False
-
-            if self.should_hit_button or not self.check_back_to_height:
-                self.follow_roomba()
-                self.push_button()
+                self.follow_roomba_global(des_x=0, des_y=-0.5)
+                self.change_height(self.NORMAL_HEIGHT + 0.2)
 
     def test_land_front(self):
         self.test_change_height(self.NORMAL_HEIGHT)
         r = rospy.Rate(10)
 
         while True:
-            pos =self.position_of_roomba()
-
             angle, is_rotating = self.target_facing_angle()
             r.sleep()
             # print is_rotating
@@ -263,7 +280,7 @@ class Drone:
                 # Perform push button if applicable
                 if self.should_hit_button:
                     self.push_button()
-                    self.follow_roomba()
+                    self.follow_roomba_global()
 
                 # Perform land in front if applicable
                 elif self.should_land_front:
@@ -271,19 +288,19 @@ class Drone:
 
                 # Otherwise perform back to normal height
                 else:
-                    self.follow_roomba_global(des_y=pos[1]-0.6, des_x=pos[0])
+                    self.follow_roomba_global(des_x=0, des_y=-0.5)
                     self.change_height(self.NORMAL_HEIGHT + 0.2)
             else:
                 self.should_hit_button = False
                 self.should_land_front = False
-                self.follow_roomba_global(des_y=pos[1]-0.6, des_x=pos[0])
+                self.follow_roomba_global(des_x=0, des_y=-0.5)
                 self.change_height(self.NORMAL_HEIGHT + 0.2)
 
 
 if __name__ == '__main__':
     rospy.init_node('Example')
     rospy.sleep(0.5)
-    roomba = Roomba("target1")
+    roomba = Roomba("target0")
     drone = Drone(target=roomba)
 
     # Register this behavior (FollowBehavior) to the arbiter
@@ -293,7 +310,7 @@ if __name__ == '__main__':
     rospy.Publisher('/arbiter/activate_behavior', String, latch=True, queue_size=10).publish('follow')
 
     # drone.test_change_height(drone.NORMAL_HEIGHT)
-    drone.test_follow_roomba()
-    # drone.test_change_height(height=2.0)
-    # drone.test_land_front()
+    # drone.test_follow_roomba()
     # drone.test_push_button()
+    drone.test_land_front()
+
