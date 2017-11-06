@@ -25,4 +25,6 @@
       {id: 5, size: 0.163513}]
     </rosparam>
   </node>
+
+  <node pkg="iarc_vision" type="apriltag_rebroadcast.py" name="apriltag_rebroadcaster"/>
 </launch>
