@@ -31,6 +31,7 @@ void ROSRobot::publish(){
 
 void ROSRobot::cmd_vel_cb(const geometry_msgs::TwistConstPtr& msg){
     float v = msg->linear.x;
+    float vy = msg->linear.y;
     float w = msg->angular.z;
-    set_vel(v,w);
+    set_vel(v,w,vy);
 }
