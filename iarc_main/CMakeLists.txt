@@ -54,6 +54,7 @@ add_message_files(
   FILES
   Roomba.msg
   RoombaList.msg
+  RoombaSighting.msg
 )
 
 ## Generate services in the 'srv' folder
