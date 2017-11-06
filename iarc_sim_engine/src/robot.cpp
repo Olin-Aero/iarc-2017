@@ -13,6 +13,11 @@ void Robot::update(float dt){
     //t w.r.t top
     x += v*cos(t)*dt;
     y += v*sin(t)*dt;
+
+    // strafing
+    x += -vy*sin(t)*dt;
+    y += vy*cos(t)*dt;
+
     t += w*dt;
 }
 void Robot::set_pos(float _x, float _y, float _t){
@@ -23,9 +28,10 @@ void Robot::get_pos(float& _x, float& _y, float& _t) const{
     _y=y;
     _t=t;
 }
-void Robot::set_vel(float _v, float _w){
+void Robot::set_vel(float _v, float _w, float _vy){
     v=_v;
     w=_w;
+    vy=_vy;
 }
 void Robot::get_vel(float& _v, float& _w) const{
     _v=v;

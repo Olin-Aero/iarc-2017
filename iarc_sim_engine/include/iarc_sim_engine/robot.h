@@ -7,6 +7,7 @@ class Robot{
     protected:
         float x,y,t;
         float v=0,w=0;
+        float vy=0;
         std::string name;
         Robot(const std::string name);
         virtual ~Robot();
@@ -17,7 +18,7 @@ class Robot{
         void set_pos(float,float,float);
         void get_pos(float&,float&,float&) const;
 
-        void set_vel(float v, float w);
+        void set_vel(float v, float w, float vy=0);
         void get_vel(float&,float&) const;
 
         void set_name(const std::string name);
