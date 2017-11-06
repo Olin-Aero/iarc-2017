@@ -39,7 +39,7 @@ class Drone:
         rospy.Subscriber("/cmd_vel", Twist, self.record_vel)
 
     def record_height(self, msg):
-        print self.actual_height
+        # print self.actual_height
         self.actual_height = msg.data
 
     def record_vel(self, msg):
@@ -60,6 +60,24 @@ class Drone:
         pose_stamped.pose.position.y = des_y
         pose_stamped.pose.position.z = des_z
         pose_stamped.header.frame_id = roomba.frame_id
+
+        self.followPub.publish(pose_stamped)
+
+    def follow_roomba_global(self, roomba=None, des_x=0.0, des_y=0.0, des_z=0.0):
+        """
+        Follow roomba X with desired position des_x, des_y
+        :param roomba: an roomba object
+        :param des_x: desired position x
+        :param des_y: desired position y
+        :param des_z: desired position z
+        """
+        if roomba is None:
+            roomba = self.current_target
+        pose_stamped = PoseStamped()
+        pose_stamped.pose.position.x = des_x
+        pose_stamped.pose.position.y = des_y
+        pose_stamped.pose.position.z = des_z
+        pose_stamped.header.frame_id = "map"
 
         self.followPub.publish(pose_stamped)
 
@@ -136,6 +154,17 @@ class Drone:
         distance = math.sqrt(position[0] ** 2 + position[1] ** 2)
         return distance
 
+    def position_of_roomba(self):
+        """
+        Get the distance from the target relative to drone
+        :return: distance
+        """
+        if roomba is None:
+            return None
+
+        position, quaternion = self.tf.lookupTransform("map", self.current_target.frame_id, rospy.Time(0))
+        return position
+
     def target_facing_angle(self):
         """
         :return: The angle the target is facing from PI to -PI & True if target is rotating
@@ -183,14 +212,19 @@ class Drone:
     """
 
     def test_follow_roomba(self):
-        self.test_change_height(height=2.0)
-        while self.distance_from_target() > 0.1:
-            self.follow_roomba(des_x=2)
+        self.test_change_height(3)
+        r = rospy.Rate(10)
+        while True:
+            pos = self.position_of_roomba()
+            r.sleep()
+            print format(pos)
+            # self.follow_roomba()
+            self.follow_roomba_global(des_x=pos[0], des_y=pos[1])
 
     def test_change_height(self, height=0.0):
-        height = height
         error = height - self.actual_height
-        while abs(error) >= 0.1:
+        while abs(error) >= 0.5:
+            print "error", error
             error = self.change_height(height)
 
     def test_push_button(self):
@@ -211,6 +245,8 @@ class Drone:
         r = rospy.Rate(10)
 
         while True:
+            pos =self.position_of_roomba()
+
             angle, is_rotating = self.target_facing_angle()
             r.sleep()
             # print is_rotating
@@ -235,12 +271,12 @@ class Drone:
 
                 # Otherwise perform back to normal height
                 else:
-                    self.follow_roomba(des_x=-0.6)
+                    self.follow_roomba_global(des_y=pos[1]-0.6, des_x=pos[0])
                     self.change_height(self.NORMAL_HEIGHT + 0.2)
             else:
                 self.should_hit_button = False
                 self.should_land_front = False
-                self.follow_roomba(des_x=-0.6)
+                self.follow_roomba_global(des_y=pos[1]-0.6, des_x=pos[0])
                 self.change_height(self.NORMAL_HEIGHT + 0.2)
 
 
@@ -256,6 +292,8 @@ if __name__ == '__main__':
     # This command tell the arbiter that this behavior will take command from now on and abort other behaviors
     rospy.Publisher('/arbiter/activate_behavior', String, latch=True, queue_size=10).publish('follow')
 
+    # drone.test_change_height(drone.NORMAL_HEIGHT)
+    drone.test_follow_roomba()
     # drone.test_change_height(height=2.0)
-    drone.test_land_front()
+    # drone.test_land_front()
     # drone.test_push_button()
