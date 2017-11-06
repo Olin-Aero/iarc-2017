@@ -41,16 +41,16 @@ class PIDController(object):
         rospy.Subscriber("/drone/height", Float64, self.callback)
         # Testing follow behavior at position (x, y) = (1, 1) relative to target
 
-        #Get the existing velocity being sent to the drone
+        # Get the existing velocity being sent to the drone
         rospy.Subscriber('/cmd_vel', Twist, self.record_vel)
         self.vel3d = Twist()
 
         self.last_time = rospy.Time(0)
 
         self.maxvelocity = rospy.get_param('~max_velocity', 1.0)  # Max velocity the drone can reach
-        self.kpturn = rospy.get_param('~kp_turn', 1.0)  # Proportional for turning
+        self.kpturn = rospy.get_param('~kp_turn', 1)  # Proportional for turning
         self.kp = rospy.get_param('~kp', 1.0)  # Proportional
-        self.ki = rospy.get_param('~ki', 0.2)  # Integral
+        self.ki = rospy.get_param('~ki', 0.5)  # Integral
         self.kd = rospy.get_param('~kd', 0.0)  # Derivative: kd is not currently used
 
         self.integral_x = 0.0
@@ -93,10 +93,10 @@ class PIDController(object):
 
         # Calculate DIP velocity_y
         error_y = position.y
-        integral_y = self.integral_y + error_y * dt
+        self.integral_y = self.integral_y + error_y * dt
         derivative_y = (error_y - self.previous_error_y) / dt
         self.previous_error_y = error_y
-        dip_y = self.kp * error_y + self.ki * integral_y + self.kd * derivative_y
+        dip_y = self.kp * error_y + self.ki * self.integral_y + self.kd * derivative_y
 
         # Combined velocity
         dip_diagonal = math.sqrt(dip_x ** 2 + dip_y ** 2)
@@ -116,11 +116,11 @@ class PIDController(object):
             self.integral_x = 0.0
             self.integral_y = 0.0
 
-        #Preserve the z value of velocity
+        # Preserve the z value of velocity
         vel.linear.z = self.vel3d.linear.z
 
         # Turn drone to where it's heading to
-        vel.angular.z = self.kpturn * math.atan2(vel.linear.y, vel.linear.x)
+        # vel.angular.z = self.kpturn * math.atan2(position.y, position.x)
 
         print("Calculated vel: {}".format(vel))
 
