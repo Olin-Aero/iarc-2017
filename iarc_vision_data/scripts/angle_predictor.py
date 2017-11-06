@@ -1,5 +1,13 @@
 #!/usr/bin/env python
 
+"""
+Angle Predictor
+
+Contact: Nathan Yee
+Model weights/config: (figuring out how to do without saving on git)
+
+"""
+
 #import modules
 import numpy as np
 from PIL import Image
