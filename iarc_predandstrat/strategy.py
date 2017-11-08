@@ -84,11 +84,13 @@ class Drone(object):
 
 			return score
 
-			
+
 
 		def stateQualtityScore(roomba):
 			"""
 			How precisely we know the Roombas' state.
+			Compare position accuracy to view radius to know if it's possible
+			to see the given roomba when drone arrives.
 			"""
 			return 0
 
@@ -108,6 +110,13 @@ class Drone(object):
 
 		return result
 
+	def targetSelect(self, roombaScore):
+		print(roombaScore)
+		if roombaScore is not []:
+			return max(roombaScore, key=lambda x: x[1])
+		else:
+			return []
+
 
 
 class Target(object):
@@ -125,10 +134,12 @@ rospy.init_node('strategy')
 
 drone = Drone()
 while True:
-	time.sleep(1)
+	time.sleep(.1)
 	print('-'*80)
 	for roomba, score in drone.goodnessScore():
 		print('score: %f roomba: %s'%(score, roomba.tag))
+	bestRoomba, bestRoombaScore = drone.targetSelect(drone.goodnessScore())
+	print('Best Score: %f Best Roomba: %s'%(bestRoombaScore, bestRoomba.tag))
 
 states = [
 		'init',
