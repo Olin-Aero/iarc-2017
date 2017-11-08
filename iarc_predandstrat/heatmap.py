@@ -11,9 +11,16 @@ fiveSecSim- calculates less detailed short term estimates of Roomba location. Do
 """
 
 import math
+import numpy as np
 import matplotlib.pyplot as plt
 import random
 from collections import Counter
+
+import rospy
+import tf.transformations
+
+from iarc_main.msg import Roomba
+from geometry_msgs.msg import PoseWithCovariance, PoseWithCovarianceStamped, Pose
 
 
 # from roomba_classes import TargetRoomba
@@ -69,53 +76,91 @@ def plotStuff(loc_data):
     plt.show()
 
 
-def fiveSecSim(passed_time_since, passed_prev_loc, passed_prev_orient):
+def fiveSecSim(roomba, end_time):
     """
     This simulation is for short term rapid location estimation of a Roomba that hasn't been seen for a while.
     20 hypothetical "Imaginary Roombas" trace out paths it could have taken, and the centroid of the final scatter determines the hypothesized final position of the actual Roomba.
     times_since = Array. Time since the Roomba was last seen.
+
+    :arg (Roomba) roomba: The initial Roomba position
+    :arg (rospy.Time) end_time: When we want to simulate until
+    :returns prediction: The estimated final position
+    :rtype: PoseWithCovarianceStamped
     """
     roomba_pos = [(0, 0)] * 20
 
+    known_time = roomba.visible_location.header.stamp
+
     # try:
-    time_since = passed_time_since
-    prev_loc = passed_prev_loc
-    prev_orient = passed_prev_orient
+    sim_duration = (end_time - known_time).to_sec()
 
-    time_to_noise = time_since % 5  # Check time remaining until Roomba experiences noise
-    noise_cycles = int(math.floor(time_since / 5.0))  # Check number of times Roombas should go through "noise"
+    pose = roomba.visible_location.pose.pose.position
+    start_pos = (pose.x, pose.y)
 
-    time_to_turn = time_since % 20  # Check time remaining until Roomba turns
-    turn_cycles = math.floor(time_since / 20.0)  # Check number of times Roombas should go through "turn cycles"
+    quaternion = roomba.visible_location.pose.pose.orientation
+    start_orient = tf.transformations.euler_from_quaternion(quaternion)[2]
 
-    for roomba in range(0, 20):  # For one of 20 hypothetical roombas...
+    # TODO: consider a separate timer for noise, roomba.last_turn is about 180 reversals
+    time_to_noise = 5 - (
+    (known_time - roomba.last_turn).to_sec() % 5)  # Check time remaining until Roomba experiences noise
+    noise_cycles = int(
+        math.ceil((sim_duration - time_to_noise) / 5.0))  # Check number of times Roombas should go through "noise"
+
+    time_to_turn = 20 - ((known_time - roomba.last_turn).to_sec() % 20)  # Check time remaining until Roomba turns
+    turn_cycles = int(math.ceil(
+        (sim_duration - time_to_turn) / 20.0))  # Check number of times Roombas should go through "turn cycles"
+
+    for roomba in range(0, len(roomba_pos)):  # For one of 20 hypothetical roombas...
+        orient = start_orient
+        roomba_pos[roomba] = start_pos
         if noise_cycles <= 0:
-            roomba_pos[roomba] = locCalc(prev_loc, time_to_noise, prev_orient)
+            roomba_pos[roomba] = locCalc(roomba_pos[roomba], sim_duration, orient)
         else:
+            # The first simulation period is time_to_noise long
+            dt = time_to_noise
             for cycles in range(1, noise_cycles + 1):
                 # print("Hoi")
                 # print roomba, cycles
-                randnum = prev_orient + random.randint(math.floor(-(math.pi / 18)), math.floor((math.pi / 18)))
-                prev_orient = randnum
-                roomba_pos[roomba] = locCalc(roomba_pos[roomba], (time_since - time_to_noise),
-                                             randnum)  # Need to bugfix here- Having issue with angle again
-            roomba_pos[roomba] = locCalc(roomba_pos[roomba], time_to_noise, prev_orient)
+                orient = orient + random.randint(math.floor(-(math.pi / 18)), math.floor((math.pi / 18)))
+                roomba_pos[roomba] = locCalc(roomba_pos[roomba], dt,
+                                             orient)  # Need to bugfix here- Having issue with angle again
 
-    # print roomba_pos
-    return roomba_pos
-    # except:
-    #     print("Short term simulation failed")
-    #     return roomba_pos
+                # Middle periods are 5s
+                dt = 5.0
+
+            # Final period can be shorter
+            dt = (sim_duration - time_to_noise) % 5.0
+            roomba_pos[roomba] = locCalc(roomba_pos[roomba], dt, orient)
+
+    rospy.loginfo_throttle("Simulated positions: {}".format(roomba_pos))
+
+    meanPos = np.mean(roomba_pos, axis=0)
+    msg = Pose(
+        x=meanPos[0],
+        y=meanPos[1]
+    )
+
+    # TODO: Calculate covariance using eigenvectors of covariance matrix
+    cov = [0]*36
+    cov[0], cov[7] = np.std(roomba_pos, axis=0)
+
+    return PoseWithCovarianceStamped(
+        header=roomba.visible_location.header,
+        pose=PoseWithCovariance(
+            pose=msg,
+            covariance=cov
+        )
+    )
 
 
-def locCalc(passed_prev_loc, passed_time_moving, passed_prev_orient, passed_roomba_vel=0.33):
+def locCalc(start_loc, dt, start_angle, vel=0.33):
     """
     current position = previous position + velocity * time
     Helper function. Calculates new position given previous location, time spent moving, orientation, and velocity. Units are in meters.
     """
-    (past_x, past_y) = passed_prev_loc
-    curr_x = past_x + passed_time_moving * passed_roomba_vel * math.cos(passed_prev_orient)
-    curr_y = past_y + passed_time_moving * passed_roomba_vel * math.sin(passed_prev_orient)
+    (past_x, past_y) = start_loc
+    curr_x = past_x + dt * vel * math.cos(start_angle)
+    curr_y = past_y + dt * vel * math.sin(start_angle)
 
     return (curr_x, curr_y)
 
