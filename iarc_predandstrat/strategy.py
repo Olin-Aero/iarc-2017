@@ -1,190 +1,240 @@
 # from transitions import Machine
-from transitions.extensions import HierarchicalGraphMachine as Machine
-from geometry_msgs.msg import Twist, Pose2D, Point
-from std_msgs.msg import Float64
-from iarc_sim_2d.msg import Roomba, Roombas
-
-# from pygraphviz import *
-import time
-import pdb
-import sys
+import numpy as np
 import os
 import rospkg
+import sys
+# from pygraphviz import *
+import time
+
 import rospy
-import numpy as np
+import tf
+import tf.transformations
+from geometry_msgs.msg import Twist
+from iarc_main.msg import Roomba, RoombaList
+from std_msgs.msg import Float64
+
+from PredictionEngine import PredictionEngine
+
 rospack = rospkg.RosPack()
 iarc_sim_path = rospack.get_path('iarc_sim_2d')
 sys.path.append(os.path.join(iarc_sim_path, 'src'))
-import config as cfg
+
 
 class Drone(object):
+    def __init__(self, C1=1, C2=1, C3=1, C4=1, C5=1, MIN_OBSTACLE_DISTANCE=1.5, FIELD_SIZE=20.0):
+        self.tf = tf.TransformListener()
+        self.predictor = PredictionEngine(tf_listener=self.tf)
 
-	def __init__(self, C1=1, C2=1, C3=1, C4=1, C5=1, MIN_OBSTACLE_DISTANCE=1.5):
-		"""
-		Initialize the Drone object where:
-		pos3d is a vector [x,y,z]
-		vel3d is a vector [x',y',z']
-		heading is an angle in radians (0 is +x and pi/2 is +y)
-		"""
+        rospy.Subscriber('/seen_roombas', RoombaList, self.recordVisible)
+        rospy.Subscriber('/drone/height', Float64, self.recordHeight)
+        self.vel3d = Twist()
+        self.visibleRoombas = []  # type: list[Roomba]
+        self.visibleObstacles = []  # type: list[Roomba]
 
-		rospy.Subscriber('/Vis_Roombas', Roombas, self.recordVisible)
-		rospy.Subscriber('/drone/height', Float64, self.recordHeight)
-		self.vel3d = Twist()
-		self.visibleRoombas = []
-		self.visibleObstacles = []
+        self.C1 = C1
+        self.C2 = C2
+        self.C3 = C3
+        self.C4 = C4
+        self.C5 = C5
+        self.MIN_OBSTACLE_DISTANCE = MIN_OBSTACLE_DISTANCE
 
-		self.C1 = C1
-		self.C2 = C2
-		self.C3 = C3
-		self.C4 = C4
-		self.C5 = C5
-		self.MIN_OBSTACLE_DISTANCE = MIN_OBSTACLE_DISTANCE
+        self.FIELD_SIZE = FIELD_SIZE
 
-	def recordVisible(self, msg):
-		self.visibleRoombas = filter(lambda x: 'target' in x.tag, msg.roombas)
-		self.visibleObstacles =  filter(lambda x: 'obstacle' in x.tag, msg.roombas)
+    def recordVisible(self, msg):
+        """
+        :param (RoombaList) msg:
+        """
+        self.visibleRoombas = [x for x in msg.data if x.type in (Roomba.RED, Roomba.GREEN)]
+        self.visibleObstacles = [x for x in msg.data if x.type == Roomba.OBSTACLE]
 
+    def recordHeight(self, msg):
+        """
+        :param (Float64) msg:
+        :return:
+        """
+        self.height = msg.data
 
-	def recordHeight(self, msg):
-		self.height = msg
+    def getPose(self):
+        self.drone_pos, self.drone_heading = self.tf.lookupTransform(
+            'map', '%s' % drone.tag, rospy.Time(0)
+        )
 
-	def getPose(self):
-		self.drone_pos, self.drone_heading = self.tf.lookupTransform(
-				'map', '%s'%drone.tag, rospy.Time(0)
-				)
-	def goodnessScore(self):
-		"""
-		Determines which Roomba we pick to lead to the goal.
-		Higher score is better.
+    def goodnessScore(self):
+        """
+        Determines which Roomba we pick to lead to the goal.
+        Higher score is better.
 
-		Returns: [(Roomba, Score)]
-		"""
+        Returns: [(Roomba, Score)]
+        """
 
-		def headingScore(roomba):
-			return np.sin(roomba.heading)
+        def headingScore(roomba):
+            return np.sin(roomba.heading)
 
-		def positionScore(roomba):
-			return roomba.y
+        def positionScore(roomba):
+            return roomba.y
 
-		def distanceFromObstaclesScore(roomba, obstacles):
-			"""
-			(-infinity, 0)
-			"""
+        def distanceFromObstaclesScore(roomba, obstacles):
+            """
+            (-infinity, 0)
+            """
 
-			score = 0
-			for obstacle in obstacles:
-				x = roomba.x - obstacle.x
-				y = roomba.y - obstacle.y
-				dist = np.sqrt(x**2 + y**2)
+            score = 0
+            for obstacle in obstacles:
+                x = roomba.x - obstacle.x
+                y = roomba.y - obstacle.y
+                dist = np.sqrt(x ** 2 + y ** 2)
 
-				if dist < MIN_OBSTACLE_DISTANCE:
-					return -math.inf
+                if dist < MIN_OBSTACLE_DISTANCE:
+                    return -math.inf
 
-				score -= 1/dist**2
+                score -= 1 / dist ** 2
 
-			return score
+            return score
 
+        def stateQualtityScore(roomba):
+            """
+            How precisely we know the Roombas' state.
+            Compare position accuracy to view radius to know if it's possible
+            to see the given roomba when drone arrives.
+            """
+            return 0
 
+        def futureGoodnessScore(roomba):
+            return 0
 
-		def stateQualtityScore(roomba):
-			"""
-			How precisely we know the Roombas' state.
-			Compare position accuracy to view radius to know if it's possible
-			to see the given roomba when drone arrives.
-			"""
-			return 0
+        result = []
 
-		def futureGoodnessScore(roomba):
-			return 0
+        for i in xrange(0, len(self.visibleRoombas)):
+            roomba = self.visibleRoombas[i]
+            score = self.C1 * headingScore(roomba) + \
+                    self.C2 * positionScore(roomba) + \
+                    self.C3 * distanceFromObstaclesScore(roomba, self.visibleObstacles) + \
+                    self.C4 * stateQualtityScore(roomba) + \
+                    self.C5 * futureGoodnessScore(roomba)
+            result.append((roomba, score))
 
-		result = []
+        return result
 
-		for i in xrange(0,len(self.visibleRoombas)):
-			roomba = self.visibleRoombas[i]
-			score = self.C1*headingScore(roomba) + \
-				self.C2*positionScore(roomba) + \
-				self.C3*distanceFromObstaclesScore(roomba, self.visibleObstacles) + \
-				self.C4*stateQualtityScore(roomba) + \
-				self.C5*futureGoodnessScore(roomba)
-			result.append((roomba, score))
+    def targetSelect(self, roombaScore):
+        print(roombaScore)
+        if roombaScore is not []:
+            return max(roombaScore, key=lambda x: x[1])
+        else:
+            return []
 
-		return result
+    def chooseAction(self, target):
+        """
+        Determined what the best action to take is for the given target
+        :param (Roomba) target: The Roomba we intend to interact with
+        :return: The best action to take
+        """
+        # The maximum angle the target may deviate from North/South for us to want to turn it 45 degrees.
+        ANGLE_WINDOW = np.deg2rad(30)
+        TURN_TIME = rospy.Duration.from_sec(4.0)
 
-	def targetSelect(self, roombaScore):
-		print(roombaScore)
-		if roombaScore is not []:
-			return max(roombaScore, key=lambda x: x[1])
-		else:
-			return []
+        desired_angle = 0  # Want target going north
 
+        # Step 1: check for a win condition
+        roombaWillWin = False
+        for dt in range(0, 20, 3):
+            prediction = self.predictor.predict_future_position(target, rospy.Time.now() + rospy.Duration.from_sec(dt))
+            if prediction.pose.pose.position.y > self.FIELD_SIZE / 2:
+                roombaWillWin = True
+                break
 
+        if roombaWillWin:
+            return 'follow'
 
-class Target(object):
-	pass
+        # Step 2: check for 45 degree turns
 
-class Obstacle(object):
-	pass
+        current_angle = tf.transformations.euler_from_quaternion(target.visible_location.pose.pose.orientation)[2]
 
-class StratModel(object):
-	def __init__(self):
-		self.tf = tf.TransformListener()
+        angle_delta = self.subtract_angles(desired_angle, current_angle)
+        if ANGLE_WINDOW < abs(angle_delta) < np.pi - ANGLE_WINDOW:
+            # The roomba is going mostly perpendicular
+            return '45'
+
+        # Step 3: check for 180 degree turns
+        expected_time = rospy.Time.now() + TURN_TIME
+        expected_pos = self.predictor.predict_future_position(target, expected_time)
+        cycle_phase = (expected_time - target.last_turn).to_sec() % 20
+
+        expected_angle = tf.transformations.euler_from_quaternion(expected_pos.pose.pose.orientation)[2]
+        angle_delta = self.subtract_angles(desired_angle, expected_angle)
+
+        if abs(angle_delta) > np.pi / 2 and cycle_phase <= 18:
+            # The roomba is going the wrong way and not about to turn
+            return '180'
+
+        return 'follow'
+
+    @staticmethod
+    def subtract_angles(a, b):
+        res = a - b
+
+        while res <= -np.pi:
+            res += 2 * np.pi
+        while res > np.pi:
+            res -= 2 * np.pi
+
+        return res
 
 
 rospy.init_node('strategy')
 
 drone = Drone()
 while True:
-	time.sleep(.1)
-	print('-'*80)
-	for roomba, score in drone.goodnessScore():
-		print('score: %f roomba: %s'%(score, roomba.tag))
-	bestRoomba, bestRoombaScore = drone.targetSelect(drone.goodnessScore())
-	print('Best Score: %f Best Roomba: %s'%(bestRoombaScore, bestRoomba.tag))
+    time.sleep(.1)
+    print('-' * 80)
+    for roomba, score in drone.goodnessScore():
+        print('score: %f roomba: %s' % (score, roomba.tag))
+    bestRoomba, bestRoombaScore = drone.targetSelect(drone.goodnessScore())
+    print('Best Score: %f Best Roomba: %s' % (bestRoombaScore, bestRoomba.tag))
 
 states = [
-		'init',
-		'search', 
-		'follow', 
-		'waitForValidRoomba', #If a roomba is not availible to contact
-		'avoidObstacle',
-		'landInFront',
-		'pushButton',
-		'waitForGoodRoomba']
+    'init',
+    'search',
+    'follow',
+    'waitForValidRoomba',  # If a roomba is not availible to contact
+    'avoidObstacle',
+    'landInFront',
+    'pushButton',
+    'waitForGoodRoomba']
 
 transitions = [
-{ 'trigger': 'start', 'source': 'init', 'dest': 'search' },
-{ 'trigger': 'goodRoombaFound', 'source': 'search', 'dest': 'follow' },
-{ 'trigger': 'timeInvalid', 'source': 'follow', 'dest': 'waitForValidRoomba' }, #timeInvalid signals that it's not the right time to follow the roomba.
+    {'trigger': 'start', 'source': 'init', 'dest': 'search'},
+    {'trigger': 'goodRoombaFound', 'source': 'search', 'dest': 'follow'},
+    {'trigger': 'timeInvalid', 'source': 'follow', 'dest': 'waitForValidRoomba'},
+    # timeInvalid signals that it's not the right time to follow the roomba.
 
-#Null actions result in returning to search algorithm
-{ 'trigger': 'null', 'source': 'follow', 'dest': 'search' },
-{ 'trigger': 'null', 'source': 'waitForValidRoomba', 'dest': 'search' },
-{ 'trigger': 'null', 'source': 'waitForGoodRoomba', 'dest': 'search' },
-{ 'trigger': 'null', 'source': 'pushButton', 'dest': 'search' },
-{ 'trigger': 'null', 'source': 'landInFront', 'dest': 'search' },
+    # Null actions result in returning to search algorithm
+    {'trigger': 'null', 'source': 'follow', 'dest': 'search'},
+    {'trigger': 'null', 'source': 'waitForValidRoomba', 'dest': 'search'},
+    {'trigger': 'null', 'source': 'waitForGoodRoomba', 'dest': 'search'},
+    {'trigger': 'null', 'source': 'pushButton', 'dest': 'search'},
+    {'trigger': 'null', 'source': 'landInFront', 'dest': 'search'},
 
-#Action triggers
-{ 'trigger': '180Needed', 'source': 'follow', 'dest': 'landInFront' },
-{ 'trigger': '45Needed', 'source': 'follow', 'dest': 'pushButton' },
-{ 'trigger': 'timeElapsedNeeded', 'source': 'follow', 'dest': 'waitForGoodRoomba' },
+    # Action triggers
+    {'trigger': '180Needed', 'source': 'follow', 'dest': 'landInFront'},
+    {'trigger': '45Needed', 'source': 'follow', 'dest': 'pushButton'},
+    {'trigger': 'timeElapsedNeeded', 'source': 'follow', 'dest': 'waitForGoodRoomba'},
 
-{ 'trigger': 'actionCompleted', 'source': 'landInFront', 'dest': 'follow' },
-{ 'trigger': 'actionCompleted', 'source': 'pushButton', 'dest': 'follow' },
-{ 'trigger': 'actionCompleted', 'source': 'waitForGoodRoomba', 'dest': 'follow' },
+    {'trigger': 'actionCompleted', 'source': 'landInFront', 'dest': 'follow'},
+    {'trigger': 'actionCompleted', 'source': 'pushButton', 'dest': 'follow'},
+    {'trigger': 'actionCompleted', 'source': 'waitForGoodRoomba', 'dest': 'follow'},
 
-#Obstacle triggers
-{ 'trigger': 'obstacleInPath', 'source': 'search', 'dest': 'avoidObstacle' },
-{ 'trigger': 'obstacleInPath', 'source': 'follow', 'dest': 'avoidObstacle' },
-{ 'trigger': 'obstacleInPath', 'source': 'waitForValidRoomba', 'dest': 'avoidObstacle' },
+    # Obstacle triggers
+    {'trigger': 'obstacleInPath', 'source': 'search', 'dest': 'avoidObstacle'},
+    {'trigger': 'obstacleInPath', 'source': 'follow', 'dest': 'avoidObstacle'},
+    {'trigger': 'obstacleInPath', 'source': 'waitForValidRoomba', 'dest': 'avoidObstacle'},
 ]
 
-machine = Machine(model=drone, states=states,transitions=transitions, initial='init')
+machine = Machine(model=drone, states=states, transitions=transitions, initial='init')
 
 drone.get_graph().draw('state_diagram.png', prog='dot')
 
 drone.start()
 print(drone.state)
-
 
 print(cfg.ROOMBA_HEIGHT)
 drone.goodRoombaFound()
