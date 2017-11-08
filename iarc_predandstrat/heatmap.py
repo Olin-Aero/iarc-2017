@@ -76,37 +76,38 @@ def plotStuff(loc_data):
     plt.show()
 
 
-def fiveSecSim(roomba, end_time):
+def fiveSecSim(last_turn, start_pose, end_time):
     """
     This simulation is for short term rapid location estimation of a Roomba that hasn't been seen for a while.
     20 hypothetical "Imaginary Roombas" trace out paths it could have taken, and the centroid of the final scatter determines the hypothesized final position of the actual Roomba.
     times_since = Array. Time since the Roomba was last seen.
 
-    :arg (Roomba) roomba: The initial Roomba position
+    :arg (rospy.Time) last_turn: The last time the Roomba turned and had noise
+    :arg (PoseWithCovarianceStamped) start_pose: The start pose of the Roomba
     :arg (rospy.Time) end_time: When we want to simulate until
     :returns prediction: The estimated final position
     :rtype: PoseWithCovarianceStamped
     """
     roomba_pos = [(0, 0)] * 20
 
-    known_time = roomba.visible_location.header.stamp
+    known_time = start_pose.header.stamp
 
     # try:
     sim_duration = (end_time - known_time).to_sec()
 
-    pose = roomba.visible_location.pose.pose.position
+    pose = start_pose.pose.pose.position
     start_pos = (pose.x, pose.y)
 
-    quaternion = roomba.visible_location.pose.pose.orientation
+    quaternion = start_pose.pose.pose.orientation
     start_orient = tf.transformations.euler_from_quaternion(quaternion)[2]
 
     # TODO: consider a separate timer for noise, roomba.last_turn is about 180 reversals
     time_to_noise = 5 - (
-    (known_time - roomba.last_turn).to_sec() % 5)  # Check time remaining until Roomba experiences noise
+    (known_time - last_turn).to_sec() % 5)  # Check time remaining until Roomba experiences noise
     noise_cycles = int(
         math.ceil((sim_duration - time_to_noise) / 5.0))  # Check number of times Roombas should go through "noise"
 
-    time_to_turn = 20 - ((known_time - roomba.last_turn).to_sec() % 20)  # Check time remaining until Roomba turns
+    time_to_turn = 20 - ((known_time - last_turn).to_sec() % 20)  # Check time remaining until Roomba turns
     turn_cycles = int(math.ceil(
         (sim_duration - time_to_turn) / 20.0))  # Check number of times Roombas should go through "turn cycles"
 
@@ -145,7 +146,7 @@ def fiveSecSim(roomba, end_time):
     cov[0], cov[7] = np.std(roomba_pos, axis=0)
 
     return PoseWithCovarianceStamped(
-        header=roomba.visible_location.header,
+        header=start_pose.header,
         pose=PoseWithCovariance(
             pose=msg,
             covariance=cov
