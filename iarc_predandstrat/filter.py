@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.stats import norm, multivariate_normal
 
 """
 TODO : handle uncertainty as prob. or cov?
@@ -8,9 +9,30 @@ TODO : handle uncertainty as prob. or cov?
 T_TARG, T_OBST = range(2)
 C_RED, C_GREEN = range(2)
 
+SIGMA_X = 0.1 # 10 cm
+SIGMA_Y = 0.1 # 10 cm
+SIGMA_T = 0.34 #20 deg.
+P_THRESH = 0.25 # threshold for clearing particles
+
 ## Utility
 def add_noise(data, s=1.0):
     return np.random_normal(loc=data,scale=s)
+
+def match_particle(p1, p2):
+    # TODO : vectorize
+    # TODO : incorporate velocities
+    p1 = p1.as_vec()
+    p2 = p2.as_vec()
+    dx, dy, dt, _, _ = np.abs(np.subtract(p1, p2))
+    covar = np.diag([SIGMA_X**2, SIGMA_Y**2, SIGMA_T**2])
+    # assume independent x-y-t
+    p, _ = mvn.mvnun(
+            [-dx,-dy,-dt],
+            [dx,dy,dt],
+            [0,0,0],
+            covar
+            )
+    return 1 - p
 
 ## Observations
 class Observation(object):
@@ -73,6 +95,9 @@ class Particle(object):
         return self._id != Particle.ID_INVALID and \
                 p._id != Particle.ID_INVALID and \
                 self._id == p._id
+    def as_vec(self):
+        p = self._pose
+        return np.asarray([p._x, p._y, p._t])
 
 class Target(Particle):
     def __init__(self, pose, id, p=1.0):
@@ -86,9 +111,15 @@ def particle_filter(rs, obs, obs_rs):
     rs_ = [] # new rs
     for r in rs:
         if r in obs: # is included in observation
-            np.argmax(r, obs_rs)
             # clear-or-modify
-            pass
+            p_max = 0.0
+            r_best = None
+            for o_r in obs_rs:
+                p = match_particle(r, o_r)
+                if p > p_max:
+                    r_best = o_r
+            if p_max > P_THRESH:
+                rs_.append(r_best)
         else:
             # persist
             # if not stale(r):
