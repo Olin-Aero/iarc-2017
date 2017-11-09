@@ -21,8 +21,8 @@ class Simulator(object):
         """ initialize simulation with given number of robots """
         self.tf = tf.TransformListener()
         self.drone, self.targets, self.obstacles = self.spawn_robots(num_targets, num_obstacles)
-        self.Vis_Roombas = rospy.Publisher('Vis_Roombas', Roombas, queue_size=10)
-        self.Failure_Conditions = rospy.Publisher('Failure_Conditions', String, queue_size=10)
+
+        self.Vis_Roombas = rospy.Publisher('Vis_Roombas', Roombas, queue_size=10) # publishes visible roombas
 
     def spawn_robot(self,
             client,
