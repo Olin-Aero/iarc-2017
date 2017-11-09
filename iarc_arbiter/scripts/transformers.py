@@ -39,12 +39,6 @@ class PIDController(object):
         :type tf: TransformListener
         """
         self.tf = tf
-        rospy.Subscriber("/drone/height", Float64, self.callback)
-        # Testing follow behavior at position (x, y) = (1, 1) relative to target
-
-        # Get the existing velocity being sent to the drone
-        rospy.Subscriber('/cmd_vel', Twist, self.record_vel)
-        self.vel3d = Twist()
 
         self.last_time = rospy.Time(0)
 
@@ -63,13 +57,6 @@ class PIDController(object):
         self.previous_error_x = 0.0
         self.integral_y = 0.0
         self.previous_error_y = 0.0
-
-    def record_vel(self, msg):
-        self.vel3d = msg
-        # print(self.vel3d)
-
-    def callback(self, msg):
-        self.actualHeight = msg.data
 
     def calculate_z_vel(self, error):
         if abs(error) <= 0.05:
