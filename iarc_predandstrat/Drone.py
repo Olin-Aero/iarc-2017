@@ -10,12 +10,14 @@ from iarc_arbiter.msg import RegisterBehavior
 from std_msgs.msg import Float64, String
 import tf
 
+from iarc_main.msg import Roomba
+
+# import config as cfg
+
 rospack = rospkg.RosPack()
 iarc_sim_path = rospack.get_path('iarc_sim_2d')
 sys.path.append(os.path.join(iarc_sim_path, 'src'))
-import config as cfg
 
-from Roomba import Roomba
 
 
 class Drone:
