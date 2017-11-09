@@ -6,18 +6,18 @@ TODO : handle uncertainty as prob. or cov?
 """
 
 ## Enums
-T_TARG, T_OBST = range(2)
+T_TARG, T_OBST, T_SIMP = range(3)
 C_RED, C_GREEN = range(2)
 
 SIGMA_X = 0.1 # 10 cm
 SIGMA_Y = 0.1 # 10 cm
 SIGMA_T = 0.34 #20 deg.
 KEEP_THRESH = 0.25 # threshold for keeping particles
-P_DECAY = 0.87 # 1.0 -> 0.25 after 10 sec.
+P_DECAY = 0.87 # 1.0 -> 0.25 (KEEP_THRESH) after 10 sec.
 
 ## Utility
 def add_noise(data, s=1.0):
-    return np.random_normal(loc=data,scale=s)
+    return np.random.normal(loc=data,scale=s)
 
 ## Observations
 class Observation(object):
@@ -28,24 +28,61 @@ class Observation(object):
 
 class CircularObservation(object):
     def __init__(self, x, y, r):
-        self._x = x
-        self._y = y
-        self._r = r
+        self.x = x
+        self.y = y
+        self.r = r
     def __contains__(self, item):
-        dx = item._x - self._x
-        dy = item._y - self._y
-        return (dx**2+dy**2 < self._r**2)
+        dx = item.x - self.x
+        dy = item.y - self.y
+        return (dx**2+dy**2 < self.r**2)
 
 ## Pose
 class Pose(object):
     def __init__(self,
             x=0,y=0,t=0,
             v=0,w=0):
-        self._x = x
-        self._y = y
-        self._t = t
-        self._v = v
-        self._w = w
+        self._data = np.asarray([x,y,t,v,w], dtype=np.float32)
+    def __repr__(self):
+        r = {
+                'x':self.x,
+                'y':self.y,
+                't':self.t,
+                'v':self.v,
+                'w':self.w
+                }
+        return str(r)
+    def __str__(self):
+        return repr(self)
+    @property
+    def x(self):
+        return self._data[0]
+    @x.setter
+    def x(self,_x):
+        self._data[0]=_x
+    @property
+    def y(self):
+        return self._data[1]
+    @y.setter
+    def y(self,_y):
+        self._data[1]=_y
+    @property
+    def t(self):
+        return self._data[2]
+    @t.setter
+    def t(self,_t):
+        self._data[2]=_t
+    @property
+    def v(self):
+        return self._data[3]
+    @v.setter
+    def v(self,_v):
+        self._data[3]=_v
+    @property
+    def w(self):
+        return self._data[4]
+    @w.setter
+    def w(self,_w):
+        self._data[4]=_w
     @staticmethod
     def random():
         x = np.random.uniform(-10.0, 10.0)
@@ -54,15 +91,19 @@ class Pose(object):
         v = np.random.normal(0.27, 0.33)
         w = np.random.normal(0.8, 1.2)
         return Pose(x,y,t,v,w)
+    def step(self, dt):
+        self.x += (self.v * np.cos(self.t) * dt)
+        self.y += (self.v * np.sin(self.t) * dt)
+        self.t += (self.w * dt)
+    def clone(self):
+        return Pose(*self._data)
             
 class Particle(object):
     ID_INVALID = -1
     def __init__(
-            self, id, pose,
+            self, pose,
             p0=1.0, t0=0.0,
             t=T_TARG, c=None):
-
-        self._id = id
         self._pose = pose
 
         self._p0 = p0 # initial observation probability
@@ -71,6 +112,22 @@ class Particle(object):
         self._t = t # particle type
         self._c = c # color
 
+    def __repr__(self):
+        r = {
+                'pose' : self._pose,
+                'p0' : self._p0,
+                't0' : self._t0,
+                't' : self._t,
+                'c' : self._c
+                }
+        return str(r)
+    def __str__(self):
+        return repr(self)
+    def clone(self):
+        return Particle(
+                self._pose.clone(),
+                self._p0, self._t0,
+                self._t, self._c)
     def sense(self, drone, noise=True):
         # this is only to be used with GT particles
         if drone.visible(self._pose):
@@ -96,24 +153,33 @@ class Particle(object):
                 cov
                 )
         return (1-p) # outer-probability
-
-    def __eq__(self, p):
-        return self._id != Particle.ID_INVALID and \
-                p._id != Particle.ID_INVALID and \
-                self._id == p._id
     def as_vec(self):
         # TODO : add velocity components
         p = self._pose
-        return np.asarray([p._x, p._y, p._t])
+        return np.asarray([p.x, p.y, p.t])
     def p(self, t):
-        return self._p0 * P_DECAY ** (t-_t0)
+        return self._p0 * P_DECAY ** (t-self._t0)
 
 class Target(Particle):
-    def __init__(self, pose, id, p=1.0):
-        super(Target, self).__init__(pose, id, p)
+    def __init__(
+            self, pose,
+            p0=1.0, t0=0.0,
+            t=T_TARG, c=None):
+        super(Target, self).__init__(
+            pose, p0, t0, t, c)
     def step(self, t, dt):
         if (t+dt)%5.0 < t%5.0:
             pass
+
+class SimpleParticle(Particle):
+    def __init__(
+            self, pose,
+            p0=1.0, t0=0.0,
+            t=T_SIMP, c=None):
+        super(SimpleParticle, self).__init__(
+                pose, p0, t0, t, c)
+    def step(self, t, dt):
+        self.pose.step(dt)
 
 def particle_filter(rs, obs, obs_rs, t):
     # rs = {id : [roombas]}
@@ -126,14 +192,23 @@ def particle_filter(rs, obs, obs_rs, t):
 
     _rs = {k:[] for k in rs.keys()}
 
+    old = []
     for (ps_i, ps_rs) in rs.iteritems():
         for ps_r in ps_rs:
             if ps_r.p(t) < KEEP_THRESH: # stale
                 continue
-            if ps_r in obs:
+            if ps_r._pose in obs:
                 # visible
                 vals = [ps_r.match(obs_r) for obs_r in obs_rs]
+
+                print ' ====== '
+                print ps_r._pose
+                print [obs_r._pose for obs_r in obs_rs]
+                print vals
+
                 p = np.max(vals)
+                print ps_i, np.argmax(vals), p
+                old.append(np.argmax(vals))
                 if p > KEEP_THRESH:
                     # refresh
                     ps_r._t0 = t
@@ -143,73 +218,11 @@ def particle_filter(rs, obs, obs_rs, t):
                 # invisible, passthrough
                 _rs[ps_i].append(ps_r)
 
-    #assert(len(obs) == len(obs_rs))
-    n,m = len(rs), len(obs)
+    # TODO : generate new particles from observation
+    # TODO : generate new particles from state prediction?
+    # i.e. collision / t-noise, etc.
 
-    # match-values
-    val = np.zeros((n,m), dtype=np.float32)
-    for i in range(n):
-        for j in range(m):
-            val[_i,_j] = float(obs_rs[_j] in obs) * \
-                    match_particle(rs[_i], obs_rs[_j])
-
-    # observation assignment
-    asn_idx = np.argmax(val, axis=-1)
-    asn_val = val[range(len(val)), asn_idx]
-
-    # apply simple threshold
-    unseen_mask = (asn_val <= 0)
-    seen_mask = (asn_val >= P_THRESH)
-    good_mask = np.logical_or(unseen_mask, seen_mask)
-
-    # resolve ambiguity
-    u, c = np.unique(asn_idx, return_counts=True)
-    for d in u[c>1]:
-        ids = [r.id for r in rs[asn_idx == d]]
-        same_id = np.all(np.equal(ids, ids[0]))
-        if not same_id:
-            one_good = np.sum(asn_val
-            if (
-            if asn_val
-            asn_val
-
-    # in-between : "bad" particles
-
-    rs = rs[good_mask]
-
-    unseen = rs[asn_val <= 0]
-    unmatched = rs[np.logi
-
-    # mask duplicates
-    for d in u[c>1]:
-        ids = []
-        for idx in np.where(asn_idx == d):
-            ds.append(rs[idx].id)
-        rs[rs==d]
-    d = u[c>1]
-    d_mask = asn_idx[asn_idx == u[c > 1]]
-
-    rs_ = [] # new rs
-
-    for r in rs:
-        if not (r in obs):
-            # persist
-            # if not stale(r):
-            # TODO : decrease p?
-            rs_.append(r)
-            continue
-        # clear-or-modify
-        p_max = 0.0
-        r_best = None
-        for o_r in obs_rs:
-            p = match_particle(r, o_r)
-            if p > p_max:
-                r_best = o_r
-        if p_max > P_THRESH:
-            r_best.id = r.id
-            rs_.append(r_best)
-        else:
-            rs_.append(r)
+    return _rs
 
 def render(
         drone,
@@ -219,13 +232,42 @@ def render(
 
 class Drone(object):
     def __init__(self, pose):
+        self._pose = pose
         pass
-
 
 def main():
     drone = Drone(Pose())
-    targets = [Target(Pose.random(), ('target%d'%i)) for _ in range(8)]
+    targets = [SimpleParticle(Pose.random()) for i in range(8)]
+    # TODO : testing with SimpleParticle, not Target
 
+    # initialize particles
+    particles = {i:[] for i in range(8)}
+    sigmas = [SIGMA_X, SIGMA_Y, SIGMA_T, 0.0, 0.0]
+    for i, t in enumerate(targets):
+        for k in range(3):
+            # initialize with noisy pose, 3 per particle
+            pose = Pose(*add_noise(t._pose._data, sigmas))
+            particles[i].append(SimpleParticle(pose))
+
+    obs = CircularObservation(
+            drone._pose.x,
+            drone._pose.y,
+            5.0 # TODO : arbitrary, fix
+            )
+
+    dt = 0.01
+    #steps = (10.0 / dt)
+    steps = 100
+    for t in np.linspace(0.0, 10.0, steps):
+
+        obs_rs = []
+        for r in targets:
+            if r._pose in obs:
+                obs_r = r.clone()
+                obs_r._pose = Pose(*add_noise(r._pose._data))
+                obs_rs.append(obs_r)
+
+        particles = particle_filter(particles, obs, obs_rs, t)
 
 if __name__ == "__main__":
     main()
