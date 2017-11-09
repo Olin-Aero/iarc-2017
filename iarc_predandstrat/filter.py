@@ -57,9 +57,12 @@ class Particle(object):
         self._t = t # particle type
         self._c = c # color
         # may be changed into covariances
-    def sense(self, drone):
+    def sense(self, drone, noise=True):
         if drone.visible(self._pose):
-            return add_noise(self._pose)
+            if noise:
+                return add_noise(self._pose)
+            else:
+                return self._pose
         else:
             return None
     def match(self, p):
@@ -79,15 +82,17 @@ class Target(Particle):
             pass
 
 
-def particle_filter(rs, obs, ar):
+def particle_filter(rs, obs, obs_rs):
     rs_ = [] # new rs
     for r in rs:
         if r in obs: # is included in observation
+            np.argmax(r, obs_rs)
             # clear-or-modify
             pass
         else:
             # persist
             # if not stale(r):
+            # TODO : decrease p?
             rs_.append(r)
 
 def render(
