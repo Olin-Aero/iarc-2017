@@ -8,6 +8,7 @@ import actionlib
 import rospkg
 from std_msgs.msg import Float64, String
 from geometry_msgs.msg import Twist, Pose2D, Point
+from iarc_main.msg import Roomba as mainRoomba, RoombaList
 from iarc_sim_2d.msg import Roomba, Roombas
 rospack = rospkg.RosPack()
 
@@ -22,6 +23,7 @@ class Simulator(object):
         self.tf = tf.TransformListener()
         self.drone, self.targets, self.obstacles = self.spawn_robots(num_targets, num_obstacles)
         self.Vis_Roombas = rospy.Publisher('Vis_Roombas', Roombas, queue_size=10)
+        self.Vis_Roombas_Main = rospy.Publisher('/seen_roombas', RoombaList, queue_size=10)
         self.Failure_Conditions = rospy.Publisher('Failure_Conditions', String, queue_size=10)
 
     def spawn_robot(self,
@@ -174,9 +176,23 @@ class Simulator(object):
             Vis_Roomba.noise = all_robots[robot].timers['noise']
             Vis_Roomba.stopped = all_robots[robot].timers['stopped']
 
+
+            Vis_Roomba_main = mainRoomba()
+            Vis_Roomba_main.frame_id = Vis_Roomba.tag
+            if
+            Vis_Roomba_main.type = #RED GREEN or OBSTACLE
+            Vis_Roomba_main.last_turn = #Simulator start time works here
+            
+            Vis_Roomba_main.visible_location.header.frame_id = 'map'
+            Vis_Roomba_main.visible_location.header.stamp = rospy.Time.now()
+            Vis_Roomba_main.visible_location.pose.pose.position.x = 
+            Vis_Roomba_main.visible_location.pose.pose.position.y = 
+            Vis_Roomba_main.visible_location.pose.pose.orientation.{x,y,z,w} = 
+
             roombaArray.roombas.append(Vis_Roomba)
 
         self.Vis_Roombas.publish(roombaArray)
+        self.Vis_Roombas_Main.publish()
 
 
 
