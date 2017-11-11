@@ -3,6 +3,7 @@ import math
 from geometry_msgs.msg import Twist, PoseStamped
 from std_msgs.msg import Float64
 from tf import TransformListener
+from numpy import sign, pi
 
 
 class Command:
@@ -38,12 +39,6 @@ class PIDController(object):
         :type tf: TransformListener
         """
         self.tf = tf
-        rospy.Subscriber("/drone/height", Float64, self.callback)
-        # Testing follow behavior at position (x, y) = (1, 1) relative to target
-
-        # Get the existing velocity being sent to the drone
-        rospy.Subscriber('/cmd_vel', Twist, self.record_vel)
-        self.vel3d = Twist()
 
         self.last_time = rospy.Time(0)
 
@@ -53,17 +48,30 @@ class PIDController(object):
         self.ki = rospy.get_param('~ki', 0.8)  # Integral
         self.kd = rospy.get_param('~kd', 0.1)  # Derivative: kd is not currently used
 
+        self.kp_height = 1.0
+
+        self.MAX_VERTICAL_VEL = 1.5
+        self.MIN_VERTICAL_VEL = 0.2
+
         self.integral_x = 0.0
         self.previous_error_x = 0.0
         self.integral_y = 0.0
         self.previous_error_y = 0.0
 
-    def record_vel(self, msg):
-        self.vel3d = msg
-        # print(self.vel3d)
+    def calculate_z_vel(self, error):
+        if abs(error) <= 0.05:
+            # Good enough! Stop publishing height changing
+            return 0
 
-    def callback(self, msg):
-        self.actualHeight = msg.data
+        vel = error * self.kp_height
+
+        if abs(vel) < self.MIN_VERTICAL_VEL:
+            vel = sign(vel) * self.MIN_VERTICAL_VEL
+
+        if abs(vel) > self.MAX_VERTICAL_VEL:
+            vel = sign(vel) * self.MAX_VERTICAL_VEL
+
+        return vel
 
     def cmd_pos(self, msg):
         """
@@ -117,7 +125,7 @@ class PIDController(object):
             self.integral_y = 0.0
 
         # Preserve the z value of velocity
-        vel.linear.z = self.vel3d.linear.z
+        vel.linear.z = self.calculate_z_vel(position.z)
 
         # Turn drone to where it's heading to
         # vel.angular.z = self.kpturn * math.atan2(position.y, position.x)

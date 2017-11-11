@@ -5,21 +5,21 @@
 
 class Robot{
     protected:
-        float x,y,t;
-        float v=0,w=0;
-        float vy=0;
+        float x,y,z,t;
+        float vx=0,vy=0,vz=0;
+        float w=0;
         std::string name;
         Robot(const std::string name);
         virtual ~Robot();
     public:
-        void reset(float x, float y, float t);
+        void reset();
         void update(float dt);
 
-        void set_pos(float,float,float);
-        void get_pos(float&,float&,float&) const;
+        void set_pos(float,float,float,float);
+        void get_pos(float&,float&,float&,float&) const;
 
-        void set_vel(float v, float w, float vy=0);
-        void get_vel(float&,float&) const;
+        void set_vel(float vx, float vy, float vz, float w);
+        void get_vel(float&, float&, float&, float&) const;
 
         void set_name(const std::string name);
         void get_name(std::string& name) const;

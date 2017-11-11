@@ -1,7 +1,11 @@
 #!/usr/bin/env python
 import numpy as np
+
 import config as cfg
+import rospy
 import tf
+import actionlib
+from std_msgs.msg import String
 from geometry_msgs.msg import Twist
 from random import choice
 '''
@@ -242,7 +246,7 @@ class ObstacleRoomba(Roomba):
 
         d = np.sqrt(dx**2 + dy**2)
         if d < self_radius + other_radius and np.dot(u_i, [dx,dy]) > 0:
-            print("Pole height is %f" %(cfg.ROOMBA_HEIGHT+self.pole_height))
+            #print("Pole height is %f" %(cfg.ROOMBA_HEIGHT+self.pole_height))
             self.collisions['front'] = True
 
     def bounds(self, self_pos):
@@ -269,13 +273,39 @@ class Drone(object):
         self.tag = tag
         self.visible_roombas = []
 
+        # failure counters
+        self.obsticle_bump_count = 0
+
+        self.Failure_Conditions = rospy.Publisher('Failure_Conditions', String, queue_size=10)
+
+        self.can_collide = True
+        self.collision_center = []
+
     def limitSpeed(self, speedLimit):
         currentSpeed = np.linalg.norm(self.vel3d)
         if currentSpeed > speedLimit:
             self.vel3d = self.vel3d * speedLimit/currentSpeed
 
-    def collision(self, self_pos, self_heading, other_pos, other_heading, self_radius=cfg.DRONE_RADIUS, other_radius=cfg.ROOMBA_RADIUS):
-        pass
+    def collision(self, self_pos, self_heading, other_pos, other_heading, self_radius=cfg.DRONE_RADIUS, other_radius=cfg.OBSTACLE_POLE_RADIUS):
+        dy = other_pos[1] - self_pos[1]
+        dx = other_pos[0] - self_pos[0]
+
+        d = np.sqrt(dx**2 + dy**2)
+
+        if self.can_collide == True:
+            if d < self_radius + other_radius:
+                print("Collision with obsticle roomba pole")
+                self.obsticle_bump_count += 1
+
+                if self.obsticle_bump_count >= 3:
+                    self.Failure_Conditions.publish("The drone has hit 3 obsticle poles and the game is over")
+
+                self.collision_center = [other_pos[0], other_pos[1]]
+                self.can_collide = False
+
+        if self.can_collide == False:
+            if np.sqrt((self.collision_center[0] - self.pos3d[0]) ** 2 + (self.collision_center[1] - self.pos3d[1]) ** 2) > self_radius + other_radius + 0.35:
+                self.can_collide = True
 
     def record_vel(self, data):
         self.vel3d = data
@@ -284,6 +314,7 @@ class Drone(object):
         z_vel = self.vel3d.linear.z
         self.pos3d[2] += z_vel * delta
         self.heightPublisher.publish(self.pos3d[2])
+
     def get_visible_roombas(self, roomba_array, pos_array):
         visible_roombas = []
         index_list = []
