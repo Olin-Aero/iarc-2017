@@ -4,11 +4,11 @@ import numpy as np
 
 import rospy
 import tf
-import actionlib
 import rospkg
 from std_msgs.msg import Float64, String
 from geometry_msgs.msg import Twist, Pose2D, Point
-from iarc_main.msg import Roomba as mainRoomba, RoombaList
+from iarc_main.msg import Roomba as mainRoomba
+from iarc_main.msg import RoombaList
 from iarc_sim_2d.msg import Roomba, Roombas
 rospack = rospkg.RosPack()
 
@@ -23,9 +23,20 @@ class Simulator(object):
         self.tf = tf.TransformListener()
         self.drone, self.targets, self.obstacles = self.spawn_robots(num_targets, num_obstacles)
 
+        self.startTime = rospy.Time(0)
+        print("Start time is: \n" )
+        print(self.startTime)
+        self.seqNum = 1
         self.Vis_Roombas = rospy.Publisher('Vis_Roombas', Roombas, queue_size=10)
         self.Vis_Roombas_Main = rospy.Publisher('/seen_roombas', RoombaList, queue_size=10)
+        # rospy.sleep(5)
+        # print("Error")
+
+        print("Completed")
         self.Failure_Conditions = rospy.Publisher('Failure_Conditions', String, queue_size=10)
+
+    def print_msg(self, msg):
+        print(msg.data)
 
     def spawn_robot(self,
             client,
@@ -103,6 +114,7 @@ class Simulator(object):
                     radius=cfg.ROOMBA_RADIUS, pose=pose,
                     robot_class=ObstacleRoomba
                     )
+            rospy.sleep(.1)
             robot.gen_pole()
             obstacles.append(robot)
 
@@ -163,39 +175,48 @@ class Simulator(object):
         drone = self.drone
         drone.get_visible_roombas(all_robots, robot_pos)
         roombaArray = Roombas()
+        roombaArrayMain = RoombaList()
 
         for robot in range(len(drone.index_list)):
 
-            Vis_Roomba = Roomba()
-            Vis_Roomba.x = robot_pos[drone.index_list[robot]][0]
-            Vis_Roomba.y = robot_pos[robot][1]
+            vis_roomba = Roomba()
+            vis_roomba.x = robot_pos[drone.index_list[robot]][0]
+            vis_roomba.y = robot_pos[robot][1]
 
-            Vis_Roomba.heading = tf.transformations.euler_from_quaternion(robot_headings[robot])[-1]
+            vis_roomba.heading = tf.transformations.euler_from_quaternion(robot_headings[robot])[-1]
 
-            Vis_Roomba.tag = all_robots[robot].tag
+            vis_roomba.tag = all_robots[robot].tag
 
-            Vis_Roomba.noise = all_robots[robot].timers['noise']
-            Vis_Roomba.stopped = all_robots[robot].timers['stopped']
-
+            vis_roomba.noise = all_robots[robot].timers['noise']
+            vis_roomba.stopped = all_robots[robot].timers['stopped']
 
             Vis_Roomba_main = mainRoomba()
-            Vis_Roomba_main.frame_id = Vis_Roomba.tag
-            if
-            Vis_Roomba_main.type = #RED GREEN or OBSTACLE
-            Vis_Roomba_main.last_turn = #Simulator start time works here
-            
+            Vis_Roomba_main.frame_id = vis_roomba.tag
+            Vis_Roomba_main.type = 0#RED GREEN or OBSTACLE
+            Vis_Roomba_main.last_turn = self.startTime#Simulator start time works here
+
             Vis_Roomba_main.visible_location.header.frame_id = 'map'
             Vis_Roomba_main.visible_location.header.stamp = rospy.Time.now()
-            Vis_Roomba_main.visible_location.pose.pose.position.x = 
-            Vis_Roomba_main.visible_location.pose.pose.position.y = 
-            Vis_Roomba_main.visible_location.pose.pose.orientation.{x,y,z,w} = 
+            Vis_Roomba_main.visible_location.pose.pose.position.x = vis_roomba.x
+            Vis_Roomba_main.visible_location.pose.pose.position.y = vis_roomba.y
+            quaternion = tf.transformations.quaternion_from_euler(0, 0, vis_roomba.heading)
+            # # type(pose) = geometry_msgs.msg.Pose
+            Vis_Roomba_main.visible_location.pose.pose.orientation.x = quaternion[0]
+            Vis_Roomba_main.visible_location.pose.pose.orientation.y = quaternion[1]
+            Vis_Roomba_main.visible_location.pose.pose.orientation.z = quaternion[2]
+            Vis_Roomba_main.visible_location.pose.pose.orientation.w = quaternion[3]
+            # print(Vis_Roomba_main)
+            roombaArray.roombas.append(vis_roomba)
+            roombaArrayMain.data.append(Vis_Roomba_main)
 
-            roombaArray.roombas.append(Vis_Roomba)
+        roombaArrayMain.header.stamp = rospy.Time.now()
+        roombaArrayMain.header.seq = self.seqNum
+        self.seqNum += 1
+        # print(roombaArrayMain)
+        # self.Vis_Roombas.publish(roombaArray)
 
-        self.Vis_Roombas.publish(roombaArray)
-        self.Vis_Roombas_Main.publish()
-
-
+        self.Vis_Roombas_Main.publish(roombaArrayMain)
+        # rospy.spinOnce()
 
         # Vis_Roomba.x = robot_pos[0]
         # Vis_Roomba.y = blah]
@@ -267,6 +288,8 @@ class Simulator(object):
         for r,p in zip(all_robots, robot_pos):
             r.bounds(p)
 
+
+
     def run(self):
         """ Main loop for running simulation. """
         for target_neato in self.targets:
@@ -285,6 +308,7 @@ class Simulator(object):
         t0 = rospy.Time.now().to_sec()
         t1 = t0
         t2 = t0
+        self.startTime = rospy.Time.now()
 
         while not rospy.is_shutdown():
             try:
