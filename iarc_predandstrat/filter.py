@@ -21,10 +21,10 @@ KEEP_THRESH = 0.25 # threshold for keeping particles
 MATCH_THRESH = 0.5
 P_DECAY = 0.87 # 1.0 -> 0.25 (KEEP_THRESH) after 10 sec.
 
-K_L = 81
-K_U = 82
-K_R = 83
-K_D = 84
+K_L = 97
+K_U = 119
+K_R = 100
+K_D = 115
 
 ## Utility
 def add_noise(data, s):
@@ -286,7 +286,7 @@ def ukf_filter(ukfs, est, obs, t, dt, ar=None):
     good = []
     for k,u in ukfs.iteritems():
         s = np.sqrt(np.sum(np.diag(u.P)[:2])) # variance-distance
-        if s < 1.5: # TODO : arbitrary threshold
+        if s < 1.0: # TODO : arbitrary threshold
             good.append(k)
     ukfs = {k:ukfs[k] for k in good}
     est = {k:est[k] for k in good}
@@ -498,8 +498,8 @@ def main():
             ukfs[i].R = R.copy() 
             ukfs[i].x = pose._data.copy()
             ukfs[i].P = P.copy() 
-
-    for t in np.linspace(0.0, 10.0, steps):
+    t = 0
+    while True:
         obs = CircularObservation(
                 drone._pose.x,
                 drone._pose.y,
@@ -518,14 +518,13 @@ def main():
                 [_t._pose for _t in targets],
                 particles.values(),
                 t,
-                delay=10
+                delay=30
                 )
 
         ukfs, particles, new = ukf_filter(ukfs, particles, obs_rs, t, dt, ar=obs)
 
         # add particles ...
         p_idx = np.max(particles.keys())
-
         for _i in range(len(new)):
             i = p_idx + _i
             pose = new[_i]._pose.clone()
@@ -549,6 +548,10 @@ def main():
             drone._pose.x += 0.5
         elif k == K_D:
             drone._pose.y -= 0.5
+        elif k != 255:
+            print k
+
+        t += dt
 
 if __name__ == "__main__":
     main()
