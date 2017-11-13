@@ -1,5 +1,10 @@
 import numpy as np
 from scipy.stats import mvn
+from scipy.optimize import linear_sum_assignment
+import cv2
+import itertools
+from filterpy.kalman import UnscentedKalmanFilter as UKF
+from filterpy.kalman import MerweScaledSigmaPoints
 
 """
 TODO : handle uncertainty as prob. or cov?
@@ -12,6 +17,9 @@ C_RED, C_GREEN = range(2)
 SIGMA_X = 0.1 # 10 cm
 SIGMA_Y = 0.1 # 10 cm
 SIGMA_T = 0.34 #20 deg.
+SIGMA_V = 0.1 # 0.1 m/s
+SIGMA_W = 0.3 # 0.3 rad/s
+
 KEEP_THRESH = 0.25 # threshold for keeping particles
 P_DECAY = 0.87 # 1.0 -> 0.25 (KEEP_THRESH) after 10 sec.
 
@@ -179,7 +187,26 @@ class SimpleParticle(Particle):
         super(SimpleParticle, self).__init__(
                 pose, p0, t0, t, c)
     def step(self, t, dt):
-        self.pose.step(dt)
+        self._pose.step(dt)
+
+def ukf_filter(ukf, est, obs, t, ar=None):
+    n = len(est)
+    m = len(obs)
+    print 'n,m', n,m
+
+    cost = np.zeros(shape=(n,m), dtype=np.float32)
+    print cost.shape
+
+    for u,e in zip(ukf, est):
+        est = u
+
+    for i, e in enumerate(est):
+        for j, o in enumerate(obs):
+            # cost = (1-p)
+            cost[i,j] = (1 - e.match(o))**2.0
+
+    i_idx, j_idx = linear_sum_assignment(cost)
+    # i.e. est[i] ~ obs[j]
 
 def particle_filter(rs, obs, obs_rs, t):
     # rs = {id : [roombas]}
@@ -201,13 +228,13 @@ def particle_filter(rs, obs, obs_rs, t):
                 # visible
                 vals = [ps_r.match(obs_r) for obs_r in obs_rs]
 
-                print ' ====== '
-                print ps_r._pose
-                print [obs_r._pose for obs_r in obs_rs]
-                print vals
+                #print ' ====== '
+                #print ps_r._pose
+                #print [obs_r._pose for obs_r in obs_rs]
+                #print vals
 
                 p = np.max(vals)
-                print ps_i, np.argmax(vals), p
+                #print ps_i, np.argmax(vals), p
                 old.append(np.argmax(vals))
                 if p > KEEP_THRESH:
                     # refresh
@@ -217,6 +244,7 @@ def particle_filter(rs, obs, obs_rs, t):
             else:
                 # invisible, passthrough
                 _rs[ps_i].append(ps_r)
+    print np.unique(old)
 
     # TODO : generate new particles from observation
     # TODO : generate new particles from state prediction?
@@ -224,27 +252,131 @@ def particle_filter(rs, obs, obs_rs, t):
 
     return _rs
 
-def render(
-        drone,
-        roombas,
-        particles):
-    pass
+class Renderer(object):
+    def __init__(self, w=500, h=500, s=25):
+        self._w = w
+        self._h = h
+        self._s = s
+        self._img = np.zeros(shape=(w,h,3), dtype=np.uint8)
+    def _convert(self, x, y):
+        x = self._w/2 + self._s*x
+        y = self._h/2 + self._s*(-y)
+        return (int(x),int(y))
+    def __call__(self,
+            drone,
+            roombas,
+            particles,
+            t,
+            delay=10
+            ):
+        img = self._img.copy()
+
+        # particles
+        for p in particles:
+            cv2.circle(img,
+                    self._convert(p._pose.x, p._pose.y),
+                    10,
+                    (255,0,0,int(p.p(t) * 256)),
+                    -1
+                    )
+
+        # roombas
+        for r in roombas:
+            cv2.circle(img,
+                    self._convert(r.x, r.y),
+                    10,
+                    color=(255,255,0),
+                    thickness=-1
+                    )
+        # drone
+        cv2.circle(img,
+                self._convert(drone.x, drone.y),
+                20,
+                (0,0,255),
+                -1
+                )
+
+        cv2.imshow('world', img)
+        if cv2.waitKey(delay) == 27:
+            return True
+        return False
 
 class Drone(object):
     def __init__(self, pose):
         self._pose = pose
         pass
 
+def ukf_hx(x):
+    return x[:3]
+
+def ukf_fx(x0, dt):
+    # TODO : support time-based transition?
+    # or handle it outside of ukf by manipulating state
+    # I think fx_args in predict() can work?
+    x = np.copy(x0)
+
+    x[0] += x[3] * np.cos(x[2]) * dt # dx
+    x[1] += x[3] * np.sin(x[2]) * dt # dy
+    x[2] += x[4] # dt
+    return x
+
+def ukf_mean(xs, wm):
+    mx = np.mean(xs*wm, axis=0)
+    ms = np.mean(np.sin(xs[2])*wm)
+    mc = np.mean(np.cos(xs[2])*wm)
+    mx[2] = np.arctan2(ms,mc)
+    return mx
+
+def ukf_residual(a,b):
+    d = np.subtract(a,b)
+    d[2] = np.arctan2(np.sin(d[2]), np.cos(d[2]))
+    return d
+
 def main():
+    # parameters
+    n_targets = 8
+    n_particles = 1 # particles per target
+    dt = 0.1
+    steps = (100.0 / dt)
+
+    # initialization
+    render = Renderer()
     drone = Drone(Pose())
-    targets = [SimpleParticle(Pose.random()) for i in range(8)]
+    targets = [SimpleParticle(Pose.random()) for i in range(n_targets)]
+    mws = MerweScaledSigmaPoints(5,1e-3,2,0,subtract=ukf_residual)
+
+    ukf_args = {
+            'dim_x' : 5,
+            'dim_z' : 2,
+            'dt' : dt,
+            'hx' : ukf_hx,
+            'fx' : ukf_fx,
+            'points' : mws,
+            'x_mean_fn' : ukf_mean,
+            'z_mean_fn' : ukf_mean,
+            'residual_x' : ukf_residual,
+            'residual_z' : ukf_residual
+            }
+
+    ukf = [UKF(5,2,dt,
+            hx = ukf_hx,
+            fx = ukf_fx,
+            points=mws,
+            x_mean_fn = ukf_mean,
+            z_mean_fn = ukf_mean,
+            residual_x = ukf_residual,
+            residual_z = ukf_residual
+            )
+
     # TODO : testing with SimpleParticle, not Target
 
     # initialize particles
-    particles = {i:[] for i in range(8)}
-    sigmas = [SIGMA_X, SIGMA_Y, SIGMA_T, 0.0, 0.0]
+    particles = {i:[] for i in range(n_targets)}
+    ukfs = {i:[] for i in range(n_targets)}
+
+    sigmas = [SIGMA_X, SIGMA_Y, SIGMA_T, SIGMA_V, SIGMA_W]
     for i, t in enumerate(targets):
-        for k in range(3):
+        for k in range(n_particles):
             # initialize with noisy pose, 3 per particle
             pose = Pose(*add_noise(t._pose._data, sigmas))
             particles[i].append(SimpleParticle(pose))
@@ -252,22 +384,41 @@ def main():
     obs = CircularObservation(
             drone._pose.x,
             drone._pose.y,
-            5.0 # TODO : arbitrary, fix
+            20.0 # TODO : arbitrary, fix
             )
 
-    dt = 0.01
-    #steps = (10.0 / dt)
-    steps = 100
+    #steps = 100
     for t in np.linspace(0.0, 10.0, steps):
-
         obs_rs = []
         for r in targets:
             if r._pose in obs:
                 obs_r = r.clone()
-                obs_r._pose = Pose(*add_noise(r._pose._data))
+                obs_r._pose = Pose(*add_noise(r._pose._data, s=sigmas))
                 obs_rs.append(obs_r)
 
+        ps = list(itertools.chain(*particles.values()))
+
+        ukf_filter(ukf, ps, obs_rs, t)
         particles = particle_filter(particles, obs, obs_rs, t)
+
+        stop = render(
+                drone._pose,
+                [_t._pose for _t in targets],
+                ps,
+                t,
+                delay=100
+                )
+
+        # update ...
+        for _ps in particles.values():
+            for _p in _ps:
+                _p.step(t,dt)
+
+        for _t in targets:
+            _t.step(t,dt)
+
+        if stop:
+            break
 
 if __name__ == "__main__":
     main()
