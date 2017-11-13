@@ -1,6 +1,7 @@
 import numpy as np
 from scipy.stats import mvn
 from scipy.optimize import linear_sum_assignment
+from scipy.linalg import sqrtm
 import cv2
 import itertools
 from filterpy.kalman import UnscentedKalmanFilter as UKF
@@ -17,15 +18,22 @@ C_RED, C_GREEN = range(2)
 SIGMA_X = 0.1 # 10 cm
 SIGMA_Y = 0.1 # 10 cm
 SIGMA_T = 0.34 #20 deg.
-SIGMA_V = 0.1 # 0.1 m/s
-SIGMA_W = 0.3 # 0.3 rad/s
+SIGMA_V = 0.01 # 0.1 m/s
+SIGMA_W = 0.03 # 0.3 rad/s
 
 KEEP_THRESH = 0.25 # threshold for keeping particles
+MATCH_THRESH = 0.5
 P_DECAY = 0.87 # 1.0 -> 0.25 (KEEP_THRESH) after 10 sec.
 
 ## Utility
-def add_noise(data, s=1.0):
-    return np.random.normal(loc=data,scale=s)
+def add_noise(data, s):
+    z = np.random.normal(scale=s)
+    #return data + z
+    msk = (np.abs(z) >= 2*s)
+    while np.any(msk):
+        z[msk] = np.random.normal(scale=s[msk])
+        msk = (np.abs(z) >= 2*s)
+    return data + z
 
 ## Observations
 class Observation(object):
@@ -152,7 +160,8 @@ class Particle(object):
         # TODO : consider color[r/g] and type[t/o], when provided
         p1  = self.as_vec()
         p2  = p2.as_vec()
-        d   = np.abs(np.subtract(p1, p2))
+        #d   = np.abs(np.subtract(p1, p2))
+        d = np.abs(ukf_residual(p1,p2))
         cov = np.diag([SIGMA_X**2, SIGMA_Y**2, SIGMA_T**2])
         # assume independent x-y-t
         p, _ = mvn.mvnun(
@@ -160,7 +169,15 @@ class Particle(object):
                 np.zeros_like(d),
                 cov
                 )
-        return (1-p) # outer-probability
+        return (1 - p) # outer-probability
+
+    def cost(self, p2):
+        p1 = self.as_vec()
+        p2 = p2.as_vec()
+        delta = np.abs(ukf_residual(p1,p2))
+        weights = [1.0, 1.0, 0.01]
+        return np.linalg.norm(np.multiply(delta, weights))
+
     def as_vec(self):
         # TODO : add velocity components
         p = self._pose
@@ -189,24 +206,73 @@ class SimpleParticle(Particle):
     def step(self, t, dt):
         self._pose.step(dt)
 
-def ukf_filter(ukf, est, obs, t, ar=None):
+def ukf_filter(ukfs, est, obs, t, dt, ar=None):
     n = len(est)
     m = len(obs)
-    print 'n,m', n,m
+    #print 'n,m', n,m
 
+    prob = np.zeros(shape=(n,m), dtype=np.float32)
     cost = np.zeros(shape=(n,m), dtype=np.float32)
-    print cost.shape
 
-    for u,e in zip(ukf, est):
-        est = u
+    # predict from dt
+    if t > 0:
+        for i in est.keys():
+            ukfs[i].predict(dt)
+            est[i]._pose._data = ukfs[i].x.copy()
+            # TODO : covariance -> probability?
 
-    for i, e in enumerate(est):
+    # assign
+    for i in est.keys():
         for j, o in enumerate(obs):
-            # cost = (1-p)
-            cost[i,j] = (1 - e.match(o))**2.0
+            prob[i,j] = est[i].match(o)
+            cost[i,j] = est[i].cost(o)
 
-    i_idx, j_idx = linear_sum_assignment(cost)
+    cost = (1.0 - prob)
+
+    #for i in est.keys():
+    #    for j, o in enumerate(obs):
+    #        p_i = est[i]._pose._data[:2]
+    #        p_j = o._pose._data[:2]
+    #        d = (p_i - p_j)
+    #        cost[i,j] = np.sqrt(np.sum(d**2))
+
+    #cost = 1.0 - prob
+    #cost = (1.0 - prob)**2
+    #cost = (cost * 100).astype(np.int32) / 100.
+
+    #oob = [(est[i]._pose not in ar) for i in est.keys()]
+    #cost[oob] += 9999
+    #print cost
+
     # i.e. est[i] ~ obs[j]
+
+    # update
+    i_idx, j_idx = linear_sum_assignment(cost)
+    #print i_idx, j_idx
+
+    clear_i = np.ones(n)
+    add_j = np.ones(m)
+
+    for (i,j) in zip(i_idx, j_idx):
+        if ar and (est[i]._pose in ar):
+            if (prob[i,j] > MATCH_THRESH):
+                try:
+                    ukfs[i].update(obs[j]._pose._data[:3])
+                    est[j]._p0 = prob[i,j]
+                    est[j]._t0 = t
+                    clear_i[i] = False
+                    add_j[j] = False
+                except Exception as e:
+                    print e
+                    print obs[j]._pose._data[:3]
+            else:
+                pass
+        else:
+            pass
+
+        est[i]._pose._data = ukfs[i].x
+
+    # back to particles
 
 def particle_filter(rs, obs, obs_rs, t):
     # rs = {id : [roombas]}
@@ -220,8 +286,8 @@ def particle_filter(rs, obs, obs_rs, t):
     _rs = {k:[] for k in rs.keys()}
 
     old = []
-    for (ps_i, ps_rs) in rs.iteritems():
-        for ps_r in ps_rs:
+    for (ps_i, ps_r) in rs.iteritems():
+        #for ps_r in ps_rs:
             if ps_r.p(t) < KEEP_THRESH: # stale
                 continue
             if ps_r._pose in obs:
@@ -257,7 +323,7 @@ class Renderer(object):
         self._w = w
         self._h = h
         self._s = s
-        self._img = np.zeros(shape=(w,h,3), dtype=np.uint8)
+        self._img = np.zeros(shape=(w,h,4), dtype=np.uint8)
     def _convert(self, x, y):
         x = self._w/2 + self._s*x
         y = self._h/2 + self._s*(-y)
@@ -269,32 +335,55 @@ class Renderer(object):
             t,
             delay=10
             ):
-        img = self._img.copy()
 
-        # particles
-        for p in particles:
-            cv2.circle(img,
-                    self._convert(p._pose.x, p._pose.y),
-                    10,
-                    (255,0,0,int(p.p(t) * 256)),
-                    -1
-                    )
+        img = self._img.copy()
+        img_p = self._img.copy()
+        img_r = self._img.copy()
 
         # roombas
         for r in roombas:
+            x, y = self._convert(r.x, r.y)
+            vx, vy = 20*np.cos(r.t), -20*np.sin(r.t)
+            vx, vy = (int(e) for e in (vx,vy))
             cv2.circle(img,
-                    self._convert(r.x, r.y),
+                    (x,y),
                     10,
                     color=(255,255,0),
                     thickness=-1
                     )
+            cv2.line(img,
+                    (x,y),
+                    (x+vx,y+vy),
+                    (255,255,0),
+                    4
+                    )
+
+        # particles
+        for p in particles:
+            #print 'p', p.p(t)
+            x, y = self._convert(p._pose.x, p._pose.y)
+            vx, vy = 10*np.cos(p._pose.t), -10*np.sin(p._pose.t)
+            vx, vy = (int(e) for e in (vx,vy))
+            cv2.circle(img,
+                    (x,y),
+                    5,
+                    (255,0,0, int(255 * p.p(t))),
+                    -1
+                    )
+            cv2.line(img,
+                    (x,y),
+                    (x+vx,y+vy),
+                    (255,0,0),
+                    2
+                    )
+
         # drone
-        cv2.circle(img,
-                self._convert(drone.x, drone.y),
-                20,
-                (0,0,255),
-                -1
-                )
+        # cv2.circle(img,
+        #         self._convert(drone.x, drone.y),
+        #         20,
+        #         (0,0,255),
+        #         -1
+        #         )
 
         cv2.imshow('world', img)
         if cv2.waitKey(delay) == 27:
@@ -313,41 +402,46 @@ def ukf_fx(x0, dt):
     # TODO : support time-based transition?
     # or handle it outside of ukf by manipulating state
     # I think fx_args in predict() can work?
-    x = np.copy(x0)
 
-    x[0] += x[3] * np.cos(x[2]) * dt # dx
-    x[1] += x[3] * np.sin(x[2]) * dt # dy
-    x[2] += x[4] # dt
+    # x-y-t-v-w
+    x,y,t,v,w = x0
+    x += v * np.cos(t) * dt
+    y += v * np.sin(t) * dt
+    t += w * dt
+    x = np.asarray([x,y,t,v,w])
     return x
 
 def ukf_mean(xs, wm):
-    mx = np.mean(xs*wm, axis=0)
-    ms = np.mean(np.sin(xs[2])*wm)
-    mc = np.mean(np.cos(xs[2])*wm)
+    # Important : SUM! not mean.
+    mx = np.sum(xs * np.expand_dims(wm, -1), axis=0)
+    ms = np.mean(np.sin(xs[:,2])*wm)
+    mc = np.mean(np.cos(xs[:,2])*wm)
     mx[2] = np.arctan2(ms,mc)
     return mx
 
 def ukf_residual(a,b):
-    d = np.subtract(a,b)
+    d = np.real(np.subtract(a,b))
+    # sometimes gets imag for some reason
     d[2] = np.arctan2(np.sin(d[2]), np.cos(d[2]))
     return d
 
 def main():
     # parameters
-    n_targets = 8
+    n_targets = 14
     n_particles = 1 # particles per target
     dt = 0.1
     steps = (100.0 / dt)
+    sigmas = np.asarray([SIGMA_X, SIGMA_Y, SIGMA_T, SIGMA_V, SIGMA_W])
 
     # initialization
     render = Renderer()
     drone = Drone(Pose())
     targets = [SimpleParticle(Pose.random()) for i in range(n_targets)]
-    mws = MerweScaledSigmaPoints(5,1e-3,2,0,subtract=ukf_residual)
+    mws = MerweScaledSigmaPoints(5,1e-3,2,-2,sqrt_method=sqrtm,subtract=ukf_residual)
 
     ukf_args = {
             'dim_x' : 5,
-            'dim_z' : 2,
+            'dim_z' : 3, #x-y-t
             'dt' : dt,
             'hx' : ukf_hx,
             'fx' : ukf_fx,
@@ -358,28 +452,31 @@ def main():
             'residual_z' : ukf_residual
             }
 
-    ukf = [UKF(5,2,dt,
-            hx = ukf_hx,
-            fx = ukf_fx,
-            points=mws,
-            x_mean_fn = ukf_mean,
-            z_mean_fn = ukf_mean,
-            residual_x = ukf_residual,
-            residual_z = ukf_residual
-            )
+    # TODO : arbitrary covariances
+    # TODO : dt necessary?
+    P = np.diag(np.square(sigmas)) # covariance
+    R = dt * np.diag(np.square([SIGMA_X,SIGMA_Y,SIGMA_T])) # measurement noise
+    Q = dt * np.diag(np.square([0.02, 0.02, np.deg2rad(3), 0.03, 0.03])) # process noise
+    #Q = np.diag(([0.02, 0.02, np.deg2rad(3), 0.03, 0.03])) # process noise
 
     # TODO : testing with SimpleParticle, not Target
 
     # initialize particles
-    particles = {i:[] for i in range(n_targets)}
-    ukfs = {i:[] for i in range(n_targets)}
+    particles = {}
+    ukfs = {}
 
-    sigmas = [SIGMA_X, SIGMA_Y, SIGMA_T, SIGMA_V, SIGMA_W]
     for i, t in enumerate(targets):
         for k in range(n_particles):
             # initialize with noisy pose, 3 per particle
+            # particles[i].append(SimpleParticle(pose))
             pose = Pose(*add_noise(t._pose._data, sigmas))
-            particles[i].append(SimpleParticle(pose))
+            #pose = t._pose.clone()
+            particles[i] = SimpleParticle(pose)
+            ukfs[i] = UKF(**ukf_args)
+            ukfs[i].Q = Q.copy() 
+            ukfs[i].R = R.copy() 
+            ukfs[i].x = pose._data.copy()
+            ukfs[i].P = P.copy() 
 
     obs = CircularObservation(
             drone._pose.x,
@@ -387,32 +484,24 @@ def main():
             20.0 # TODO : arbitrary, fix
             )
 
-    #steps = 100
     for t in np.linspace(0.0, 10.0, steps):
         obs_rs = []
         for r in targets:
             if r._pose in obs:
                 obs_r = r.clone()
-                obs_r._pose = Pose(*add_noise(r._pose._data, s=sigmas))
+                obs_r._pose = Pose(*add_noise(r._pose._data, s=dt*sigmas))
+                #obs_r._pose = r._pose.clone()
                 obs_rs.append(obs_r)
-
-        ps = list(itertools.chain(*particles.values()))
-
-        ukf_filter(ukf, ps, obs_rs, t)
-        particles = particle_filter(particles, obs, obs_rs, t)
 
         stop = render(
                 drone._pose,
                 [_t._pose for _t in targets],
-                ps,
+                particles.values(),
                 t,
-                delay=100
+                delay=1
                 )
 
-        # update ...
-        for _ps in particles.values():
-            for _p in _ps:
-                _p.step(t,dt)
+        ukf_filter(ukfs, particles, obs_rs, t, dt, ar=obs)
 
         for _t in targets:
             _t.step(t,dt)
