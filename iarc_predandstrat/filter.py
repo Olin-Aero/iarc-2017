@@ -7,10 +7,6 @@ import itertools
 from filterpy.kalman import UnscentedKalmanFilter as UKF
 from filterpy.kalman import MerweScaledSigmaPoints
 
-"""
-TODO : handle uncertainty as prob. or cov?
-"""
-
 ## Enums
 T_TARG, T_OBST, T_SIMP = range(3)
 C_RED, C_GREEN = range(2)
@@ -18,12 +14,17 @@ C_RED, C_GREEN = range(2)
 SIGMA_X = 0.1 # 10 cm
 SIGMA_Y = 0.1 # 10 cm
 SIGMA_T = 0.34 #20 deg.
-SIGMA_V = 0.01 # 0.1 m/s
-SIGMA_W = 0.03 # 0.3 rad/s
+SIGMA_V = 0.1 # 0.1 m/s
+SIGMA_W = 0.3 # 0.3 rad/s
 
 KEEP_THRESH = 0.25 # threshold for keeping particles
 MATCH_THRESH = 0.5
 P_DECAY = 0.87 # 1.0 -> 0.25 (KEEP_THRESH) after 10 sec.
+
+K_L = 81
+K_U = 82
+K_R = 83
+K_D = 84
 
 ## Utility
 def add_noise(data, s):
@@ -101,11 +102,12 @@ class Pose(object):
         self._data[4]=_w
     @staticmethod
     def random():
+        # TODO : kind-of arbitrary numbers here
         x = np.random.uniform(-10.0, 10.0)
         y = np.random.uniform(-10.0, 10.0)
         t = np.random.uniform(-np.pi, np.pi)
-        v = np.random.normal(0.27, 0.33)
-        w = np.random.normal(0.8, 1.2)
+        v = np.abs(np.random.normal(0.27, 1.5))
+        w = np.random.choice([-1,1]) * np.random.normal(0.8, 1.2)
         return Pose(x,y,t,v,w)
     def step(self, dt):
         self.x += (self.v * np.cos(self.t) * dt)
@@ -172,10 +174,13 @@ class Particle(object):
         return (1 - p) # outer-probability
 
     def cost(self, p2):
+        # currently cost() is different from f(match())
+        # mostly to avoid matching faraway objects with similar headings
         p1 = self.as_vec()
         p2 = p2.as_vec()
         delta = np.abs(ukf_residual(p1,p2))
         weights = [1.0, 1.0, 0.01]
+        # TODO : arbitrary weights
         return np.linalg.norm(np.multiply(delta, weights))
 
     def as_vec(self):
@@ -212,22 +217,24 @@ def ukf_filter(ukfs, est, obs, t, dt, ar=None):
     #print 'n,m', n,m
 
     prob = np.zeros(shape=(n,m), dtype=np.float32)
-    cost = np.zeros(shape=(n,m), dtype=np.float32)
+    cost = np.ones(shape=(n,m), dtype=np.float32)
+
+    i2k = est.keys()
+    k2i = {i2k[i]:i for i in range(n)}
 
     # predict from dt
-    if t > 0:
-        for i in est.keys():
-            ukfs[i].predict(dt)
-            est[i]._pose._data = ukfs[i].x.copy()
-            # TODO : covariance -> probability?
+    for k in est.keys():
+        ukfs[k].predict(dt)
+        est[k]._pose._data = ukfs[k].x.copy()
+        # TODO : covariance -> probability?
 
     # assign
-    for i in est.keys():
+    for k in est.keys():
         for j, o in enumerate(obs):
-            prob[i,j] = est[i].match(o)
-            cost[i,j] = est[i].cost(o)
+            prob[k2i[k],j] = est[k].match(o)
+            cost[k2i[k],j] = est[k].cost(o)
 
-    cost = (1.0 - prob)
+    #cost = (1.0 - prob)
 
     #for i in est.keys():
     #    for j, o in enumerate(obs):
@@ -250,29 +257,44 @@ def ukf_filter(ukfs, est, obs, t, dt, ar=None):
     i_idx, j_idx = linear_sum_assignment(cost)
     #print i_idx, j_idx
 
-    clear_i = np.ones(n)
-    add_j = np.ones(m)
+    add_obs= np.ones(m)
+
+    # TODO : track unmatched observations
+    # TODO : clear low-probability estimations
 
     for (i,j) in zip(i_idx, j_idx):
-        if ar and (est[i]._pose in ar):
+        k = i2k[i]
+        if ar and (est[k]._pose in ar):
             if (prob[i,j] > MATCH_THRESH):
                 try:
-                    ukfs[i].update(obs[j]._pose._data[:3])
-                    est[j]._p0 = prob[i,j]
-                    est[j]._t0 = t
-                    clear_i[i] = False
-                    add_j[j] = False
+                    ukfs[k].update(obs[j]._pose._data[:3])
+                    est[k]._p0 = prob[i,j]
+                    est[k]._t0 = t
+                    add_obs[j] = False
                 except Exception as e:
                     print e
                     print obs[j]._pose._data[:3]
             else:
                 pass
         else:
+            # no updates ...
             pass
 
-        est[i]._pose._data = ukfs[i].x
+        est[k]._pose._data = ukfs[k].x
 
-    # back to particles
+    # clear ...
+    good = []
+    for k,u in ukfs.iteritems():
+        s = np.sqrt(np.sum(np.diag(u.P)[:2])) # variance-distance
+        if s < 1.5: # TODO : arbitrary threshold
+            good.append(k)
+    ukfs = {k:ukfs[k] for k in good}
+    est = {k:est[k] for k in good}
+
+    new_j = np.where(add_obs)[0]
+
+    return ukfs, est, [obs[j] for j in new_j]
+
 
 def particle_filter(rs, obs, obs_rs, t):
     # rs = {id : [roombas]}
@@ -378,17 +400,16 @@ class Renderer(object):
                     )
 
         # drone
-        # cv2.circle(img,
-        #         self._convert(drone.x, drone.y),
-        #         20,
-        #         (0,0,255),
-        #         -1
-        #         )
+        cv2.circle(img,
+                 self._convert(drone.x, drone.y),
+                 self._s * 5,
+                 (0,0,255),
+                 1
+                 )
 
         cv2.imshow('world', img)
-        if cv2.waitKey(delay) == 27:
-            return True
-        return False
+
+        return cv2.waitKey(delay)
 
 class Drone(object):
     def __init__(self, pose):
@@ -478,13 +499,12 @@ def main():
             ukfs[i].x = pose._data.copy()
             ukfs[i].P = P.copy() 
 
-    obs = CircularObservation(
-            drone._pose.x,
-            drone._pose.y,
-            20.0 # TODO : arbitrary, fix
-            )
-
     for t in np.linspace(0.0, 10.0, steps):
+        obs = CircularObservation(
+                drone._pose.x,
+                drone._pose.y,
+                5.0 # TODO : arbitrary, fix
+                )
         obs_rs = []
         for r in targets:
             if r._pose in obs:
@@ -493,21 +513,42 @@ def main():
                 #obs_r._pose = r._pose.clone()
                 obs_rs.append(obs_r)
 
-        stop = render(
+        k = render(
                 drone._pose,
                 [_t._pose for _t in targets],
                 particles.values(),
                 t,
-                delay=1
+                delay=10
                 )
 
-        ukf_filter(ukfs, particles, obs_rs, t, dt, ar=obs)
+        ukfs, particles, new = ukf_filter(ukfs, particles, obs_rs, t, dt, ar=obs)
+
+        # add particles ...
+        p_idx = np.max(particles.keys())
+
+        for _i in range(len(new)):
+            i = p_idx + _i
+            pose = new[_i]._pose.clone()
+            particles[i] = SimpleParticle(pose)
+            ukfs[i] = UKF(**ukf_args)
+            ukfs[i].Q = Q.copy() 
+            ukfs[i].R = R.copy() 
+            ukfs[i].x = pose._data.copy()
+            ukfs[i].P = P.copy()
 
         for _t in targets:
             _t.step(t,dt)
 
-        if stop:
+        if k == 27:
             break
+        elif k == K_L:
+            drone._pose.x -= 0.5
+        elif k == K_U:
+            drone._pose.y += 0.5
+        elif k == K_R:
+            drone._pose.x += 0.5
+        elif k == K_D:
+            drone._pose.y -= 0.5
 
 if __name__ == "__main__":
     main()
