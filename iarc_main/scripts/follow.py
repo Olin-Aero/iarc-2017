@@ -7,7 +7,6 @@ from geometry_msgs.msg import Twist
 from iarc_arbiter.msg import RegisterBehavior
 from tf import TransformListener
 
-
 class FollowBehavior:
     def __init__(self):
         rospy.init_node('FollowBehavior')
