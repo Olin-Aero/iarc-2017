@@ -146,10 +146,7 @@ class Simulator(object):
             obstacle_neato.update(delta, elapsed)
             obstacle_neato.velocity_publisher.publish(vel_msg)
 
-
-        # vel_msg = self.drone.vel_msg
         self.drone.update(delta, elapsed)
-        # self.drone.velocity_publisher.publish(vel_msg)
 
     def get_positions(self):
         """ Get positions of all robots """
@@ -195,9 +192,7 @@ class Simulator(object):
             elif vis_roomba.tag[0:6] == 'target':
                 Vis_Roomba_main.type = 0
 
-
             Vis_Roomba_main.last_turn = self.startTime
-
             Vis_Roomba_main.visible_location.header.frame_id = 'map'
             Vis_Roomba_main.visible_location.header.stamp = rospy.Time.now()
             Vis_Roomba_main.visible_location.pose.pose.position.x = vis_roomba.x
@@ -214,7 +209,9 @@ class Simulator(object):
         roombaArrayMain.header.stamp = rospy.Time.now()
         roombaArrayMain.header.seq = self.seqNum
         self.seqNum += 1
-        self.Vis_Roombas.publish(roombaArray)
+
+        # Uncomment below lines if function is dependent on old roomba list. Try to phase use out.
+        # self.Vis_Roombas.publish(roombaArray)
 
         self.Vis_Roombas_Main.publish(roombaArrayMain)
 
