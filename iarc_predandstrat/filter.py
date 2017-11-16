@@ -106,7 +106,7 @@ class Pose(object):
         x = np.random.uniform(-10.0, 10.0)
         y = np.random.uniform(-10.0, 10.0)
         t = np.random.uniform(-np.pi, np.pi)
-        v = np.abs(np.random.normal(0.27, 1.5))
+        v = np.abs(np.random.normal(0.27, 0.33))
         w = np.random.choice([-1,1]) * np.random.normal(0.8, 1.2)
         return Pose(x,y,t,v,w)
     def step(self, dt):
@@ -162,7 +162,6 @@ class Particle(object):
         # TODO : consider color[r/g] and type[t/o], when provided
         p1  = self.as_vec()
         p2  = p2.as_vec()
-        #d   = np.abs(np.subtract(p1, p2))
         d = np.abs(ukf_residual(p1,p2))
         cov = np.diag([SIGMA_X**2, SIGMA_Y**2, SIGMA_T**2])
         # assume independent x-y-t
@@ -211,7 +210,7 @@ class SimpleParticle(Particle):
     def step(self, t, dt):
         self._pose.step(dt)
 
-def ukf_filter(ukfs, est, obs, t, dt, ar=None):
+def ukf_filter(ukfs, est, obs, t, dt, obs_ar):
     n = len(est)
     m = len(obs)
     #print 'n,m', n,m
@@ -224,7 +223,7 @@ def ukf_filter(ukfs, est, obs, t, dt, ar=None):
 
     # predict from dt
     for k in est.keys():
-        ukfs[k].predict(dt)
+        ukfs[k].predict(dt, fx_args=t)
         est[k]._pose._data = ukfs[k].x.copy()
         # TODO : covariance -> probability?
 
@@ -233,19 +232,6 @@ def ukf_filter(ukfs, est, obs, t, dt, ar=None):
         for j, o in enumerate(obs):
             prob[k2i[k],j] = est[k].match(o)
             cost[k2i[k],j] = est[k].cost(o)
-
-    #cost = (1.0 - prob)
-
-    #for i in est.keys():
-    #    for j, o in enumerate(obs):
-    #        p_i = est[i]._pose._data[:2]
-    #        p_j = o._pose._data[:2]
-    #        d = (p_i - p_j)
-    #        cost[i,j] = np.sqrt(np.sum(d**2))
-
-    #cost = 1.0 - prob
-    #cost = (1.0 - prob)**2
-    #cost = (cost * 100).astype(np.int32) / 100.
 
     #oob = [(est[i]._pose not in ar) for i in est.keys()]
     #cost[oob] += 9999
@@ -264,7 +250,7 @@ def ukf_filter(ukfs, est, obs, t, dt, ar=None):
 
     for (i,j) in zip(i_idx, j_idx):
         k = i2k[i]
-        if ar and (est[k]._pose in ar):
+        if est[k]._pose in obs_ar:
             if (prob[i,j] > MATCH_THRESH):
                 try:
                     ukfs[k].update(obs[j]._pose._data[:3])
@@ -295,61 +281,27 @@ def ukf_filter(ukfs, est, obs, t, dt, ar=None):
 
     return ukfs, est, [obs[j] for j in new_j]
 
-
-def particle_filter(rs, obs, obs_rs, t):
-    # rs = {id : [roombas]}
-    # obs_rs = [roombas]
-
-    # heuristic : 
-    # clear particles when positional variance is too big
-    # clear particles when observable and not observed
-    # clear particles when "stale" -- long time since observation
-
-    _rs = {k:[] for k in rs.keys()}
-
-    old = []
-    for (ps_i, ps_r) in rs.iteritems():
-        #for ps_r in ps_rs:
-            if ps_r.p(t) < KEEP_THRESH: # stale
-                continue
-            if ps_r._pose in obs:
-                # visible
-                vals = [ps_r.match(obs_r) for obs_r in obs_rs]
-
-                #print ' ====== '
-                #print ps_r._pose
-                #print [obs_r._pose for obs_r in obs_rs]
-                #print vals
-
-                p = np.max(vals)
-                #print ps_i, np.argmax(vals), p
-                old.append(np.argmax(vals))
-                if p > KEEP_THRESH:
-                    # refresh
-                    ps_r._t0 = t
-                    ps_r._p0 = p
-                    _rs[ps_i].append(ps_r)
-            else:
-                # invisible, passthrough
-                _rs[ps_i].append(ps_r)
-    print np.unique(old)
-
-    # TODO : generate new particles from observation
-    # TODO : generate new particles from state prediction?
-    # i.e. collision / t-noise, etc.
-
-    return _rs
-
 class Renderer(object):
-    def __init__(self, w=500, h=500, s=25):
+    def __init__(self, name='world', w=500, h=500, s=25):
+        self._name = name
         self._w = w
         self._h = h
         self._s = s
         self._img = np.zeros(shape=(w,h,4), dtype=np.uint8)
+        self._ff = cv2.FONT_HERSHEY_SIMPLEX
+        self._fs = 0.5
+        cv2.namedWindow(self._name)
+
     def _convert(self, x, y):
         x = self._w/2 + self._s*x
         y = self._h/2 + self._s*(-y)
         return (int(x),int(y))
+
+    def _convert_inv(self, x, y):
+        x = (float(x) - self._w/2) / self._s
+        y = -(float(y) - self._h/2) / self._s
+        return x, y
+
     def __call__(self,
             drone,
             roombas,
@@ -398,6 +350,14 @@ class Renderer(object):
                     (255,0,0),
                     2
                     )
+            cv2.putText(img,
+                    ('%.2f' % p.p(t)),
+                    (x,y),
+                    self._ff,
+                    self._fs*0.5,
+                    (255,255,255)
+                    )
+
 
         # drone
         cv2.circle(img,
@@ -406,8 +366,11 @@ class Renderer(object):
                  (0,0,255),
                  1
                  )
+        
+        # meta-info
+        cv2.putText(img, ('t:%.2f'%t), (0,20), self._ff, self._fs, (255,255,255))
 
-        cv2.imshow('world', img)
+        cv2.imshow(self._name, img)
 
         return cv2.waitKey(delay)
 
@@ -419,7 +382,7 @@ class Drone(object):
 def ukf_hx(x):
     return x[:3]
 
-def ukf_fx(x0, dt):
+def ukf_fx(x0, dt, t):
     # TODO : support time-based transition?
     # or handle it outside of ukf by manipulating state
     # I think fx_args in predict() can work?
@@ -455,10 +418,18 @@ def main():
     sigmas = np.asarray([SIGMA_X, SIGMA_Y, SIGMA_T, SIGMA_V, SIGMA_W])
 
     # initialization
-    render = Renderer()
     drone = Drone(Pose())
     targets = [SimpleParticle(Pose.random()) for i in range(n_targets)]
     mws = MerweScaledSigmaPoints(5,1e-3,2,-2,sqrt_method=sqrtm,subtract=ukf_residual)
+
+    # render ...
+    win_name = 'world'
+    render = Renderer(win_name)
+    def set_drone_pos(e,x,y,f,p):
+        x,y = render._convert_inv(x,y)
+        drone._pose.x=x
+        drone._pose.y=y
+    cv2.setMouseCallback(win_name,set_drone_pos)
 
     ukf_args = {
             'dim_x' : 5,
@@ -518,17 +489,18 @@ def main():
                 [_t._pose for _t in targets],
                 particles.values(),
                 t,
-                delay=30
+                delay=100
                 )
 
-        ukfs, particles, new = ukf_filter(ukfs, particles, obs_rs, t, dt, ar=obs)
+        ukfs, particles, new = ukf_filter(ukfs, particles, obs_rs, t, dt, obs)
 
         # add particles ...
+        # TODO : handle zero-len particles
         p_idx = np.max(particles.keys())
         for _i in range(len(new)):
             i = p_idx + _i
             pose = new[_i]._pose.clone()
-            particles[i] = SimpleParticle(pose)
+            particles[i] = SimpleParticle(pose, p0=1.0, t0=t)
             ukfs[i] = UKF(**ukf_args)
             ukfs[i].Q = Q.copy() 
             ukfs[i].R = R.copy() 
@@ -540,17 +512,6 @@ def main():
 
         if k == 27:
             break
-        elif k == K_L:
-            drone._pose.x -= 0.5
-        elif k == K_U:
-            drone._pose.y += 0.5
-        elif k == K_R:
-            drone._pose.x += 0.5
-        elif k == K_D:
-            drone._pose.y -= 0.5
-        elif k != 255:
-            print k
-
         t += dt
 
 if __name__ == "__main__":
