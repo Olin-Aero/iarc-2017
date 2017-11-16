@@ -3,6 +3,7 @@
     <!-- Remap topic required by the node to custom topics -->
     <remap from="image_rect" to="image_rect" />
     <remap from="camera_info" to="camera_info" />
+    <remap from="tf" to="tf/null" />
     <remap from="/usb_cam/image_raw" to="/ardrone/bottom/image_raw/" />
 
     <!-- Optional: Subscribe to the compressed stream-->
