@@ -8,10 +8,10 @@ from scipy.optimize import linear_sum_assignment
 from filterpy.kalman import UnscentedKalmanFilter as UKF
 from filterpy.kalman import MerweScaledSigmaPoints
 
+
 def ukf_filter(ukfs, est, obs, t, dt, obs_ar):
     n = len(est)
     m = len(obs)
-    #print 'n,m', n,m
 
     prob = np.zeros(shape=(n,m), dtype=np.float32)
     cost = np.ones(shape=(n,m), dtype=np.float32)
@@ -59,6 +59,8 @@ def ukf_filter(ukfs, est, obs, t, dt, obs_ar):
                     print e
                     print obs[j]._pose._data[:3]
             else:
+                print k, prob[i,j]
+                # lower probability somehow ...
                 pass
         else:
             # no updates ...
@@ -118,7 +120,7 @@ def main():
     # TODO : dt necessary?
     P = np.diag(np.square(sigmas)) # covariance
     R = dt * np.diag(np.square([S_X, S_Y, S_T])) # measurement noise
-    Q = dt * np.diag(np.square([0.02, 0.02, np.deg2rad(3), 0.03, 0.03])) # process noise
+    Q = np.diag(np.square([0.02, 0.02, np.deg2rad(3), 0.03, 0.03])) # process noise
     #Q = np.diag(([0.02, 0.02, np.deg2rad(3), 0.03, 0.03])) # process noise
 
     # TODO : testing with SimpleParticle, not Target
@@ -135,10 +137,10 @@ def main():
             #pose = t._pose.clone()
             particles[i] = SimpleParticle(pose)
             ukfs[i] = UKF(**ukf_args)
-            ukfs[i].Q = Q.copy() 
-            ukfs[i].R = R.copy() 
+            ukfs[i].Q = Q.copy()
+            ukfs[i].R = R.copy()
             ukfs[i].x = pose._data.copy()
-            ukfs[i].P = P.copy() 
+            ukfs[i].P = P.copy()
     t = 0
     while True:
         obs = CircularObservation(
