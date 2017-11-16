@@ -5,9 +5,37 @@ import numpy as np
 import cv2
 from scipy.linalg import sqrtm
 from scipy.optimize import linear_sum_assignment
+from scipy.stats import mvn
 from filterpy.kalman import UnscentedKalmanFilter as UKF
 from filterpy.kalman import MerweScaledSigmaPoints
 
+#def cov2p(x):
+#    # WARNING : experimental
+#    d = np.diag(x)
+#    d = np.abs(ukf_residual(d, np.zeros_like(d)))
+#    d = d[:3]
+#    cov = np.diag([S_X**2, S_X**2, S_T**2])
+#    p, _ = mvn.mvnun(
+#            -d, d,
+#            np.zeros_like(d),
+#            cov
+#            )
+#    return (1 - p) # outer-probability
+
+def cov2p(cov):
+    # WARNING : experimental
+    cov = cov[:3,:3]
+    d = np.asarray([0.5, 0.5, np.deg2rad(30)])
+    # +- 0.5m, 30deg. error
+    p, _ = mvn.mvnun(
+            -d, d,
+            np.zeros_like(d),
+            cov
+            )
+    # p = under current covariance estimtaes,
+    # how likely will the pose fall
+    # within defined error margin?
+    return p
 
 def ukf_filter(ukfs, est, obs, t, dt, obs_ar):
     n = len(est)
@@ -41,7 +69,7 @@ def ukf_filter(ukfs, est, obs, t, dt, obs_ar):
     i_idx, j_idx = linear_sum_assignment(cost)
     #print i_idx, j_idx
 
-    add_obs= np.ones(m)
+    add_obs = np.ones(m)
 
     # TODO : track unmatched observations
     # TODO : clear low-probability estimations
@@ -60,7 +88,7 @@ def ukf_filter(ukfs, est, obs, t, dt, obs_ar):
                     print obs[j]._pose._data[:3]
             else:
                 print k, prob[i,j]
-                # lower probability somehow ...
+                # TODO : "stray" estimate -- lower probability somehow.
                 pass
         else:
             # no updates ...
@@ -71,13 +99,17 @@ def ukf_filter(ukfs, est, obs, t, dt, obs_ar):
     # clear ...
     good = []
     for k,u in ukfs.iteritems():
-        s = np.sqrt(np.sum(np.diag(u.P)[:2])) # variance-distance
-        if s < 2.0: # TODO : arbitrary threshold
+        #s = np.sqrt(np.sum(np.diag(u.P)[:2])) # variance-distance
+        #if s < 2.0: # TODO : arbitrary threshold
+        p = cov2p(u.P)
+        if p > P_KEEP:
             good.append(k)
     ukfs = {k:ukfs[k] for k in good}
     est = {k:est[k] for k in good}
 
     new_j = np.where(add_obs)[0]
+    if len(new_j) > 0:
+        print new_j
 
     return ukfs, est, [obs[j] for j in new_j]
 
@@ -120,7 +152,9 @@ def main():
     # TODO : dt necessary?
     P = np.diag(np.square(sigmas)) # covariance
     R = dt * np.diag(np.square([S_X, S_Y, S_T])) # measurement noise
-    Q = np.diag(np.square([0.02, 0.02, np.deg2rad(3), 0.03, 0.03])) # process noise
+    Q = dt * np.diag(np.square([0.01, 0.01, np.deg2rad(5), 0.01, 0.01]))
+    # process noise, ~1cm / 5 deg. per second
+
     #Q = np.diag(([0.02, 0.02, np.deg2rad(3), 0.03, 0.03])) # process noise
 
     # TODO : testing with SimpleParticle, not Target
@@ -141,12 +175,14 @@ def main():
             ukfs[i].R = R.copy()
             ukfs[i].x = pose._data.copy()
             ukfs[i].P = P.copy()
+
+    p_idx = np.max(particles.keys())
     t = 0
     while True:
         obs = CircularObservation(
                 drone._pose.x,
                 drone._pose.y,
-                5.0 # TODO : arbitrary, fix
+                3.0 # TODO : arbitrary, fix
                 )
         obs_rs = []
         for r in targets:
@@ -156,10 +192,12 @@ def main():
                 #obs_r._pose = r._pose.clone()
                 obs_rs.append(obs_r)
 
+        probs = [cov2p(u.P) for u in ukfs.values()]
         k = render(
                 drone._pose,
                 [_t._pose for _t in targets],
                 particles.values(),
+                probs,
                 t,
                 delay=100
                 )
@@ -168,9 +206,9 @@ def main():
 
         # add particles ...
         # TODO : handle zero-len particles
-        p_idx = np.max(particles.keys())
+
         for _i in range(len(new)):
-            i = p_idx + _i
+            i = p_idx
             pose = new[_i]._pose.clone()
             particles[i] = SimpleParticle(pose, p0=1.0, t0=t)
             ukfs[i] = UKF(**ukf_args)
@@ -178,6 +216,7 @@ def main():
             ukfs[i].R = R.copy() 
             ukfs[i].x = pose._data.copy()
             ukfs[i].P = P.copy()
+            p_idx += 1
 
         for _t in targets:
             _t.step(t,dt)

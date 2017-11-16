@@ -1,5 +1,6 @@
 import numpy as np
 import cv2
+from scipy.stats import mvn
 
 class Renderer(object):
     def __init__(self, name='world', w=500, h=500, s=25):
@@ -26,6 +27,7 @@ class Renderer(object):
             drone,
             roombas,
             particles,
+            probs,
             t,
             delay=10
             ):
@@ -53,7 +55,7 @@ class Renderer(object):
                     )
 
         # particles
-        for p in particles:
+        for p,pp in zip(particles, probs):
             #print 'p', p.p(t)
             x, y = self._convert(p._pose.x, p._pose.y)
             vx, vy = 10*np.cos(p._pose.t), -10*np.sin(p._pose.t)
@@ -71,7 +73,7 @@ class Renderer(object):
                     2
                     )
             cv2.putText(img,
-                    ('%.2f' % p.p(t)),
+                    ('%.2f | %.2f' % (p.p(t), pp) ),
                     (x,y),
                     self._ff,
                     self._fs*0.5,
@@ -82,7 +84,7 @@ class Renderer(object):
         # drone
         cv2.circle(img,
                  self._convert(drone.x, drone.y),
-                 self._s * 5,
+                 self._s * 3,
                  (0,0,255),
                  1
                  )
