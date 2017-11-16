@@ -1,4 +1,4 @@
-update=Sat 28 Oct 2017 09:54:44 PM EDT
+update=Wed 08 Nov 2017 12:36:39 PM EST
 version=1
 last_client=kicad
 [pcbnew]
@@ -60,3 +60,4 @@ LibName28=contrib
 LibName29=valves
 LibName30=switches
 LibName31=roomba_pcb
+LibName32=/home/neophile/Documents/School/FunRobo/ClicksAndWhistles/Electronics/whale_custom_parts
