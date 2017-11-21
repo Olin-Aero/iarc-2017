@@ -29,7 +29,6 @@ class Simulator(object):
         self.seqNum = 1
         self.Vis_Roombas = rospy.Publisher('Vis_Roombas', Roombas, queue_size=10)
         self.Vis_Roombas_Main = rospy.Publisher('/seen_roombas', RoombaList, queue_size=10)
-<<<<<<< HEAD
 
         # failure publishers and messages
         self.FailureAltitude = FailureAltitude()
@@ -52,10 +51,8 @@ class Simulator(object):
         # print("Error")
 
         print("Completed")
-=======
 
         self.Failure_Conditions = rospy.Publisher('Failure_Conditions', String, queue_size=10)
->>>>>>> baee7758dfd7ba2be0d5244b1ef9b1ef802745a4
 
     def print_msg(self, msg):
         print(msg.data)
