@@ -54,6 +54,10 @@ add_message_files(
   FILES
   Roomba.msg
   RoombaList.msg
+  FailureOOB.msg
+  FailureCollision.msg
+  FailureAltitude.msg
+  Failures.msg
 )
 
 ## Generate services in the 'srv' folder
