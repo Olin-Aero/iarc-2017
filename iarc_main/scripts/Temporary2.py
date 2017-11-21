@@ -9,12 +9,15 @@ from geometry_msgs.msg import Twist, Vector3
 import sys
 import os
 import rospkg
+import random
+from matplotlib import pyplot as plt
+import numpy as np
 rospack = rospkg.RosPack()
 iarc_sim_path = rospack.get_path('iarc_sim_2d')
 sys.path.append(os.path.join(iarc_sim_path, 'src'))
 
 from config import *
-class HeatMap:
+class Temporary:
     def __init__(self):
         self.heightPub = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
         self.cmdHeight = rospy.Publisher('/cmd_height', Float64, queue_size=10)
@@ -89,9 +92,46 @@ class HeatMap:
             if((tempx-xPosNew) ** 2 + (tempy-yPosNew)**2 < 0.25**2):
                 adding = (1.0 / math.sqrt(2*math.pi) * math.e ** (-1. / 2.0 * ((i-500.0) * 3 / 500)**2.0))
                 confidence += adding / total
-        print((xPosNew,yPosNew,confidence))
+    def test(self,time):
+        xArray = []
+        yArray = []
+        plt.plot(0,0,'go')
+        for i in range(20):
+            newTime = 1-time%1
+            #roombaPos,roombaHeading = self.tf.lookupTransform('map', roomba, rospy.Time(0))
+            xPos = 0
+            yPos = 0
+            heading = 0
+            CircleRad = heading - math.pi / 2
+            CircleCenter_x = xPos - (ROOMBA_OBSTACLE_TURN_RADIUS* math.cos(CircleRad))
+            CircleCenter_y = yPos - (ROOMBA_OBSTACLE_TURN_RADIUS* math.sin(CircleRad))
+            newCircleRad = CircleRad + newTime * ROOMBA_LINEAR_SPEED / ROOMBA_OBSTACLE_TURN_RADIUS
+            xPosNew = CircleCenter_x + (ROOMBA_OBSTACLE_TURN_RADIUS* math.cos(newCircleRad))
+            yPosNew = CircleCenter_y + (ROOMBA_OBSTACLE_TURN_RADIUS* math.sin(newCircleRad))
+            newHeading = newCircleRad + math.pi / 2
+            heading = newHeading + random.uniform(-ROOMBA_OBSTACLE_NOISE_MAX,ROOMBA_OBSTACLE_NOISE_MAX)
+            xPos = xPosNew
+            yPos = yPosNew
+            newTime = time%1
+            CircleRad = heading - math.pi / 2
+            CircleCenter_x = xPos - (ROOMBA_OBSTACLE_TURN_RADIUS* math.cos(CircleRad))
+            CircleCenter_y = yPos - (ROOMBA_OBSTACLE_TURN_RADIUS* math.sin(CircleRad))
+            newCircleRad = CircleRad + newTime * ROOMBA_LINEAR_SPEED / ROOMBA_OBSTACLE_TURN_RADIUS
+            xPosNew = CircleCenter_x + (ROOMBA_OBSTACLE_TURN_RADIUS* math.cos(newCircleRad))
+            yPosNew = CircleCenter_y + (ROOMBA_OBSTACLE_TURN_RADIUS* math.sin(newCircleRad))
+            plt.plot(xPos,yPos,"ro")
+            newHeading = newCircleRad + math.pi / 2
+            xArray.append(xPosNew)
+            yArray.append(yPosNew)
+        x = np.arange(0, 5, 0.1)
+        y = np.sin(x)
+        plt.plot(np.asarray(xArray),np.asarray(yArray),"o")
+
+        plt.axis('equal')
+        plt.show()
+        print("halp")
 if __name__ == '__main__':
     # rospy.init_node('testing')
-    ex = HeatMap()
-    ex.createHeatMap(36,'/obstacle0')
-    rospy.spin()
+    ex = Temporary()
+    ex.test(22.3)
+    # rospy.spin()

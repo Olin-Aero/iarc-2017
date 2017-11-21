@@ -29,6 +29,7 @@ class Simulator(object):
         self.seqNum = 1
         self.Vis_Roombas = rospy.Publisher('Vis_Roombas', Roombas, queue_size=10)
         self.Vis_Roombas_Main = rospy.Publisher('/seen_roombas', RoombaList, queue_size=10)
+<<<<<<< HEAD
 
         # failure publishers and messages
         self.FailureAltitude = FailureAltitude()
@@ -51,6 +52,10 @@ class Simulator(object):
         # print("Error")
 
         print("Completed")
+=======
+
+        self.Failure_Conditions = rospy.Publisher('Failure_Conditions', String, queue_size=10)
+>>>>>>> baee7758dfd7ba2be0d5244b1ef9b1ef802745a4
 
     def print_msg(self, msg):
         print(msg.data)
@@ -119,7 +124,6 @@ class Simulator(object):
             targets.append(robot)
         for i in xrange(num_obstacles):
             theta = float(i)/num_obstacles* (cfg.PI*2)
-            # print('%f number%d'%(theta, i))
             pose = Pose2D(
                     cfg.ROOMBA_OBSTACLE_TURN_RADIUS * np.cos(theta),
                     cfg.ROOMBA_OBSTACLE_TURN_RADIUS * np.sin(theta),
@@ -167,10 +171,7 @@ class Simulator(object):
             obstacle_neato.update(delta, elapsed)
             obstacle_neato.velocity_publisher.publish(vel_msg)
 
-
-        # vel_msg = self.drone.vel_msg
         self.drone.update(delta, elapsed)
-        # self.drone.velocity_publisher.publish(vel_msg)
 
     def get_positions(self):
         """ Get positions of all robots """
@@ -178,7 +179,6 @@ class Simulator(object):
         obstacles = self.obstacles
         drone = self.drone
         all_robots = np.concatenate((targets, obstacles))
-        # print(all_robots)
 
         try:
             robot_pos, robot_headings = zip(*[self.tf.lookupTransform(
@@ -189,18 +189,20 @@ class Simulator(object):
             print("Exception in tf Lookup Robots") #replace with publisher
             return
 
-        drone = self.drone
         drone.get_visible_roombas(all_robots, robot_pos)
         roombaArray = Roombas()
         roombaArrayMain = RoombaList()
 
-        for robot in range(len(drone.index_list)):
-
+        for robot in drone.index_list:
             vis_roomba = Roomba()
-            vis_roomba.x = robot_pos[drone.index_list[robot]][0]
+
+            vis_roomba.x = robot_pos[robot][0]
             vis_roomba.y = robot_pos[robot][1]
 
-            vis_roomba.heading = tf.transformations.euler_from_quaternion(robot_headings[robot])[-1]
+            try:
+                vis_roomba.heading = tf.transformations.euler_from_quaternion(robot_headings[robot])[-1]
+            except:
+                print("TF euler error")
 
             vis_roomba.tag = all_robots[robot].tag
 
@@ -209,38 +211,35 @@ class Simulator(object):
 
             Vis_Roomba_main = mainRoomba()
             Vis_Roomba_main.frame_id = vis_roomba.tag
-            Vis_Roomba_main.type = 0#RED GREEN or OBSTACLE
-            Vis_Roomba_main.last_turn = self.startTime#Simulator start time works here
 
+            if vis_roomba.tag[0:8] == 'obstacle':
+                Vis_Roomba_main.type = 2
+            elif vis_roomba.tag[0:6] == 'target':
+                Vis_Roomba_main.type = 0
+
+            Vis_Roomba_main.last_turn = self.startTime
             Vis_Roomba_main.visible_location.header.frame_id = 'map'
             Vis_Roomba_main.visible_location.header.stamp = rospy.Time.now()
             Vis_Roomba_main.visible_location.pose.pose.position.x = vis_roomba.x
             Vis_Roomba_main.visible_location.pose.pose.position.y = vis_roomba.y
             quaternion = tf.transformations.quaternion_from_euler(0, 0, vis_roomba.heading)
-            # # type(pose) = geometry_msgs.msg.Pose
+
             Vis_Roomba_main.visible_location.pose.pose.orientation.x = quaternion[0]
             Vis_Roomba_main.visible_location.pose.pose.orientation.y = quaternion[1]
             Vis_Roomba_main.visible_location.pose.pose.orientation.z = quaternion[2]
             Vis_Roomba_main.visible_location.pose.pose.orientation.w = quaternion[3]
-            # print(Vis_Roomba_main)
             roombaArray.roombas.append(vis_roomba)
             roombaArrayMain.data.append(Vis_Roomba_main)
 
         roombaArrayMain.header.stamp = rospy.Time.now()
         roombaArrayMain.header.seq = self.seqNum
         self.seqNum += 1
-        # print(roombaArrayMain)
+
+        # Uncomment below lines if function is dependent on old roomba list. Try to phase use out.
         # self.Vis_Roombas.publish(roombaArray)
 
         self.Vis_Roombas_Main.publish(roombaArrayMain)
-        # rospy.spinOnce()
 
-        # Vis_Roomba.x = robot_pos[0]
-        # Vis_Roomba.y = blah]
-
-        #print(drone.visible_roombas)
-        #print(all_robots)
-        #print(drone.pos3d[2])#Replace with publishing custom message
 
         try:
             drone_pos, drone_heading = self.tf.lookupTransform(
@@ -256,49 +255,43 @@ class Simulator(object):
     def run_collision(self, robot_pos, robot_headings, drone_pos, drone_heading):
         """ Handle collision between robots. """
 
-        #for target robots
         targets = self.targets # save some typing ...
         obstacles = self.obstacles
         drone = self.drone
         all_robots = np.concatenate((targets, obstacles))
 
-        #Calculate all of the collisions between robots
+        # Calculate all of the collisions between robots
         n_t = len(all_robots)
         for i in xrange(0,n_t):
             for j in xrange(0, n_t):
                 if i != j:
                     all_robots[i].collision(robot_pos[i], robot_headings[i], robot_pos[j], robot_headings[j])
 
-        #Now calculate all of the collisions between the drone and the robots
+        # Now calculate all of the collisions between the drone and the robots
         for i in xrange(0, n_t):
             if drone.pos3d[2] < 0:
                 drone.pos3d[2] = 0
 
             if drone.pos3d[2] < cfg.ROOMBA_HEIGHT + cfg.PAD_HEIGHT and type(all_robots[i]) is TargetRoomba:
                 d = np.sqrt((drone.pos3d[0] - robot_pos[i][0])**2 + (drone.pos3d[1] - robot_pos[i][1])**2)
-                #Before normal collisions are checkes, see if it's a tap
+                # Before normal collisions are checks, see if it's a tap
                 if drone.vel3d.linear.z < 0 and d < cfg.SENSOR_PAD_RADIUS:
-                    drone.pos3d[2] = cfg.ROOMBA_HEIGHT + cfg.PAD_HEIGHT #Make the drone not fall through the roomba
+                    drone.pos3d[2] = cfg.ROOMBA_HEIGHT + cfg.PAD_HEIGHT # Make the drone not fall through the roomba
                     all_robots[i].collisions['top'] = True
                     print('hit on top')
                     continue
 
-            #Standard Collision
+            # Standard Collision
             if drone.pos3d[2] < cfg.ROOMBA_HEIGHT:
                 #Do normal collisions
                 all_robots[i].collision(robot_pos[i], robot_headings[i], drone_pos, drone_heading, self_radius=cfg.ROOMBA_RADIUS, other_radius=(cfg.DRONE_RADIUS+cfg.ROTOR_OFFSET))
 
-            #Collision type for hitting obstacle roombas
+            # Collision type for hitting obstacle roombas
             if drone.pos3d[2] > cfg.ROOMBA_HEIGHT and type(all_robots[i]) is ObstacleRoomba:
 
                 if drone.pos3d[2] < cfg.ROOMBA_HEIGHT+all_robots[i].pole_height:
                     all_robots[i].collision(robot_pos[i], robot_headings[i], drone_pos, drone_heading, self_radius=cfg.OBSTACLE_POLE_RADIUS, other_radius=(cfg.DRONE_RADIUS+cfg.ROTOR_OFFSET))
                     drone.collision( drone_pos, drone_heading, robot_pos[i], robot_headings[i], self_radius=(cfg.DRONE_RADIUS+cfg.ROTOR_OFFSET), other_radius=cfg.OBSTACLE_POLE_RADIUS)
-
-
-            # print(all_robots[i] is ObstacleRomb())
-
-            # elif drone.pos3d[2] > a
 
     def run_bounds(self, robot_pos):
         all_robots = np.concatenate((self.targets, self.obstacles))
@@ -353,7 +346,7 @@ class Simulator(object):
             obstacle_neato.start()
 
         self.drone.velocity_publisher = rospy.Publisher('/%s/cmd_vel' %self.drone.tag, Twist, queue_size=10)
-        rospy.Subscriber('/%s/cmd_vel' %self.drone.tag, Twist, self.drone.record_vel)
+        rospy.Subscriber('/%s/cmd_vel' % self.drone.tag, Twist, self.drone.record_vel)
 
         self.drone.heightPublisher = rospy.Publisher('/drone/height',Float64,queue_size = 10)
 
@@ -366,6 +359,7 @@ class Simulator(object):
             try:
                 robot_pos, robot_headings, drone_pos, drone_heading = self.get_positions()
             except:
+                print("get_positions() Errored")
                 continue
             self.run_collision(robot_pos, robot_headings, drone_pos, drone_heading)
             self.update_failures()
@@ -374,13 +368,9 @@ class Simulator(object):
             t2=rospy.Time.now().to_sec()
             dt = t2-t1
 
-            # print((t1-t0)*1000)
-            # print(self.drone.vel3d)
-            # print(self.drone.pos3d[2])
             self.update(dt, (t2-t0)*1000)
-            # print dt
 
-            rospy.sleep(.1)
+            rospy.sleep(.01)
             t1 = t2
 
 def main():

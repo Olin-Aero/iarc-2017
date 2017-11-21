@@ -7,7 +7,7 @@ import tf
 import math
 from geometry_msgs.msg import Twist, Vector3
 from ChangeHeight import ChangingHeight
-from follow_roomba import following, roomba
+from follow_roomba import *
 
 class PushRoomba:
 	def __init__(self):
@@ -20,16 +20,17 @@ class PushRoomba:
 	def run(self,roomba):
 		#follow the robot code
 		self.follower.follow_roomba(roomba)
-		if(not self.ButtonHit && distancefromroomba < 0.17):
-			self.random.changeHeight(0.05)
-		else:
-			self.random.changeHeight(3.0)
-		print(self.actualHeight)
-		if(self.actualHeight < 0.1):
-			self.ButtonHit = True
+		#if(not self.ButtonHit && distancefromroomba < 0.17):
+		#	self.random.changeHeight(0.05)
+		#else:
+		#	self.random.changeHeight(3.0)
+		#print(self.actualHeight)
+		#if(self.actualHeight < 0.1):
+		#	self.ButtonHit = True
 	def runLoop(self):
 		while(True):
-			self.run()
+			roomba = Roomba("target1")
+			self.run(roomba)
 			rospy.sleep(.1)
 if __name__ == '__main__':
     ex = PushRoomba()
