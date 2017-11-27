@@ -1,0 +1,3 @@
+FailureOOB FailureOOB
+FailureCollision FailureCollision
+FailureAltitude FailureAltitude

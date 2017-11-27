@@ -8,7 +8,7 @@ import rospkg
 from std_msgs.msg import Float64, String
 from geometry_msgs.msg import Twist, Pose2D, Point
 from iarc_main.msg import Roomba as mainRoomba
-from iarc_main.msg import RoombaList
+from iarc_main.msg import RoombaList, FailureOOB, FailureCollision, FailureAltitude, Failures
 from iarc_sim_2d.msg import Roomba, Roombas
 rospack = rospkg.RosPack()
 
@@ -29,6 +29,28 @@ class Simulator(object):
         self.seqNum = 1
         self.Vis_Roombas = rospy.Publisher('Vis_Roombas', Roombas, queue_size=10)
         self.Vis_Roombas_Main = rospy.Publisher('/seen_roombas', RoombaList, queue_size=10)
+
+        # failure publishers and messages
+        self.FailureAltitude = FailureAltitude()
+        self.FailureAltitude.fail.data = False
+
+        self.FailureCollision = FailureCollision()
+        self.FailureCollision.fail.data = False
+        self.FailureCollision.collision_counter = 0
+
+        self.FailureOOB = FailureOOB()
+        self.FailureOOB.fail.data = False
+        self.FailureOOB.counter = 0
+
+        self.Failures = Failures()
+
+        self.AllFailures = rospy.Publisher('Failures', Failures, queue_size=10)
+
+
+        # rospy.sleep(5)
+        # print("Error")
+
+        print("Completed")
 
         self.Failure_Conditions = rospy.Publisher('Failure_Conditions', String, queue_size=10)
 
@@ -273,6 +295,43 @@ class Simulator(object):
         for r,p in zip(all_robots, robot_pos):
             r.bounds(p)
 
+    def update_failures(self):
+        drone = self.drone
+
+        # Checks to see if drone is out of the arena for more than 5 seconds
+        if drone.pos3d[0] >= 10 or drone.pos3d[0] <= -10 or drone.pos3d[1] >= 10 or drone.pos3d[1] <= -10:
+
+            if drone.OutOfBounds == False:
+                drone.TimeOOB = rospy.Time.now().to_sec()
+                drone.OutOfBounds = True
+            if drone.OutOfBounds == True:
+                self.FailureOOB.counter = rospy.Time.now().to_sec() - drone.TimeOOB
+                if self.FailureOOB.counter >= 5:
+                    self.FailureOOB.fail.data = True
+                    print("You have been out of bounds for more than 5 seconds and LOST")
+        else:
+            drone.OutOfBounds = False
+            self.FailureOOB.counter = 0
+
+        # Checks to see if the drone flies above 3 m
+        if drone.pos3d[2] > 3:
+            self.FailureAltitude.fail.data = True
+            print("You have flown to high and LOST")
+
+        # Updates how many obsticles drone has bumped into and
+        # detects when it has hit three
+        self.FailureCollision.collision_counter = drone.obsticle_bump_count
+        if self.FailureCollision.collision_counter >= 3:
+            self.FailureCollision.fail.data = True
+            print("You've bumped into three obsticle roomba poles and LOST.")
+
+        # Updates custom failure messages, compiles then into "Failures" and then publishes it
+        self.Failures.FailureCollision = self.FailureCollision
+        self.Failures.FailureOOB = self.FailureOOB
+        self.Failures.FailureAltitude = self.FailureAltitude
+
+        self.AllFailures.publish(self.Failures)
+
     def run(self):
         """ Main loop for running simulation. """
         for target_neato in self.targets:
@@ -300,6 +359,7 @@ class Simulator(object):
                 print("get_positions() Errored")
                 continue
             self.run_collision(robot_pos, robot_headings, drone_pos, drone_heading)
+            self.update_failures()
             self.run_bounds(robot_pos)
 
             t2=rospy.Time.now().to_sec()

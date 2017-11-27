@@ -14,6 +14,7 @@ import math
 import numpy as np
 import matplotlib.pyplot as plt
 import random
+import os
 from collections import Counter
 
 import rospy
@@ -29,7 +30,8 @@ import rospkg
 
 rospack = rospkg.RosPack()
 iarc_sim_path = rospack.get_path('iarc_sim_2d')
-sys.path.append(np.os.path.join(iarc_sim_path, 'src'))
+# sys.path.append(np.os.path.join(iarc_sim_path, 'src'))
+sys.path.append(os.path.join(iarc_sim_path, 'src'))
 
 import config as cfg
 
@@ -137,8 +139,7 @@ def fiveSecSim(last_turn, last_noise, start_pose, end_time):
             remaining_duration -= dt
 
             for cycle in range(1, noise_cycles + 1):
-                print cycle, roomba_pos[roomba]
-                orient += random.randint(-(math.pi / 18), (math.pi / 18))
+                orient += random.uniform(-(math.pi / 18), (math.pi / 18))
                 # orient = orient + -math.pi / 9
 
                 # Calculate dt
@@ -148,18 +149,23 @@ def fiveSecSim(last_turn, last_noise, start_pose, end_time):
 
                 roomba_pos[roomba] = locCalc(roomba_pos[roomba], dt, orient)
                 remaining_duration -= dt
+                print roomba_pos[roomba] #X, y, orientation
 
     # rospy.loginfo_throttle("Simulated positions: {}".format(roomba_pos))
 
     mean_pos = np.mean(roomba_pos, axis=0)
+    # print mean_pos
     mean_x = mean_pos[0]
     mean_y = mean_pos[1]
     mean_quaternion = tf.transformations.quaternion_from_euler(0, 0, mean_pos[2])
-    msg = Pose(position=Point(mean_x, mean_y, 0), orientation=mean_quaternion)
+    msg = Pose(position=Point(mean_x, mean_y, 0), orientation=Quaternion(mean_quaternion[0], mean_quaternion[1], mean_quaternion[2], mean_quaternion[3]))
 
     # TODO: Calculate covariance using eigenvectors of covariance matrix
     cov = [0] * 36
-    cov[0], cov[7] = np.std(roomba_pos, axis=0)
+    cov[0], cov[7], junk = np.std(roomba_pos, axis=0)
+
+    print np.cov([roomba_pos[0],roomba_pos[1]],mean_pos)
+
 
     return PoseWithCovarianceStamped(
         header=start_pose.header,
