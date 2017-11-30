@@ -43,7 +43,6 @@ class Particle(object):
             return None
 
     def match(self, p2):
-        # TODO : vectorize?
         # TODO : incorporate velocities
         # TODO : consider color[r/g] and type[t/o], when provided
         p1  = self.as_vec()

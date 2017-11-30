@@ -11,7 +11,6 @@ from filterpy.kalman import MerweScaledSigmaPoints, JulierSigmaPoints
 
 class UKFManager(object):
     def __init__(self, dt, sigmas):
-
         # note : apparently Merwe may produce non PSD matrices.
         # See https://github.com/rlabbe/filterpy/issues/44 
         #spts = MerweScaledSigmaPoints(5,1e-3,2,-2,sqrt_method=sqrtm,subtract=ukf_residual)
@@ -57,80 +56,76 @@ class UKFManager(object):
         self.p_idx += 1
 
     def step(self, obs, t, dt, obs_ar):
-        self.est, new = ukf_filter(self.est, obs, t, dt, obs_ar)
-        for n in new:
-            self.create(n._pose)
+        est = self.est
 
-def ukf_filter(est, obs, t, dt, obs_ar):
-    n = len(est)
-    m = len(obs)
-    # assert(m == len(obs_ar))
+        n = len(est)
+        m = len(obs)
+        # assert(m == len(obs_ar))
 
-    prob = np.zeros(shape=(n,m), dtype=np.float32)
-    cost = np.ones(shape=(n,m), dtype=np.float32)
+        prob = np.zeros(shape=(n,m), dtype=np.float32)
+        cost = np.ones(shape=(n,m), dtype=np.float32)
 
-    i2k = est.keys()
-    k2i = {i2k[i]:i for i in range(n)}
+        i2k = est.keys()
+        k2i = {i2k[i]:i for i in range(n)}
 
-    # predict from dt
-    for e in est.values():
-        e.predict(t, dt)
+        # predict from dt
+        for e in est.values():
+            e.predict(t, dt)
 
-    # assign observations
-    for k in est.keys():
-        for j, o in enumerate(obs):
-            prob[k2i[k],j] = est[k].match(o)
-            cost[k2i[k],j] = est[k].cost(o)
-    i_idx, j_idx = linear_sum_assignment(cost)
-    #print i_idx, j_idx
+        # assign observations
+        for k in est.keys():
+            for j, o in enumerate(obs):
+                prob[k2i[k],j] = est[k].match(o)
+                cost[k2i[k],j] = est[k].cost(o)
+        i_idx, j_idx = linear_sum_assignment(cost)
+        #print i_idx, j_idx
 
-    # update
-    # collect "new" particles
-    k_clear = []
-    add_obs = np.ones(m)
+        # update
+        # collect "new" particles
+        k_clear = []
+        add_obs = np.ones(m)
 
-    # TODO : track unmatched observations
-    for (i,j) in zip(i_idx, j_idx):
-        k = i2k[i]
-        if est[k]._pose in obs_ar:
-            if (prob[i,j] > P_MATCH):
-                #try:
-                est[k].update(obs[j]._pose._data[:3])
-                # TODO : p0-t0 necessary?
-                est[k]._p0 = prob[i,j]
-                est[k]._t0 = t
-                add_obs[j] = False
-                #except Exception as e:
-                #    print e
-                #    print obs[j]._pose._data[:3]
-            #print prob[i,j]
-        else:
-            # no updates ...
-            pass
+        for (i,j) in zip(i_idx, j_idx):
+            k = i2k[i]
+            if est[k]._pose in obs_ar:
+                if (prob[i,j] > P_MATCH):
+                    #try:
+                    est[k].update(obs[j]._pose._data[:3])
+                    # TODO : p0-t0 necessary?
+                    est[k]._p0 = prob[i,j]
+                    est[k]._t0 = t
+                    add_obs[j] = False
+                    #except Exception as e:
+                    #    print e
+                    #    print obs[j]._pose._data[:3]
+                #print prob[i,j]
+            else:
+                # no updates ...
+                pass
 
-    # clear invalid (unobserved) estimates
-    if m > 0:
-        for k,e in est.iteritems():
-            i = k2i[k]
-            if (i in i_idx): # index check
-                continue
-            if (e._pose not in obs_ar): # area check
-                continue
-            if (np.max(prob[i]) > P_CLEAR):
-                continue
-            k_clear.append(k)
+        # clear invalid (unobserved) estimates
+        if m > 0:
+            for k,e in est.iteritems():
+                i = k2i[k]
+                if (i in i_idx): # index check
+                    continue
+                if (e._pose not in obs_ar): # area check
+                    continue
+                if (np.max(prob[i]) > P_CLEAR):
+                    continue
+                k_clear.append(k)
 
-    # update estimates list
-    est = {k:v for (k,v) in est.iteritems() if (v.p() > P_KEEP) and (k not in k_clear)}
+        # update estimates list
+        self.est = {k:v for (k,v) in est.iteritems() if (v.p() > P_KEEP) and (k not in k_clear)}
 
-    # return new particles observation
-    new_j = np.where(add_obs)[0]
-    #if len(new_j) > 0:
-    #    print new_j
+        # create new particles from observation
+        new_j = np.where(add_obs)[0]
+        for o in [obs[j] for j in new_j]:
+            self.create(o._pose)
+        # TODO : merge particles that are too similar?
 
-    # TODO : merge particles that are too similar?
-
-    return est, [obs[j] for j in new_j]
+    def estimates(self):
+        return self.est.values()
 
 def main():
     # parameters
@@ -157,12 +152,14 @@ def main():
     particles = {}
 
     for i, t in enumerate(targets):
-        # initiali estimates with noisy pose
+        # initial estimates with noisy pose
         pose = Pose(*add_noise(t._pose._data, sigmas))
         manager.create(pose)
 
     t = 0
     while True:
+
+        # observations ...
         obs_ar = CircularObservation(
                 drone._pose.x,
                 drone._pose.y,
@@ -175,16 +172,19 @@ def main():
                 o._pose = Pose(*add_noise(r._pose._data, s=dt*sigmas))
                 obs.append(o)
 
+        # render
         k = render(
                 drone._pose,
                 [_t._pose for _t in targets],
-                manager.est.values(),
+                manager.estimates(),
                 t,
                 delay=100
                 )
 
+        # filter
         manager.step(obs, t, dt, obs_ar)
 
+        # step world
         for _t in targets:
             _t.step(t,dt)
 
@@ -194,4 +194,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-    print 'done'

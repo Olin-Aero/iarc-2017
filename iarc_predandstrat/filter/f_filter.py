@@ -8,12 +8,12 @@ def ukf_fx(x0, dt, t):
     # or handle it outside of ukf by manipulating state
     # I think fx_args in predict() can work?
 
-    # x-y-t-v-w
-    x,y,t,v,w = x0
-    x += v * np.cos(t) * dt
-    y += v * np.sin(t) * dt
-    t += w * dt
-    x = np.asarray([x,y,t,v,w])
+    # x-y-th-v-w
+    x,y,th,v,w = x0
+    x += v * np.cos(th) * dt
+    y += v * np.sin(th) * dt
+    th += w * dt
+    x = np.asarray([x,y,th,v,w])
     return x
 
 def ukf_mean(xs, wm):
