@@ -13,3 +13,7 @@ All other dependencies can be installed using `rosdep`:
 Finally, `catkin_make` can be used to build the code
 
     cd ~/catkin_ws && catkin_make
+
+Copy camera calibration to your ROS install
+
+    mkdir -p ~/.ros/camera_info && cp $(rospack find iarc_vision)/calibration/* ~/.ros/camera_info/
