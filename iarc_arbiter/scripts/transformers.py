@@ -42,10 +42,10 @@ class PIDController(object):
         self.last_time = rospy.Time(0)
 
         self.maxvelocity = rospy.get_param('~max_velocity', 1.0)  # Max velocity the drone can reach
-        self.kpturn = rospy.get_param('~kp_turn', 1.0)  # Proportional for turning
-        self.kp = rospy.get_param('~kp', 1.0)  # Proportional
-        self.ki = rospy.get_param('~ki', 0.2)  # Integral
-        self.kd = rospy.get_param('~kd', 0.0)  # Derivative: kd is not currently used
+        self.kpturn = rospy.get_param('~kp_turn', 0.0)  # Proportional for turning
+        self.kp = rospy.get_param('~kp', 0.05)  # Proportional
+        self.ki = rospy.get_param('~ki', 0)#0.02)  # Integral
+        self.kd = rospy.get_param('~kd', 0.1)  # Derivative: kd is not currently used
 
         self.integral_x = 0.0
         self.previous_error_x = 0.0
