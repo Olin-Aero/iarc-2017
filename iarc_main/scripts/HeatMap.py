@@ -5,6 +5,8 @@ from std_msgs.msg import Float64
 from geometry_msgs.msg import Twist, Vector3
 import tf
 import math
+import random
+import matplotlib.pyplot as plt
 from geometry_msgs.msg import Twist, Vector3
 import sys
 import os
@@ -15,15 +17,6 @@ sys.path.append(os.path.join(iarc_sim_path, 'src'))
 
 from config import *
 class HeatMap:
-    def __init__(self):
-        self.heightPub = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
-        self.cmdHeight = rospy.Publisher('/cmd_height', Float64, queue_size=10)
-        self.tf = tf.TransformListener()
-        rospy.init_node('Example')        
-        rospy.Subscriber("/drone/height", Float64, self.callback)
-        rospy.sleep(0.1)
-    def callback(self, msg):
-        self.actualHeight = msg.data
     def createHeatMap2(self,time):
         #ROOMBA_LINEAR_SPEED = 0.33
         #ROOMBA_OBSTACLE_NOISE_MAX = 23 * (np.pi / 180)
@@ -90,8 +83,55 @@ class HeatMap:
                 adding = (1.0 / math.sqrt(2*math.pi) * math.e ** (-1. / 2.0 * ((i-500.0) * 3 / 500)**2.0))
                 confidence += adding / total
         print((xPosNew,yPosNew,confidence))
+    def heatmapping(self,sim_time,pred_time,num_roombas,roomba):
+        roombaPos,roombaHeading = self.tf.lookupTransform('map', roomba, rospy.Time(0))
+        initX = roombaPos[0]
+        initY = roombaPos[1]
+        initHeading = tf.transformations.euler_from_quaternion(roombaHeading)[-1]
+        xArray = []
+        yArray = []
+        for i in range(num_roombas):
+            current_time = sim_time
+            xPosNew = initX
+            yPosNew = initY
+            newHeading = initHeading
+            while(current_time < sim_time + pred_time):
+                new_time = ROOMBA_OBSTACLE_NOISE_PERIOD/1000 - sim_time%(ROOMBA_OBSTACLE_NOISE_PERIOD/1000)
+                if(current_time + new_time >= sim_time + pred_time):
+                    new_time = sim_time + pred_time - current_time
+                    print(new_time)
+                xPos = xPosNew
+                yPos = yPosNew
+                heading = newHeading
+                CircleRad = heading - math.pi / 2
+                CircleCenter_x = xPos - (ROOMBA_OBSTACLE_TURN_RADIUS* math.cos(CircleRad))
+                CircleCenter_y = yPos - (ROOMBA_OBSTACLE_TURN_RADIUS* math.sin(CircleRad))
+                newCircleRad = CircleRad + new_time * ROOMBA_LINEAR_SPEED / ROOMBA_OBSTACLE_TURN_RADIUS
+                xPosNew = CircleCenter_x + (ROOMBA_OBSTACLE_TURN_RADIUS* math.cos(newCircleRad))
+                yPosNew = CircleCenter_y + (ROOMBA_OBSTACLE_TURN_RADIUS* math.sin(newCircleRad))
+                newHeading = newCircleRad + math.pi / 2
+                heading = newHeading + random.uniform(-ROOMBA_OBSTACLE_NOISE_MAX,ROOMBA_OBSTACLE_NOISE_MAX)
+                xPos = xPosNew
+                yPos = yPosNew
+                current_time += new_time
+                new_time = sim_time % (ROOMBA_OBSTACLE_NOISE_PERIOD / 1000)
+                if(current_time + new_time >= sim_time + pred_time):
+                    new_time = sim_time + pred_time - current_time
+                CircleRad = heading - math.pi / 2
+                CircleCenter_x = xPos - (ROOMBA_OBSTACLE_TURN_RADIUS* math.cos(CircleRad))
+                CircleCenter_y = yPos - (ROOMBA_OBSTACLE_TURN_RADIUS* math.sin(CircleRad))
+                newCircleRad = CircleRad + new_time * ROOMBA_LINEAR_SPEED / ROOMBA_OBSTACLE_TURN_RADIUS
+                xPosNew = CircleCenter_x + (ROOMBA_OBSTACLE_TURN_RADIUS* math.cos(newCircleRad))
+                yPosNew = CircleCenter_y + (ROOMBA_OBSTACLE_TURN_RADIUS* math.sin(newCircleRad))
+                newHeading = newCircleRad + math.pi / 2
+                current_time += new_time
+                xArray.append(xPosNew)
+                yArray.append(yPosNew)
+            plt.plot(xArray,yArray,'ro')
+            plt.plot(xPosNew,yPosNew,'bo')
+        plt.axis('equal')
+        plt.show()
 if __name__ == '__main__':
     # rospy.init_node('testing')
     ex = HeatMap()
-    ex.createHeatMap(36,'/obstacle0')
-    rospy.spin()
+    ex.heatmapping(1.3,20,20,'/obstacle1')
