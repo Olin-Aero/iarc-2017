@@ -149,7 +149,7 @@ def fiveSecSim(last_turn, last_noise, start_pose, end_time):
 
                 roomba_pos[roomba] = locCalc(roomba_pos[roomba], dt, orient)
                 remaining_duration -= dt
-                print roomba_pos[roomba] #X, y, orientation
+                # print roomba_pos[roomba] #X, y, orientation
 
     # rospy.loginfo_throttle("Simulated positions: {}".format(roomba_pos))
 
@@ -164,7 +164,23 @@ def fiveSecSim(last_turn, last_noise, start_pose, end_time):
     cov = [0] * 36
     cov[0], cov[7], junk = np.std(roomba_pos, axis=0)
 
-    print np.cov([roomba_pos[0],roomba_pos[1]],mean_pos)
+    # print np.cov([roomba_pos[0],roomba_pos[1]],mean_pos)
+
+    pad = np.zeros(20)
+    yaw = tf.transformations.quaternion_from_euler(pad,pad,np.array(roomba_pos)[:,2])
+    print yaw
+    XYZRPY = [np.array(roomba_pos)[:,0],np.array(roomba_pos)[:,1],pad,pad,pad,np.array(roomba_pos)[:,2]]
+
+    # XYcovariance = np.cov(np.array(roomba_pos)[:,0],np.array(roomba_pos)[:,1])
+    # print "XY cov: ", covariance
+    # eigvals, eigvecs = np.linalg.eig(covariance)
+    # print "Eigenvalues", eigvals
+    # print "Eigenvectors", eigvecs
+
+
+    # print "XY: ", np.array(roomba_pos)[:,0],np.array(roomba_pos)[:,1]
+    # print "Orientation: ", [mean_quaternion[0],mean_quaternion[1],mean_quaternion[2]]
+    # print "Orientation cov:", np.cov([mean_quaternion[0],mean_quaternion[1],mean_quaternion[2]])
 
 
     return PoseWithCovarianceStamped(
