@@ -103,3 +103,31 @@ class Drone(Particle):
             t=T_DRONE, c=None):
         super(Drone, self).__init__(
                 pose, p0, t0, t, c)
+
+class UKFEstimate(Particle):
+    def __init__(
+            self, pose,
+            p0=1.0, t0=0.0,
+            t=T_TARG, c=None,
+            ukf=None
+            ):
+        super(UKFEstimate, self).__init__(
+                pose, p0, t0, t, c)
+        self.ukf = ukf
+    def predict(self, t, dt):
+        # predict ...
+        self.ukf.predict(dt, fx_args=t)
+        self._pose._data = self.ukf.x.copy()
+    def update(self, pose):
+        self.ukf.update(pose)
+    def p(self):
+        # TODO : improve probability estimates
+        # TODO : hard-coded error margin
+        cov = self.ukf.P[:3,:3] # ignore velocity components
+        d = np.asarray([0.5, 0.5, np.deg2rad(30)]) # error margin
+        _p, _ = mvn.mvnun(
+            -d, d,
+            np.zeros_like(d),
+            cov
+            )
+        return _p

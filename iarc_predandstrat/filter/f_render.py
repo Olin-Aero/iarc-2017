@@ -27,7 +27,6 @@ class Renderer(object):
             drone,
             roombas,
             particles,
-            probs,
             t,
             delay=10
             ):
@@ -55,15 +54,14 @@ class Renderer(object):
                     )
 
         # particles
-        for p,pp in zip(particles, probs):
-            #print 'p', p.p(t)
+        for p in particles:
             x, y = self._convert(p._pose.x, p._pose.y)
             vx, vy = 10*np.cos(p._pose.t), -10*np.sin(p._pose.t)
             vx, vy = (int(e) for e in (vx,vy))
             cv2.circle(img,
                     (x,y),
                     5,
-                    (255,0,0, int(255 * p.p(t))),
+                    (255,0,0, int(255 * p.p())),
                     -1
                     )
             cv2.line(img,
@@ -73,13 +71,12 @@ class Renderer(object):
                     2
                     )
             cv2.putText(img,
-                    ('%.2f | %.2f' % (p.p(t), pp) ),
+                    ('%.2f' % p.p()),
                     (x,y),
                     self._ff,
                     self._fs*0.5,
                     (255,255,255)
                     )
-
 
         # drone
         cv2.circle(img,
