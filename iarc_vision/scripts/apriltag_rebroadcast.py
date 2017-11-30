@@ -67,6 +67,7 @@ class TagTransformer(object):
                 )
             )
 
+            # Because April tags don't have color information, assign even tags to be GREEN and odd tags to be RED
             roomba.type = [Roomba.GREEN, Roomba.RED][tag.id % 2]
 
             roomba.last_seen = tag.pose.header.stamp
