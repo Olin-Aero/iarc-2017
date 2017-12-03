@@ -136,7 +136,7 @@ def main():
 
     # initialization
     drone = Drone(Pose())
-    targets = [SimpleParticle(Pose.random()) for i in range(n_targets)]
+    targets = [Target(Pose.random()) for i in range(n_targets)]
 
     # render ...
     win_name = 'world'

@@ -113,9 +113,10 @@ class UKFEstimate(Particle):
         super(UKFEstimate, self).__init__(
                 pose, p0, t0, t, c)
         self.ukf = ukf
-    def predict(self, t, dt):
+    def predict(self, t, dt, obs):
         # predict ...
-        self.ukf.predict(dt, fx_args=t)
+        # obs = observability
+        self.ukf.predict(dt, fx_args=(t,obs))
         self._pose._data = self.ukf.x.copy()
     def update(self, pose):
         self.ukf.update(pose)

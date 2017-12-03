@@ -3,16 +3,30 @@ import numpy as np
 def ukf_hx(x):
     return x[:3]
 
-def ukf_fx(x0, dt, t):
+def ukf_fx(x0, dt, t, obs):
     # TODO : support time-based transition?
     # or handle it outside of ukf by manipulating state
     # I think fx_args in predict() can work?
 
     # x-y-th-v-w
+
     x,y,th,v,w = x0
-    x += v * np.cos(th) * dt
-    y += v * np.sin(th) * dt
-    th += w * dt
+    if not obs: # not observable, guess
+        if t % INT_REVERSE < T_180:
+            # override v-w?
+            v = 0.0
+            w = np.pi / INT_REVERSE
+        elif if t % INT_NOISE < T_NOISE:
+            v = 0.0
+            w = 0.0
+            # assume constant w
+        else:
+            v = 
+            w = 0.0
+    else:
+        x += v * np.cos(th) * dt
+        y += v * np.sin(th) * dt
+        th += w * dt
     x = np.asarray([x,y,th,v,w])
     return x
 

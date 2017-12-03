@@ -13,3 +13,8 @@ P_MATCH = 0.75 # particle-match threshold for update
 P_CLEAR = 0.5
 P_DECAY = 0.87 # 1.0 -> 0.25 after 10 sec.
 
+INT_NOISE=20.0
+INT_REVERSE20.0
+T_180=2.15
+T_45=T_180/4
+T_NOISE=0.85
