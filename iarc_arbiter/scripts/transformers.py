@@ -2,6 +2,7 @@ import rospy
 import math
 from geometry_msgs.msg import Twist, PoseStamped
 from tf import TransformListener
+from ddynamic_reconfigure_python.ddynamic_reconfigure import DDynamicReconfigure
 
 
 class Command:
@@ -35,6 +36,7 @@ class PIDController(object):
     def __init__(self, tf, ddynrec):
         """
         :type tf: TransformListener
+        :type ddynrec: DDynamicReconfigure
         """
         self.tf = tf
         self.config = ddynrec
@@ -42,20 +44,20 @@ class PIDController(object):
         # Testing follow behavior at position (x, y) = (1, 1) relative to target
         self.last_time = rospy.Time(0)
 
-        self.config.add_variable("max_velocity", "Max velocity the drone can reach", 
-        	rospy.get_param('~max_velocity', 1.0), 0.0, 2.0)
+        self.config.add_variable("max_velocity", "Max velocity the drone can reach",
+                                 rospy.get_param('~max_velocity', 1.0), 0.0, 2.0)
 
         self.config.add_variable("kp_turn", "Proportional Angular",
-        	rospy.get_param('~kp_turn', 0.0), 0.0, 2.0)
+                                 rospy.get_param('~kp_turn', 0.0), 0.0, 2.0)
 
         self.config.add_variable("kp", "Proportional Linear",
-        	rospy.get_param('~kp', 0.05), 0.0, 2.0)
+                                 rospy.get_param('~kp', 0.05), 0.0, 2.0)
 
         self.config.add_variable("ki", "Integral",
-        	rospy.get_param('~ki', 0), 0.0, 2.0)
+                                 rospy.get_param('~ki', 0.0), 0.0, 2.0)
 
         self.config.add_variable("kd", "Derivative",
-        	rospy.get_param('~kd', 0.1), 0.0, 2.0)
+                                 rospy.get_param('~kd', 0.1), 0.0, 2.0)
 
         # self.maxvelocity = rospy.get_param('~max_velocity', 1.0)  # Max velocity the drone can reach
         # self.kpturn = rospy.get_param('~kp_turn', 0.0)  # Proportional angular for turning
