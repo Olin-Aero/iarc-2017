@@ -60,7 +60,6 @@ class UKFManager(object):
         ukf.x = pose._data.copy()
         ukf.P = self.P.copy()
         # TODO : fill in more info, such as color(red/green/unknown), type(target/obs/unknown)
-        # TODO : testing with SimpleParticle, not Target
         self.est[self.p_idx] = UKFEstimate(pose,
                 *args,
                 ukf=ukf,
@@ -144,7 +143,7 @@ class UKFManager(object):
 
 def main():
     # parameters
-    n_targets = 14
+    n_targets = 40
     dt = 0.025
     steps = (100.0 / dt)
     sigmas = np.asarray([S_X, S_Y, S_T, S_V, S_W])

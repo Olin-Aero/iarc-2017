@@ -103,7 +103,7 @@ class Target(Particle):
             # initialize state
             if next_state == S_TURN:
                 self._pose.v = 0.0
-                self._pose.w = np.pi / T_180
+                self._pose.w = np.random.normal(np.pi/T_180, S_W*dt)
             elif next_state == S_NOISE:
                 self._pose.v = 0.0
                 self._pose.w = np.random.uniform(-MAX_NOISE_W, MAX_NOISE_W)
@@ -149,7 +149,6 @@ class UKFEstimate(Particle):
     def update(self, pose):
         self.ukf.update(pose)
     def p(self):
-        # TODO : improve probability estimates
         # TODO : hard-coded error margin
         cov = self.ukf.P[:3,:3] # ignore velocity components
         # error margin, +- 0.5m

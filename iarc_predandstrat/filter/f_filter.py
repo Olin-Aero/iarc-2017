@@ -5,10 +5,6 @@ def ukf_hx(x):
     return x[:3]
 
 def ukf_fx(x0, dt, t, obs):
-    # TODO : support time-based transition?
-    # or handle it outside of ukf by manipulating state
-    # I think fx_args in predict() can work?
-
     x,y,th,v,w = x0
     if not obs:
         # not observable
