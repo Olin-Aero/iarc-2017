@@ -12,9 +12,8 @@ def ukf_fx(x0, dt, t, obs):
     x,y,th,v,w = x0
     if not obs:
         # not observable
-        # make predictions based on known drone model
+        # make simulated predictions based on roomba model
         if t % INT_REVERSE < T_180:
-            # override v-w?
             v = 0.0
             w = np.pi / T_180
             # 1.375
@@ -50,5 +49,3 @@ def ukf_residual(a,b):
     # sometimes gets imag for some reason
     d[2] = np.arctan2(np.sin(d[2]), np.cos(d[2]))
     return d
-
-

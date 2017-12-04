@@ -46,6 +46,12 @@ class Renderer(object):
                     color=(255,255,0),
                     thickness=-1
                     )
+            #cv2.circle(img,
+            #        (x,y),
+            #        int(self._s*0.5),
+            #        color=(255,255,255),
+            #        thickness=1
+            #        )# error margin
             cv2.line(img,
                     (x,y),
                     (x+vx,y+vy),
@@ -53,14 +59,32 @@ class Renderer(object):
                     4
                     )
 
+
         # particles
         for p in particles:
             x, y = self._convert(p._pose.x, p._pose.y)
             vx, vy = 10*np.cos(p._pose.t), -10*np.sin(p._pose.t)
             vx, vy = (int(e) for e in (vx,vy))
+
+            # covariance visualization ...
+            # show 95% confidence interval
+            cov = p.cov()
+            w, h = self._s*abs(cov[0,0]), self._s*abs(cov[1,1])
+            v = np.linalg.eigh(cov)[1]
+            c_a = np.arctan2(-v[1, -1], v[0, -1])
+            cv2.ellipse(img,
+                    (x,y), #center
+                    (int((1+w*2.44)/2.), int((1+h*2.44)/2)), #axes
+                    np.rad2deg(c_a), #angle
+                    0,
+                    360,
+                    (128,0,128),
+                    -1
+                    )
+
             cv2.circle(img,
                     (x,y),
-                    5,
+                    3,
                     (255,0,0, int(255 * p.p())),
                     -1
                     )

@@ -108,8 +108,8 @@ class Target(Particle):
                 self._pose.v = 0.0
                 self._pose.w = np.random.uniform(-MAX_NOISE_W, MAX_NOISE_W)
             elif next_state == S_RUN:
-                self._pose.v = np.random.normal(0.33, 0.05)
-                self._pose.w = np.random.normal(0.0, 0.01)
+                self._pose.v = np.random.normal(0.33, S_V*dt)
+                self._pose.w = np.random.normal(0.0, S_W*dt)
             self._state = next_state
 
 
@@ -152,10 +152,13 @@ class UKFEstimate(Particle):
         # TODO : improve probability estimates
         # TODO : hard-coded error margin
         cov = self.ukf.P[:3,:3] # ignore velocity components
-        d = np.asarray([0.5, 0.5, np.deg2rad(30)]) # error margin
+        # error margin, +- 0.5m
+        d = np.asarray([0.5, 0.5, np.deg2rad(30)])
         _p, _ = mvn.mvnun(
             -d, d,
             np.zeros_like(d),
             cov
             )
         return _p
+    def cov(self):
+        return self.ukf.P[:2,:2]

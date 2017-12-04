@@ -13,8 +13,8 @@ class UKFManager(object):
     def __init__(self, dt, sigmas):
         # note : apparently Merwe may produce non PSD matrices.
         # See https://github.com/rlabbe/filterpy/issues/44 
-        #spts = MerweScaledSigmaPoints(5,1e-3,2,-2,sqrt_method=sqrtm,subtract=ukf_residual)
-        spts = JulierSigmaPoints(5, 5-2, sqrt_method=sqrtm, subtract=ukf_residual)
+        spts = MerweScaledSigmaPoints(5,1e-3,2,-2,subtract=ukf_residual)
+        #spts = JulierSigmaPoints(5, 5-2, sqrt_method=np.linalg.cholesky, subtract=ukf_residual)
 
         self.ukf_args = {
             'dim_x' : 5,
@@ -31,11 +31,24 @@ class UKFManager(object):
 
         # TODO : arbitrary covariances
         self.P = np.diag(np.square(sigmas))# initial covariance
-        self.R = np.diag(np.square([0.05, 0.05, np.deg2rad(5)])) # measurement noise
+        self.R = np.diag(np.square([0.1, 0.1, np.deg2rad(5)])) # measurement noise: 5cm/5deg err.
+
         # process noise
-        Gt = [0.5*dt**2, 0.5*dt**2, 0.5*dt**2, dt, dt] # acceleration-noise model
-        G = np.multiply(Gt, [0.01, 0.01, np.deg2rad(5), 0.01, 0.01]) #~1cm / 5 deg. per second
-        self.Q = np.diag(np.square(G))
+        #G = [0.5*dt**2, 0.5*dt**2, 0.5*dt**2, dt, dt] # acceleration-noise model
+        self.Q = dt * np.diag([0.02, 0.02, np.deg2rad(3), 0.01, 0.01])
+        #self.Q = np.square(np.diag(G) * 8.8)
+        # G = np.reshape(G, [-1,1])
+        # print G.T
+        # self.Q = np.dot(G, np.transpose(G)) * (8.8**2)
+
+        #np.diag([0.05, 0.05, np.deg2rad(5), 0.01, 0.01])
+        #self.Q = np.outer(Gt,Gt) * (8.8**2)
+        #print self.Q
+
+        #G = [0.05, 0.05, np.deg2rad(5), 0.01, 0.01]
+        #~5cm / 5 deg. per second
+
+        #self.Q = np.diag(np.square(G))
 
         self.p_idx = 0
         self.est = {}
@@ -111,7 +124,9 @@ class UKFManager(object):
                     continue
                 if (e._pose not in obs_ar): # area check
                     continue
-                if (np.max(prob[i]) > P_CLEAR):
+                j = np.argmax(prob[i])
+                if (j not in j_idx) and (np.max(prob[i]) > P_CLEAR):
+                    # this was best match
                     continue
                 k_clear.append(k)
 
@@ -129,8 +144,8 @@ class UKFManager(object):
 
 def main():
     # parameters
-    n_targets = 30
-    dt = 0.1
+    n_targets = 14
+    dt = 0.025
     steps = (100.0 / dt)
     sigmas = np.asarray([S_X, S_Y, S_T, S_V, S_W])
 
@@ -156,9 +171,8 @@ def main():
         pose = Pose(*add_noise(t._pose._data, sigmas))
         manager.create(pose)
 
-    t = 0
+    t = 3.0
     while True:
-
         # observations ...
         obs_ar = CircularObservation(
                 drone._pose.x,
@@ -178,7 +192,7 @@ def main():
                 [_t._pose for _t in targets],
                 manager.estimates(),
                 t,
-                delay=100
+                delay=10
                 )
 
         # filter
