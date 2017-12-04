@@ -74,6 +74,9 @@ class Particle(object):
     def p(self, t):
         return self._p0 * P_DECAY ** (t-self._t0)
 
+def check(t0, t1, int0, int1):
+    return (t0%int0 > int1) and (t1%int0 < int1)
+
 class Target(Particle):
     def __init__(
             self, pose,
@@ -81,9 +84,34 @@ class Target(Particle):
             t=T_TARG, c=None):
         super(Target, self).__init__(
             pose, p0, t0, t, c)
+        self._state = S_RUN
+
     def step(self, t, dt):
-        if (t+dt)%5.0 < t%5.0:
-            pass
+        self._pose.step(dt)
+
+        # state transition
+        t1 = t+dt
+        next_state = self._state
+        if t1 % INT_REVERSE < T_180:
+            next_state = S_TURN
+        elif t1 % INT_NOISE < T_NOISE:
+            next_state = S_NOISE
+        else:
+            next_state = S_RUN
+
+        if self._state != next_state:
+            # initialize state
+            if next_state == S_TURN:
+                self._pose.v = 0.0
+                self._pose.w = np.pi / T_180
+            elif next_state == S_NOISE:
+                self._pose.v = 0.0
+                self._pose.w = np.random.uniform(-MAX_NOISE_W, MAX_NOISE_W)
+            elif next_state == S_RUN:
+                self._pose.v = np.random.normal(0.33, 0.05)
+                self._pose.w = np.random.normal(0.0, 0.01)
+            self._state = next_state
+
 
 class SimpleParticle(Particle):
     def __init__(

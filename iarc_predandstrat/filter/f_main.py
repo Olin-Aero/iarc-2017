@@ -70,7 +70,7 @@ class UKFManager(object):
 
         # predict from dt
         for e in est.values():
-            e.predict(t, dt)
+            e.predict(t, dt, obs=(e._pose in obs_ar))
 
         # assign observations
         for k in est.keys():

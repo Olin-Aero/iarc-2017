@@ -1,3 +1,4 @@
+from f_config import *
 import numpy as np
 
 def ukf_hx(x):
@@ -8,25 +9,31 @@ def ukf_fx(x0, dt, t, obs):
     # or handle it outside of ukf by manipulating state
     # I think fx_args in predict() can work?
 
-    # x-y-th-v-w
-
     x,y,th,v,w = x0
-    if not obs: # not observable, guess
+    if not obs:
+        # not observable
+        # make predictions based on known drone model
         if t % INT_REVERSE < T_180:
             # override v-w?
             v = 0.0
-            w = np.pi / INT_REVERSE
-        elif if t % INT_NOISE < T_NOISE:
+            w = np.pi / T_180
+            # 1.375
+        elif t % INT_NOISE < T_NOISE:
             v = 0.0
             w = 0.0
             # assume constant w
+            # only increase covariance.
         else:
-            v = 
+            # go forward ...
+            v = .33
             w = 0.0
     else:
-        x += v * np.cos(th) * dt
-        y += v * np.sin(th) * dt
-        th += w * dt
+        # respect current states
+        # if under observation
+        pass
+    x += v * np.cos(th) * dt
+    y += v * np.sin(th) * dt
+    th += w * dt
     x = np.asarray([x,y,th,v,w])
     return x
 
