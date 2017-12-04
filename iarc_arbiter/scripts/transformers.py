@@ -51,13 +51,13 @@ class PIDController(object):
                                  rospy.get_param('~kp_turn', 0.0), 0.0, 2.0)
 
         self.config.add_variable("kp", "Proportional Linear",
-                                 rospy.get_param('~kp', 0.05), 0.0, 2.0)
+                                 rospy.get_param('~kp', 0.3), 0.0, .5)
 
         self.config.add_variable("ki", "Integral",
-                                 rospy.get_param('~ki', 0.0), 0.0, 2.0)
+                                 rospy.get_param('~ki', 0.0), 0.0, .5)
 
         self.config.add_variable("kd", "Derivative",
-                                 rospy.get_param('~kd', 0.1), 0.0, 2.0)
+                                 rospy.get_param('~kd', 0.3), 0.0, 2.0)
 
         # self.maxvelocity = rospy.get_param('~max_velocity', 1.0)  # Max velocity the drone can reach
         # self.kpturn = rospy.get_param('~kp_turn', 0.0)  # Proportional angular for turning
@@ -106,7 +106,7 @@ class PIDController(object):
         # Combined velocity
         dip_diagonal = math.sqrt(dip_x ** 2 + dip_y ** 2)
 
-        if dip_diagonal < self.config.maxvelocity:
+        if dip_diagonal < self.config.max_velocity:
             # If dip_diagonal is already < max_velocity
             # use dip velocity
             vel.linear.x = dip_x
@@ -114,15 +114,15 @@ class PIDController(object):
         else:
             # Else use max velocity
             diagonalvelocity = math.sqrt(position.x ** 2 + position.y ** 2)
-            vel.linear.x = position.x / diagonalvelocity * self.config.maxvelocity
-            vel.linear.y = position.y / diagonalvelocity * self.config.maxvelocity
+            vel.linear.x = position.x / diagonalvelocity * self.config.max_velocity
+            vel.linear.y = position.y / diagonalvelocity * self.config.max_velocity
 
             # Reset integral until we start using it
             self.integral_x = 0.0
             self.integral_y = 0.0
 
         # Turn drone to where it's heading to
-        vel.angular.z = self.config.kpturn * math.atan2(vel.linear.y, vel.linear.x)
+        vel.angular.z = self.config.kp_turn * math.atan2(vel.linear.y, vel.linear.x)
 
         print("Calculated vel: {}".format(vel))
 
