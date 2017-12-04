@@ -26,7 +26,7 @@ class Arbiter:
         self.null_behavior = Behavior(self.process_command, 'zero')
 
         self.behaviors = {'zero': self.null_behavior}
-        self.active_behavior_name = ''
+        self.active_behavior_name = 'zero'
         self.set_active_behavior('zero')
 
         self.tf = TransformListener()
@@ -109,7 +109,10 @@ class Arbiter:
             rospy.logerr('{} does not exist as a behavior!'.format(name))
             self.set_active_behavior('zero')
 
-        self.active_behavior_name = name
+        if name != self.active_behavior_name:
+            self.active_behavior_name = name
+            # Stop the vehicle
+            self.process_command(name, 'cmd_vel', Twist())
         rospy.loginfo_throttle(1.0, '{} selected as active behavior'.format(name))
 
     def handle_register(self, req):
