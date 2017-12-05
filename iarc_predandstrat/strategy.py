@@ -28,7 +28,9 @@ class Action(Enum):
     """
     TOPHIT = 1
     LANDINFRONT = 2
-    WAIT = 3
+    TOPHIT2X = 3
+    TOPHIT3X = 4
+    WAIT = 5
 
 
 class Drone(object):
