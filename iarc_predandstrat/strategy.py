@@ -5,7 +5,7 @@ import rospkg
 import sys
 # from pygraphviz import *
 import time
-
+from enum import Enum
 import rospy
 import tf
 import tf.transformations
@@ -19,12 +19,23 @@ rospack = rospkg.RosPack()
 iarc_sim_path = rospack.get_path('iarc_sim_2d')
 sys.path.append(os.path.join(iarc_sim_path, 'src'))
 
+from config import XY_VEL, Z_VEL, LAND_IN_FRONT_DIST, ROOMBA_HEIGHT
+
+
+class Action(Enum):
+    """
+    Action Enum for all possible actions.
+    """
+    TOPHIT = 1
+    LANDINFRONT = 2
+    WAIT = 3
+
 
 class Drone(object):
     def __init__(self, C1=1, C2=1, C3=1, C4=1, C5=1, MIN_OBSTACLE_DISTANCE=1.5, FIELD_SIZE=20.0):
         self.tf = tf.TransformListener()
         self.predictor = PredictionEngine(tf_listener=self.tf)
-
+        self.tag = 'drone'
         rospy.Subscriber('/seen_roombas', RoombaList, self.recordVisible)
         rospy.Subscriber('/drone/height', Float64, self.recordHeight)
         self.vel3d = Twist()
@@ -59,6 +70,46 @@ class Drone(object):
             'map', '%s' % drone.tag, rospy.Time(0)
         )
 
+    def actionTimeEstimate(self, target, action):
+        """
+        Based on the action entered, returns an estimate of how long the
+        action will take to execute.
+        :param action:
+        :param target: Roomba
+        :return:
+        """
+        self.getPose()
+        t = 0 #Initialize time estimate
+
+        print(action)
+        if action == Action.TOPHIT:
+
+            x_d = self.drone_pos[0] - target.visible_location.pose.pose.position.x
+            y_d = self.drone_pos[1] - target.visible_location.pose.pose.position.y
+            d_xy = np.sqrt(x_d ** 2 + y_d ** 2)
+            t = d_xy/XY_VEL + 0*(self.height-ROOMBA_HEIGHT)/Z_VEL
+        elif action == Action.LANDINFRONT:
+            angle = self.orientationToHeading(target.visible_location.pose.pose.orientation)
+            x_d = self.drone_pos[0] - (target.visible_location.pose.pose.position.x + LAND_IN_FRONT_DIST*np.cos(angle))
+            y_d = self.drone_pos[1] - (target.visible_location.pose.pose.position.y + LAND_IN_FRONT_DIST*np.sin(angle))
+            d_xy = np.sqrt(x_d ** 2 + y_d ** 2)
+            t = d_xy/XY_VEL + 0*(self.height-ROOMBA_HEIGHT)/Z_VEL
+
+        return t
+
+    def orientationToHeading(self, orientation):
+        """
+        Converts a quaterion in the form of a pose orientation into a heading.
+        :param orientation:
+        :return:
+        """
+        res = [0, 0, 0, 0]
+        res[0] = orientation.x
+        res[1] = orientation.y
+        res[2] = orientation.z
+        res[3] = orientation.w
+        return tf.transformations.euler_from_quaternion(res)[2]
+
     def goodnessScore(self):
         """
         Determines which Roomba we pick to lead to the goal.
@@ -68,10 +119,14 @@ class Drone(object):
         """
 
         def headingScore(roomba):
-            return np.sin(roomba.heading)
+            # print(roomba.visible_location.pose.pose.orientation)
+            heading = self.orientationToHeading(roomba.visible_location.pose.pose.orientation)
+
+
+            return np.sin(heading)
 
         def positionScore(roomba):
-            return roomba.y
+            return roomba.visible_location.pose.pose.position.y
 
         def distanceFromObstaclesScore(roomba, obstacles):
             """
@@ -106,6 +161,7 @@ class Drone(object):
 
         for i in xrange(0, len(self.visibleRoombas)):
             roomba = self.visibleRoombas[i]
+
             score = self.C1 * headingScore(roomba) + \
                     self.C2 * positionScore(roomba) + \
                     self.C3 * distanceFromObstaclesScore(roomba, self.visibleObstacles) + \
@@ -116,11 +172,17 @@ class Drone(object):
         return result
 
     def targetSelect(self, roombaScore):
-        print(roombaScore)
-        if roombaScore is not []:
+        # print(roombaScore)
+        # print(roombaScore != [])
+        if roombaScore != []:
+            # return [0,Drone()]
+            # print(max(roombaScore, key=lambda x: x[1]))
             return max(roombaScore, key=lambda x: x[1])
         else:
-            return []
+            res = Drone()
+            # print("Garb")
+            res.tag = ''
+            return [res, 0]
 
     def chooseAction(self, target):
         """
@@ -179,17 +241,22 @@ class Drone(object):
 
         return res
 
-
 rospy.init_node('strategy')
 
 drone = Drone()
-while True:
+while not rospy.is_shutdown():
     time.sleep(.1)
-    print('-' * 80)
-    for roomba, score in drone.goodnessScore():
-        print('score: %f roomba: %s' % (score, roomba.tag))
-    bestRoomba, bestRoombaScore = drone.targetSelect(drone.goodnessScore())
-    print('Best Score: %f Best Roomba: %s' % (bestRoombaScore, bestRoomba.tag))
+    print('_' * 80)
+    # print(drone.goodnessScore())
+    if drone.goodnessScore() != []:
+        for roomba, score in drone.goodnessScore():
+            # print(score)
+            drone.actionTimeEstimate(roomba, Action.LANDINFRONT)
+            print('score: %f roomba: %s' % (score, roomba.frame_id))
+
+        bestRoomba, bestRoombaScore = drone.targetSelect(drone.goodnessScore())
+        print('Best Score: %f Best Roomba: %s' % (bestRoombaScore, bestRoomba.frame_id))
+
 
 states = [
     'init',
