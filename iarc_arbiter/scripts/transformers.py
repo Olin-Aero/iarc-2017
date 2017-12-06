@@ -1,8 +1,13 @@
 import rospy
 import math
-from geometry_msgs.msg import Twist, PoseStamped
+from geometry_msgs.msg import Twist, PoseStamped, Pose, Point, Quaternion
+from std_msgs.msg import Header
 from tf import TransformListener
-from ddynamic_reconfigure_python.ddynamic_reconfigure import DDynamicReconfigure
+
+from tf.listener import xyz_to_mat44, xyzw_to_mat44
+import tf.transformations
+
+import numpy as np
 
 
 class Command:
@@ -72,13 +77,16 @@ class PIDController(object):
 
     def cmd_pos(self, msg):
         """
+        Calculates the commanded velocity given the desired position, with the header of the PoseStamped
+        controlling which coordinate frame the commanded position is interpreted as being in.
         :type msg: PoseStamped
         :return: Command
         """
 
         vel = Twist()
 
-        position = self.tf.transformPose('base_link', msg).pose.position
+        position = self.transformPoseFull('base_link', msg, 'odom').pose.position
+        # position = self.tf.transformPose('base_link', msg).pose.position
 
         # Plan motion
         now = rospy.Time.now()
@@ -127,6 +135,47 @@ class PIDController(object):
         print("Calculated vel: {}".format(vel))
 
         return Command(vel)
+
+    def transformPoseFull(self, target_frame, ps, stationary):
+        """
+        Transforms a geometry_msgs PoseStamped message to frame target_frame, assuming that stationary is a
+        stationary frame.
+
+        Only useful in cases where ps.header.stamp == rospy.Time(0)
+
+        Adapted from:
+            https://github.com/ros/geometry/blob/indigo-devel/tf/src/tf/listener.py#L286
+
+        :param stationary: the tf frame the point will be transformed through
+        :param target_frame: the tf target frame, a string
+        :param ps: the geometry_msgs.msg.PoseStamped message
+        :return: new geometry_msgs.msg.PoseStamped message, in frame target_frame
+        :raises: any of the exceptions that :meth:`~tf.Transformer.lookupTransform` can raise
+
+        """
+        # mat44a is frame-to-frame transform from the origin frame to the stationary frame
+        mat44a = self.tf.asMatrix(stationary, ps.header)
+
+        # mat44b is a frame-to-frame transform from the stationary frame to the target frame
+        intermediate_header = Header(frame_id=stationary, stamp=rospy.Time(0))
+        mat44b = self.tf.asMatrix(target_frame, intermediate_header)
+
+        # pose44 is the given pose as a 4x4
+        pose44 = np.dot(xyz_to_mat44(ps.pose.position), xyzw_to_mat44(ps.pose.orientation))
+
+        # tx_pose is the new pose in target_frame as a 4x4
+        tx_pose = np.dot(np.dot(mat44b, mat44a), pose44)
+
+        # xyz and quat are tx_pose's position and orientation
+        xyz = tuple(tf.transformations.translation_from_matrix(tx_pose))[:3]
+        quat = tuple(tf.transformations.quaternion_from_matrix(tx_pose))
+
+        # assemble return value PoseStamped
+        r = PoseStamped()
+        r.header.stamp = ps.header.stamp
+        r.header.frame_id = target_frame
+        r.pose = Pose(Point(*xyz), Quaternion(*quat))
+        return r
 
 
 if __name__ == '__main__':
