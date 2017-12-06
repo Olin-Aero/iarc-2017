@@ -1,3 +1,5 @@
+#!/usr/bin/env python2
+
 from f_utils import *
 from f_config import *
 
@@ -6,8 +8,12 @@ import cv2
 from scipy.linalg import sqrtm
 from scipy.optimize import linear_sum_assignment
 from scipy.stats import mvn
-from filterpy.kalman import UnscentedKalmanFilter as UKF
-from filterpy.kalman import MerweScaledSigmaPoints, JulierSigmaPoints
+try:
+    from filterpy.kalman import UnscentedKalmanFilter as UKF
+    from filterpy.kalman import MerweScaledSigmaPoints, JulierSigmaPoints
+except ImportError:
+    raise ImportError('Unable to import filterpy: Did you forget to run \n\
+    "pip install -r $(rospack find iarc_main)/../requirements.txt"')
 
 class UKFManager(object):
     def __init__(self, dt, sigmas):
