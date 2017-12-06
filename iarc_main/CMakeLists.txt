@@ -58,6 +58,7 @@ add_message_files(
   FailureCollision.msg
   FailureAltitude.msg
   Failures.msg
+  RoombaSighting.msg
 )
 
 ## Generate services in the 'srv' folder
