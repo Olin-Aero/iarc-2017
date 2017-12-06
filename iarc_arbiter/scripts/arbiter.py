@@ -6,6 +6,7 @@ from std_msgs.msg import Empty, String
 from iarc_arbiter.msg import RegisterBehavior
 
 from tf import TransformListener
+from ddynamic_reconfigure_python.ddynamic_reconfigure import DDynamicReconfigure
 
 
 class Arbiter:
@@ -25,16 +26,17 @@ class Arbiter:
         self.null_behavior = Behavior(self.process_command, 'zero')
 
         self.behaviors = {'zero': self.null_behavior}
-        self.active_behavior_name = ''
+        self.active_behavior_name = 'zero'
         self.set_active_behavior('zero')
 
         self.tf = TransformListener()
+        self.ddynrec = DDynamicReconfigure("example_dyn_rec")
 
         # Transformers are functions capable of processing incoming data in a variety of formats.
         # They are functions that take input of whatever type the topic is, and produce a transformers.Command
         # object.
 
-        pid = transformers.PIDController(self.tf)
+        pid = transformers.PIDController(self.tf, self.ddynrec)
         print pid.cmd_pos
         self.transformers = {
             'cmd_vel': (Twist, transformers.cmd_vel),
@@ -66,7 +68,29 @@ class Arbiter:
 
         rospy.Subscriber('/arbiter/activate_behavior', String, self.handle_activate)
 
+        self.start_ddynrec()
+
         rospy.sleep(0.5)
+
+    def start_ddynrec(self):
+        """
+        Helper function to start the ddynamic reconfigure server with a callback
+        function that updates the self.ddynrec attribute.
+        """
+        def callback(config, level):
+            """
+            A callback function used to as the parameter in the ddynrec.start() function.
+            This custom callback function updates the state of self.ddynrec so we can
+            refer to its variables whenever we have access to it. 
+            """
+            rospy.loginfo("Received reconf call: " + str(config))
+            # Update all variables
+            var_names = self.ddynrec.get_variable_names()
+            for var_name in var_names:
+                self.ddynrec.__dict__[var_name] = config[var_name]
+            return config
+
+        self.ddynrec.start(callback)
 
     def handle_activate(self, msg):
         """
@@ -85,7 +109,10 @@ class Arbiter:
             rospy.logerr('{} does not exist as a behavior!'.format(name))
             self.set_active_behavior('zero')
 
-        self.active_behavior_name = name
+        if name != self.active_behavior_name:
+            self.active_behavior_name = name
+            # Stop the vehicle
+            self.process_command(name, 'cmd_vel', Twist())
         rospy.loginfo_throttle(1.0, '{} selected as active behavior'.format(name))
 
     def handle_register(self, req):
