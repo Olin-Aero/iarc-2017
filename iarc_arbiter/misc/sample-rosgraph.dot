@@ -1,0 +1,264 @@
+digraph graphname {
+	graph [bb="0,0,985.15,419",
+		compound=True,
+		rank=same,
+		rankdir=LR,
+		ranksep=0.2
+	];
+	node [label="\N"];
+	subgraph cluster_teleop {
+		graph [bb="8,228,414.48,411",
+			compound=True,
+			label=teleop,
+			lheight=0.21,
+			lp="211.24,399.5",
+			lwidth=0.47,
+			rank=same,
+			rankdir=LR,
+			ranksep=0.2,
+			style=bold
+		];
+		color		 [height=0.5,
+			pos="132.99,362",
+			width=0.79437];
+		t__teleop_cmd_vel		 [URL=topic_3A_teleop_cmd_vel,
+			height=0.5,
+			label="/teleop/cmd_vel",
+			pos="343.48,254",
+			shape=box,
+			tooltip="topic:/teleop/cmd_vel",
+			width=1.4444];
+		t__teleop_cmd_land		 [URL=topic_3A_teleop_cmd_land,
+			height=0.5,
+			label="/teleop/cmd_land",
+			pos="343.48,308",
+			shape=box,
+			tooltip="topic:/teleop/cmd_land",
+			width=1.5417];
+		t__teleop_cmd_takeoff		 [URL=topic_3A_teleop_cmd_takeoff,
+			height=0.5,
+			label="/teleop/cmd_takeoff",
+			pos="343.48,362",
+			shape=box,
+			tooltip="topic:/teleop/cmd_takeoff",
+			width=1.75];
+		n__teleop_teleop_twist_keyboard		 [URL=_teleop_teleop_twist_keyboard,
+			height=0.5,
+			label="/teleop/teleop_twist_keyboard",
+			pos="132.99,308",
+			shape=ellipse,
+			tooltip="/teleop/teleop_twist_keyboard",
+			width=3.2497];
+		n__teleop_teleop_twist_keyboard -> t__teleop_cmd_vel		 [penwidth=1,
+			pos="e,291.21,267.28 193.73,292.53 221.17,285.42 253.67,277 281.28,269.85"];
+		n__teleop_teleop_twist_keyboard -> t__teleop_cmd_land		 [penwidth=1,
+			pos="e,287.79,308 250.12,308 259.53,308 268.81,308 277.64,308"];
+		n__teleop_teleop_twist_keyboard -> t__teleop_cmd_takeoff		 [penwidth=1,
+			pos="e,282.41,343.94 200.39,322.79 216.65,326.6 233.98,330.81 249.98,335 257.38,336.94 265.08,339.05 272.74,341.2"];
+	}
+	subgraph cluster_arbiter {
+		graph [bb="257.98,91,566.47,220",
+			compound=True,
+			label=arbiter,
+			lheight=0.21,
+			lp="412.22,208.5",
+			lwidth=0.50,
+			rank=same,
+			rankdir=LR,
+			ranksep=0.2,
+			style=bold
+		];
+		t__arbiter_activate_behavior		 [URL=topic_3A_arbiter_activate_behavior,
+			height=0.5,
+			label="/arbiter/activate_behavior",
+			pos="343.48,171",
+			shape=box,
+			tooltip="topic:/arbiter/activate_behavior",
+			width=2.1528];
+		n__arbiter_arbiter		 [URL=_arbiter_arbiter,
+			height=0.5,
+			label="/arbiter/arbiter",
+			pos="496.72,171",
+			shape=ellipse,
+			tooltip="/arbiter/arbiter",
+			width=1.7151];
+		t__arbiter_activate_behavior -> n__arbiter_arbiter		 [penwidth=1,
+			pos="e,434.97,171 420.99,171 422.31,171 423.62,171 424.94,171"];
+		t__arbiter_register		 [URL=topic_3A_arbiter_register,
+			height=0.5,
+			label="/arbiter/register",
+			pos="343.48,117",
+			shape=box,
+			tooltip="topic:/arbiter/register",
+			width=1.3889];
+		t__arbiter_register -> n__arbiter_arbiter		 [penwidth=1,
+			pos="e,457.33,157.07 393.88,134.38 402.9,137.57 412.23,140.87 420.98,144 429.66,147.1 438.91,150.42 447.83,153.64"];
+	}
+	subgraph cluster_follow {
+		graph [bb="29.448,8,404.98,83",
+			compound=True,
+			label=follow,
+			lheight=0.21,
+			lp="217.21,71.5",
+			lwidth=0.50,
+			rank=same,
+			rankdir=LR,
+			ranksep=0.2,
+			style=bold
+		];
+		t__follow_cmd_vel		 [URL=topic_3A_follow_cmd_vel,
+			height=0.5,
+			label="/follow/cmd_vel",
+			pos="343.48,34",
+			shape=box,
+			tooltip="topic:/follow/cmd_vel",
+			width=1.4861];
+		n__follow_FollowBehavior		 [URL=_follow_FollowBehavior,
+			height=0.5,
+			label="/follow/FollowBehavior",
+			pos="132.99,34",
+			shape=ellipse,
+			tooltip="/follow/FollowBehavior",
+			width=2.6539];
+		n__follow_FollowBehavior -> t__follow_cmd_vel		 [penwidth=1,
+			pos="e,289.82,34 228.78,34 245.99,34 263.54,34 279.54,34"];
+	}
+	subgraph cluster_ardrone {
+		graph [bb="574.47,145,694.47,274",
+			compound=True,
+			label=ardrone,
+			lheight=0.21,
+			lp="634.47,262.5",
+			lwidth=0.58,
+			rank=same,
+			rankdir=LR,
+			ranksep=0.2,
+			style=bold
+		];
+		t__ardrone_takeoff		 [URL=topic_3A_ardrone_takeoff,
+			height=0.5,
+			label="/ardrone/takeoff",
+			pos="634.47,225",
+			shape=box,
+			tooltip="topic:/ardrone/takeoff",
+			width=1.4444];
+		t__ardrone_land		 [URL=topic_3A_ardrone_land,
+			height=0.5,
+			label="/ardrone/land",
+			pos="634.47,171",
+			shape=box,
+			tooltip="topic:/ardrone/land",
+			width=1.2361];
+	}
+	subgraph cluster_rostopic_21730_1507574229702 {
+		graph [bb="702.47,228,977.15,303",
+			compound=True,
+			label=rostopic_21730_1507574229702,
+			lheight=0.21,
+			lp="839.81,291.5",
+			lwidth=2.49,
+			rank=same,
+			rankdir=LR,
+			ranksep=0.2,
+			style=bold
+		];
+		n__rostopic_21730_1507574229702		 [URL=_rostopic_21730_1507574229702,
+			height=0.5,
+			label="/rostopic_21730_1507574229702",
+			pos="839.81,254",
+			shape=ellipse,
+			tooltip="/rostopic_21730_1507574229702",
+			width=3.5927];
+	}
+	subgraph cluster_controller {
+		graph [bb="77.544,145,188.44,220",
+			compound=True,
+			label=controller,
+			lheight=0.21,
+			lp="132.99,208.5",
+			lwidth=0.74,
+			rank=same,
+			rankdir=LR,
+			ranksep=0.2,
+			style=bold
+		];
+		n__controller		 [URL=_controller,
+			height=0.5,
+			label="/controller",
+			pos="132.99,171",
+			shape=ellipse,
+			tooltip="/controller",
+			width=1.3179];
+	}
+	subgraph cluster_rostopic_21685_1507574220353 {
+		graph [bb="702.47,145,977.15,220",
+			compound=True,
+			label=rostopic_21685_1507574220353,
+			lheight=0.21,
+			lp="839.81,208.5",
+			lwidth=2.49,
+			rank=same,
+			rankdir=LR,
+			ranksep=0.2,
+			style=bold
+		];
+		n__rostopic_21685_1507574220353		 [URL=_rostopic_21685_1507574220353,
+			height=0.5,
+			label="/rostopic_21685_1507574220353",
+			pos="839.81,171",
+			shape=ellipse,
+			tooltip="/rostopic_21685_1507574220353",
+			width=3.5927];
+	}
+	subgraph cluster_rostopic_21610_1507574203029 {
+		graph [bb="702.47,62,977.15,137",
+			compound=True,
+			label=rostopic_21610_1507574203029,
+			lheight=0.21,
+			lp="839.81,125.5",
+			lwidth=2.49,
+			rank=same,
+			rankdir=LR,
+			ranksep=0.2,
+			style=bold
+		];
+		n__rostopic_21610_1507574203029		 [URL=_rostopic_21610_1507574203029,
+			height=0.5,
+			label="/rostopic_21610_1507574203029",
+			pos="839.81,88",
+			shape=ellipse,
+			tooltip="/rostopic_21610_1507574203029",
+			width=3.5927];
+	}
+	t__teleop_cmd_vel -> n__arbiter_arbiter	 [penwidth=1,
+		pos="e,474.72,188 395.88,235.84 404.42,232.26 413.07,228.27 420.98,224 436.71,215.5 453.03,204.25 466.4,194.3"];
+	t__teleop_cmd_land -> n__arbiter_arbiter	 [penwidth=1,
+		pos="e,488.01,188.83 399.37,293.48 407.04,290.1 414.51,285.99 420.98,281 449.56,258.98 471.09,222.86 483.54,198.05"];
+	t__teleop_cmd_takeoff -> n__arbiter_arbiter	 [penwidth=1,
+		pos="e,492.35,189.02 406.71,345.11 411.86,342.24 416.72,338.9 420.98,335 461.31,298.08 481.41,235.15 490.1,198.92"];
+	n__arbiter_arbiter -> t__ardrone_takeoff	 [penwidth=1,
+		pos="e,587.75,206.81 534.1,185.47 547.63,190.85 563.3,197.09 578.15,202.99"];
+	n__arbiter_arbiter -> t__ardrone_land	 [penwidth=1,
+		pos="e,589.74,171 558.85,171 565.68,171 572.61,171 579.35,171"];
+	t__cmd_vel	 [URL=topic_3A_cmd_vel,
+		height=0.5,
+		label="/cmd_vel",
+		pos="634.47,102",
+		shape=box,
+		tooltip="topic:/cmd_vel",
+		width=0.94444];
+	n__arbiter_arbiter -> t__cmd_vel	 [penwidth=1,
+		pos="e,600.42,118.8 528.53,155.34 547.11,145.9 571.05,133.73 591.37,123.4"];
+	t__follow_cmd_vel -> n__arbiter_arbiter	 [penwidth=1,
+		pos="e,482.2,153.49 374.02,52.098 388.75,61.697 406.46,74.146 420.98,87 441.2,104.91 461.4,127.99 475.69,145.43"];
+	n__follow_FollowBehavior -> t__arbiter_register	 [penwidth=1,
+		pos="e,293.14,100.07 171.18,50.619 195.67,61.387 228.54,75.497 257.98,87 266.2,90.211 274.92,93.471 283.51,96.6"];
+	t__ardrone_takeoff -> n__rostopic_21730_1507574229702	 [penwidth=1,
+		pos="e,748.93,241.18 686.52,232.28 702.5,234.56 720.72,237.16 738.87,239.75"];
+	t__ardrone_land -> n__rostopic_21685_1507574220353	 [penwidth=1,
+		pos="e,710.32,171 679.09,171 685.67,171 692.73,171 700.1,171"];
+	t__cmd_vel -> n__rostopic_21610_1507574203029	 [penwidth=1,
+		pos="e,723.44,95.943 668.59,99.719 681.36,98.84 696.83,97.776 713.17,96.65"];
+	n__controller -> t__arbiter_activate_behavior	 [penwidth=1,
+		pos="e,265.8,171 180.52,171 202.66,171 229.88,171 255.64,171"];
+}

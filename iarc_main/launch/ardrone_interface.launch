@@ -1,0 +1,6 @@
+<launch>
+    <include file="$(find ardrone_autonomy)/launch/ardrone.launch"/>
+    <node pkg="iarc_main" type="delayed_camswitch.sh" name="switch_cam"/>
+    <node pkg="tf" type="static_transform_publisher" name="base_link_ardrone_fix"
+          args="0 0 0 0 0 0 ardrone_base_link base_link 200"/>
+</launch>

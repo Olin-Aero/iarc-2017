@@ -1,0 +1,24 @@
+<launch>
+    <!-- Create World -->
+    <include file="$(find gazebo_ros)/launch/empty_world.launch">
+        <arg name="world_name" value="$(find iarc_sim_3d)/worlds/iarc.world"/>
+    </include>
+    <!-- Spawn simulated quadrotor uav -->
+    <include file="$(find iarc_sim_3d)/launch/spawn_drone.launch"/>
+
+    <!-- Spawn Targets -->
+    <include file="$(find iarc_sim_3d)/launch/spawn_targets.launch"/>
+
+    <!-- Spawn Obstacles -->
+    <include file="$(find iarc_sim_3d)/launch/spawn_obstacles.launch"/>
+
+    <!--
+    <include file="$(find iarc_sim_3d)/launch/spawn_roomba.launch">
+        <arg name="ns" value="target0"/>
+        <arg name="x" value="1.00000000000000000000"/>
+        <arg name="y" value="0"/>
+        <arg name="Y" value="0"/>
+    </include>
+    -->
+
+</launch>

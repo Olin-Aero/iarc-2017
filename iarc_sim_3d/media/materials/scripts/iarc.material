@@ -1,0 +1,95 @@
+material IARC/Floor1
+{
+    receive_shadows on
+    lighting on
+    technique
+    {
+        pass
+        {
+            ambient 0.5 0.5 0.5 1.0
+            diffuse 0.5 0.5 0.5 1.0
+            specular 0.2 0.2 0.2 1.0 12.5
+            texture_unit
+            {
+                texture floor1.jpg
+                    filtering anisotropic
+                    max_anisotropy 16
+                    scale 0.1 0.1
+            }
+        }
+    }
+}
+
+material IARC/RedLine{
+    receive_shadows on
+    lighting on
+    technique
+    {
+        pass
+        {
+            point_size 0.02
+            ambient 1.0 0.0 0.0 1.0
+            diffuse 1.0 0.0 0.0 1.0
+            specular 1.0 0.0 0.0 1.0 12.5
+        }
+    }
+}
+
+material IARC/GreenLine{
+    receive_shadows on
+    lighting on
+    technique
+    {
+        pass
+        {
+            point_size 10.0
+            ambient 0.0 1.0 0.0 1.0
+            diffuse 0.0 1.0 0.0 1.0
+            specular 0.0 1.0 0.0 1.0 12.5
+        }
+    }
+}
+
+material IARC/WhiteLine{
+    receive_shadows on
+    lighting on
+    technique
+    {
+        pass
+        {
+            point_size 0.01
+            ambient 1.0 1.0 1.0 1.0
+            diffuse 1.0 1.0 1.0 1.0
+            specular 1.0 1.0 1.0 1.0 12.5
+        }
+    }
+}
+
+material IARC/TopRed{
+    receive_shadows on
+    lighting on
+    technique
+    {
+        pass
+        {
+            ambient 0.69 0.086 0.015 1.0
+            diffuse 0.69 0.086 0.015 1.0
+            specular 1.0 1.0 1.0 1.0 12.5
+        }
+    }
+}
+
+material IARC/TopGreen{
+    receive_shadows on
+    lighting on
+    technique
+    {
+        pass
+        {
+
+            ambient 0.0863 0.337 0.0627 1.0
+            diffuse 0.0863 0.337 0.0627 1.0
+            specular 1.0 1.0 1.0 1.0 12.5
+        }
+    }
+}
