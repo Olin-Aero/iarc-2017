@@ -1,5 +1,5 @@
 """
-Heatmap.py
+Simulators.py
 Written by Lydia Zuehsow (Oktober13) c. Fall 2017
 
 This code contains simulation code that attempts to predict the location of Roombas over time.
@@ -20,7 +20,7 @@ from collections import Counter
 import rospy
 import tf.transformations
 
-from enum import Enum
+import enum
 
 from iarc_main.msg import Roomba, sys
 from geometry_msgs.msg import PoseWithCovariance, PoseWithCovarianceStamped, Pose, Point, Quaternion
@@ -38,14 +38,18 @@ sys.path.append(os.path.join(iarc_sim_path, 'src'))
 import config as cfg
 
 
-class Action(Enum):
+class Action(enum.Enum):
     """
-    Action Enum for all possible actions.
+    Action Enum for all possible events that can occur.
+
     """
     COLLISION = 1
-    TOPHIT = 2
-    TOPHIT2X = 3
-    TOPHIT3X = 4
+    LANDINFRONT = 2
+    TOPHIT = 3
+    TOPHIT2X = 4
+    TOPHIT3X = 5
+    NOISE = 6
+    TURN = 7
 
 class SimRoomba(object):
     def __init__(self, targets=0, obstacles=0):
@@ -66,18 +70,6 @@ class SimRoomba(object):
         except:
             return False
 
-    def updateOrient(input_action):
-        if Action.COLLISION: # Turn 180 deg.
-            pass
-        elif Action.TOPHIT:
-            pass
-        elif Action.TOPHIT2X:
-            pass
-        elif Action.TOPHIT3X:
-            pass
-        else:
-            pass
-
     def getPos(self):
         return self.t.curr_pos
 
@@ -86,6 +78,11 @@ class SimRoomba(object):
 #     def __init__(sekd)
 
 def plotStuff(loc_data):
+    """
+    This functions plots a long term probabilistic heatmap of the squares most likely to be traversed by Roombas, given the past positions of all Roombas.
+
+    :arg (dict) loc_data: Dictionary of each Roomba and all of the squares traversed by its simulated future self.
+    """
     # cluster = {{(4, -2): 8, (0, -2): 8, (-3, -1): 6} # Useful fake data for testing things
     # print loc_data.values() 
 
@@ -105,6 +102,79 @@ def plotStuff(loc_data):
 
     plt.show()
 
+def populateQueue(passed_actions, passed_turns, passed_noise):
+    """
+    This function populates a queue of yaw transformations that the roomba must go through, along with the time to when they will occur.
+
+    :arg (list) passed_actions: List of actions to be performed.
+    :arg (list) passed_turns: List of tuples (num_turns, time_to_turn)
+    :arg (list) passed_noise: List of tuples (num_noise, time_to_noise)
+    :var (int) num_turns: Number of turns the Roomba must make before the simulation ends.
+    :var (float) time_to_turn: Time to the first turn that the Roomba must make. Based on estimate of time passed since last observed turn for a Roomba.
+    :var (int) num_noise: Number of "noise" yaw adjustments the Roomba must make before the simulation ends.
+    :var (float) time_to_noise: Time to the first noise that the Roomba will experience. Based on estimate of time passed since last observed noise for a Roomba.
+    :returns event_queue: The queue of events (yaw transformations on the Roomba's orientation), sorted by time to event.
+    """
+
+    (num_turns, time_to_turn) = passed_turns
+    (num_noise, time_to_noise) = passed_noise
+
+    action_list = passed_actions
+    turns_list = []
+    noise_list = []
+    event_queue = []
+
+    for num in range(num_turns):
+        turns_list.append((Action.TURN, time_to_turn+(20.0*num)))
+    for num in range(num_noise):
+        noise_list.append((Action.NOISE, time_to_noise+(5.0*num)))
+
+    if action_list is not None:
+        event_queue = event_queue + action_list
+    if turns_list is not None:
+        event_queue = event_queue + turns_list
+    if noise_list is not None:
+        event_queue = event_queue + noise_list
+    event_queue = sorted(event_queue, key=lambda x: x[1])
+    return event_queue
+
+def performEvent(passed_orient, passed_event):
+    """
+    This function identifies event type and implements the appropriate transforms on Roomba yaw orientation.
+
+    :arg (Action) passed_event: The current event (Action) being carried out.
+    :arg (float) passed_orient: The current orientation (yaw, in radians) of the Roomba.
+    :var (float) orient: The final orientation (yaw, in radians) of the Roomba.
+    :var (float) event_length: Length (seconds) of time the event takes to complete.
+    :returns (orient, event_length): The new orientation and the estimated length the event takes to complete
+    """
+
+    assert isinstance(passed_event, Action), \
+    "%r is not a valid event." % (passed_event)
+
+    if passed_event is Action.COLLISION: # Turn 180 deg. in 2 second.
+        orient = passed_orient + math.pi
+        event_length = 2.0
+    elif passed_event is Action.TOPHIT: # Turn 90 deg. in 1 second.
+        orient = passed_orient + (math.pi / 2.0000)
+        event_length = 1.0
+    elif passed_event is Action.TOPHIT2X: # Turn 180 deg. in 2 seconds.
+        orient = passed_orient + (math.pi)
+        event_length = 2.0
+    elif passed_event is Action.TOPHIT3X: # Turn 270 deg. in 3 seconds.
+        orient = passed_orient + (math.pi * 1.5000)
+        event_length = 3.0
+    elif passed_event is Action.TURN: # Turn 180 deg. in 2 seconds.
+        orient = passed_orient + (math.pi)
+        event_length = 2.0
+    elif passed_event is Action.NOISE: # Turn random amount +/- 10 deg.
+        orient = passed_orient + random.uniform(-(math.pi / 18), (math.pi / 18))
+        event_length = 0.3
+    else:
+        orient = passed_orient
+        event_length = 0.0
+    # assert orient is not None
+    return (orient, event_length)
 
 def futureSim(passed_roomba_state, passed_actions, start_pose):
     """
@@ -134,7 +204,6 @@ def futureSim(passed_roomba_state, passed_actions, start_pose):
     quaternion_arr = [quaternion.x, quaternion.y, quaternion.z, quaternion.w]
     start_orient = tf.transformations.euler_from_quaternion(quaternion_arr)[2]
 
-    # TODO: consider a separate timer for noise, roomba.last_turn is about 180 reversals
     # Check time remaining until Roomba experiences noise
     time_to_noise = 5 - (known_time - last_noise).to_sec() % 5
     # Check number of times Roombas should go through "noise"
@@ -145,42 +214,25 @@ def futureSim(passed_roomba_state, passed_actions, start_pose):
     # Check number of times Roombas should go through "turn cycles"
     turn_cycles = int(math.ceil((sim_duration - time_to_turn) / 20.0))
 
-    if passed_actions:
-        passed_actions.reverse()
-        current_action = passed_actions.pop()
-        (action_type, time_to_action) = current_action
-    else:
-        time_to_action = None
+    event_queue = populateQueue(passed_actions,(turn_cycles,time_to_turn),(noise_cycles,time_to_noise))
 
     # For one of 20 hypothetical roombas...
     for roomba in range(0, len(roomba_pos)):
         print "Roomba %i" % roomba
-        remaining_duration = sim_duration
         orient = start_orient
+        prev_time = 0.0
         roomba_pos[roomba] = start_pos.x, start_pos.y, orient
 
-        if noise_cycles <= 0:
-            # If sim_duration < time_to_noise (first noise)
-            roomba_pos[roomba] = locCalc(roomba_pos[roomba], sim_duration, orient)
-            remaining_duration -= sim_duration
-        else:
-            # The first simulation period is time_to_noise seconds long
-            dt = time_to_noise
-            roomba_pos[roomba] = locCalc(roomba_pos[roomba], dt, orient)
-            remaining_duration -= dt
+        for item in event_queue:
+            (event, time_to_event) = item
 
-            for cycle in range(1, noise_cycles + 1):
-                orient += random.uniform(-(math.pi / 18), (math.pi / 18))
-                # orient = orient + -math.pi / 9
+            assert (time_to_event >= prev_time) or ((event is Action.TURN) or (event is Action.NOISE) or (event is Action.COLLISION)), \
+            "Event time error. %r occurs too rapidly after previous event." % (event)
 
-                # Calculate dt
-                dt = 5.0
-                if remaining_duration < 5.0:
-                    dt = remaining_duration
-
-                roomba_pos[roomba] = locCalc(roomba_pos[roomba], dt, orient)
-                remaining_duration -= dt
-                # print roomba_pos[roomba] #X, y, orientation
+            if time_to_event - prev_time >= 0: roomba_pos[roomba] = locCalc(roomba_pos[roomba], time_to_event - prev_time, orient)
+            (orient, event_length) = performEvent(orient, event)
+            roomba_pos[roomba] = locCalc(roomba_pos[roomba], 0.0, orient)
+            prev_time = time_to_event + event_length
 
     # rospy.loginfo_throttle("Simulated positions: {}".format(roomba_pos))
 
@@ -249,7 +301,6 @@ def longSim(passed_num_targets, passed_num_obstacles):
             return roomba_pos
     return roomba_pos
 
-
 def chooseSimType():
     pass
 
@@ -266,7 +317,7 @@ def test_futureSim(passed_roomba_state,passed_actions):
     return
 
 
-def main():  # Needs to be cleaned up a bit
+def main():
     # num_targets = 1
     # num_obstacles = 0
     # roomba_pos = longSim(num_targets,num_obstacles)
@@ -274,15 +325,16 @@ def main():  # Needs to be cleaned up a bit
 
     last_noise = rospy.Time(secs=0)
     last_turn = rospy.Time(secs=0)
-    sim_end_time = rospy.Time(secs=10)
+    sim_end_time = rospy.Time(secs=50)
 
     roomba_state = (last_noise,last_turn,sim_end_time)
-    # action_list = [(Action.LANDINFRONT,2)]
-    action_list = []
+    action_list = [(Action.LANDINFRONT,2.0), (Action.COLLISION,2.0)]
     test_futureSim(roomba_state, action_list)
 
+
+    # # Used for Long Term Simulator
     # print roomba_pos
-    # tc = Counter(roomba_pos)  # Dictionary of Roomba positions
+    # tc = Counter(roomba_pos)  # Dictionary of Roomba positions.
     # print(tc)
 
     # heatmap = [[0 for col in range(-10,10)] for row in range(-10,10)] # Not currently used- an array with frequency values for roomba traversal in every square.
