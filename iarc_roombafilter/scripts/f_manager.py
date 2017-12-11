@@ -72,6 +72,14 @@ class UKFManager(object):
                 )
         self.p_idx += 1
 
+    def predict(self, t, dt):
+        # predict from dt
+        for e in est.values():
+            e.predict(t, dt, obs=(t > e._t0 + 1.0))
+            # TODO(yoonyoungcho) : arbitrary time threshold
+            # only start simulational iteration
+            # if it has been more than a second since observation.
+
     def step(self, obs, t, dt, obs_ar):
         est = self.est
 

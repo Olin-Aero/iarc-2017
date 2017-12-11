@@ -166,7 +166,7 @@ class UKFEstimate(Particle):
         # obs = observability
         self.ukf.predict(dt, fx_args=(t,obs))
         self._pose = self.ukf.x.copy()
-    def update(self, pose):
+    def update(self, pos):
         self.ukf.update(pose)
     def p(self):
         # TODO : hard-coded error margin
@@ -181,3 +181,12 @@ class UKFEstimate(Particle):
         return _p
     def cov(self):
         return self.ukf.P[:2,:2]
+
+class ObservationParticle(Particle):
+    def __init__(
+            self, pose,
+            p0=1.0, t0=0.0,
+            t=T_NULL, c=C_NULL
+            ):
+        super(ObservationParticle, self).__init__(
+                pose, p0, t0, t, c)
