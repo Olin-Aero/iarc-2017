@@ -8,6 +8,13 @@ class Particle(object):
             self, pose,
             p0=1.0, t0=0.0,
             t=T_TARG, c=None):
+        """
+        pose = np.array(shape=5, dtype=np.float32)
+        p0 = observation probability
+        t0 = observation time
+        t = type, enum(int)
+        c = color, enum(int)
+        """
         self._pose = pose
 
         self._p0 = p0 # initial observation probability
@@ -29,7 +36,7 @@ class Particle(object):
         return repr(self)
     def clone(self):
         return Particle(
-                self._pose.clone(),
+                self._pose.copy(),
                 self._p0, self._t0,
                 self._t, self._c)
     def sense(self, drone, noise=True):
@@ -69,8 +76,7 @@ class Particle(object):
 
     def as_vec(self):
         # TODO : add velocity components
-        p = self._pose
-        return np.asarray([p.x, p.y, p.t])
+        return self._pose[:3].copy()
     def p(self, t):
         return self._p0 * P_DECAY ** (t-self._t0)
 
@@ -82,12 +88,20 @@ class Target(Particle):
             self, pose,
             p0=1.0, t0=0.0,
             t=T_TARG, c=None):
+        """
+        Refer to Particle() for parameter definition.
+        """
         super(Target, self).__init__(
             pose, p0, t0, t, c)
         self._state = S_RUN
 
     def step(self, t, dt):
-        self._pose.step(dt)
+        # evolve pose ...
+        (x,y,t,v,w) = self._pose
+        x += (v * np.cos(t) * dt)
+        y += (v * np.sin(t) * dt)
+        t += (w * dt)
+        self._pose[:] = [x,y,t,v,w]
 
         # state transition
         t1 = t+dt
@@ -102,14 +116,14 @@ class Target(Particle):
         if self._state != next_state:
             # initialize state
             if next_state == S_TURN:
-                self._pose.v = 0.0
-                self._pose.w = np.random.normal(np.pi/T_180, S_W*dt)
+                self._pose[3] = 0.0
+                self._pose[4] = np.random.normal(np.pi/T_180, S_W*dt)
             elif next_state == S_NOISE:
-                self._pose.v = 0.0
-                self._pose.w = np.random.uniform(-MAX_NOISE_W, MAX_NOISE_W)
+                self._pose[3] = 0.0
+                self._pose[4] = np.random.uniform(-MAX_NOISE_W, MAX_NOISE_W)
             elif next_state == S_RUN:
-                self._pose.v = np.random.normal(0.33, S_V*dt)
-                self._pose.w = np.random.normal(0.0, S_W*dt)
+                self._pose[3] = np.random.normal(0.33, S_V*dt)
+                self._pose[4] = np.random.normal(0.0, S_W*dt)
             self._state = next_state
 
 
@@ -118,6 +132,9 @@ class SimpleParticle(Particle):
             self, pose,
             p0=1.0, t0=0.0,
             t=T_SIMP, c=None):
+        """
+        Refer to Particle() for parameter definition.
+        """
         super(SimpleParticle, self).__init__(
                 pose, p0, t0, t, c)
     def step(self, t, dt):
@@ -128,6 +145,9 @@ class Drone(Particle):
             self, pose,
             p0=1.0, t0=0.0,
             t=T_DRONE, c=None):
+        """
+        Refer to Particle() for parameter definition.
+        """
         super(Drone, self).__init__(
                 pose, p0, t0, t, c)
 
@@ -145,7 +165,7 @@ class UKFEstimate(Particle):
         # predict ...
         # obs = observability
         self.ukf.predict(dt, fx_args=(t,obs))
-        self._pose._data = self.ukf.x.copy()
+        self._pose = self.ukf.x.copy()
     def update(self, pose):
         self.ukf.update(pose)
     def p(self):

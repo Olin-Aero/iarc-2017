@@ -37,8 +37,8 @@ class Renderer(object):
 
         # roombas
         for r in roombas:
-            x, y = self._convert(r.x, r.y)
-            vx, vy = 20*np.cos(r.t), -20*np.sin(r.t)
+            x, y = self._convert(r[0], r[1])
+            vx, vy = 20*np.cos(r[2]), -20*np.sin(r[2])
             vx, vy = (int(e) for e in (vx,vy))
             cv2.circle(img,
                     (x,y),
@@ -62,8 +62,8 @@ class Renderer(object):
 
         # particles
         for p in particles:
-            x, y = self._convert(p._pose.x, p._pose.y)
-            vx, vy = 10*np.cos(p._pose.t), -10*np.sin(p._pose.t)
+            x, y = self._convert(p._pose[0], p._pose[1])
+            vx, vy = 10*np.cos(p._pose[2]), -10*np.sin(p._pose[2])
             vx, vy = (int(e) for e in (vx,vy))
 
             # covariance visualization ...
@@ -104,7 +104,7 @@ class Renderer(object):
 
         # drone
         cv2.circle(img,
-                 self._convert(drone.x, drone.y),
+                 self._convert(drone[0], drone[1]),
                  self._s * 3,
                  (0,0,255),
                  1
