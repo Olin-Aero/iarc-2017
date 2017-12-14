@@ -43,7 +43,7 @@ class TagTransformer(object):
 
         # Negates x and y coordinates of tag detections
         self.apply_apriltag_fix = True
-        
+
         rospy.Subscriber('tag_detections', AprilTagDetectionArray, self.on_tags)
 
     def on_tags(self, msg):

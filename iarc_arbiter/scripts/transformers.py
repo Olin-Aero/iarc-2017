@@ -55,13 +55,13 @@ class PIDController(object):
                                  rospy.get_param('~kp_turn', 0.0), 0.0, 2.0)
 
         self.config.add_variable("kp", "Proportional Linear",
-                                 rospy.get_param('~kp', 0.3), 0.0, .5)
+                                 rospy.get_param('~kp', 0.2), 0.0, .5)
 
         self.config.add_variable("ki", "Integral",
                                  rospy.get_param('~ki', 0.0), 0.0, .5)
 
         self.config.add_variable("kd", "Derivative",
-                                 rospy.get_param('~kd', 0.3), 0.0, 2.0)
+                                 rospy.get_param('~kd', 0.2), 0.0, 2.0)
 
         self.config.add_variable("kp_height", "Proportional control for altitude adjustment",
                                  rospy.get_param('~kp_height', 0.5), 0.0, 2.0)
@@ -71,6 +71,9 @@ class PIDController(object):
 
         self.config.add_variable("min_vertical_vel", "Minimum speed the drone is allowed to ascend or descend",
                                  rospy.get_param('~min_vertical_vel', 0.1), 0.0, 3.0)
+
+        self.config.add_variable("angle_offset", "Angle the drone should face relative to commanded",
+                                 rospy.get_param('~angle_offset', 0), -np.pi, np.pi)
 
         # self.maxvelocity = rospy.get_param('~max_velocity', 1.0)  # Max velocity the drone can reach
         # self.kpturn = rospy.get_param('~kp_turn', 0.0)  # Proportional angular for turning
@@ -159,8 +162,18 @@ class PIDController(object):
         # Preserve the z value of velocity
         vel.linear.z = self.calculate_z_vel(position.z)
 
-        # Turn drone to where it's heading to
-        vel.angular.z = self.config.kp_turn * math.atan2(vel.linear.y, vel.linear.x)
+        ## Turn drone toward the provided orientation
+        _, _, angle_err = tf.transformations.euler_from_quaternion(
+            [getattr(position.pose.orientation, s) for s in 'xyzw'])
+        angle_err += self.config.angle_offset
+
+        # Normalize the angle
+        while angle_err <= -np.pi:
+            angle_err += 2 * np.pi
+        while angle_err > np.pi:
+            angle_err -= 2 * np.pi
+
+        vel.angular.z = self.config.kp_turn * angle_err
 
         print("Calculated vel: {}".format(vel))
 
@@ -223,4 +236,3 @@ if __name__ == '__main__':
     while not rospy.is_shutdown():
         r.sleep()
         pub.publish(controller.cmd_pos(test_msg).vel)
-
