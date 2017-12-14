@@ -6,8 +6,9 @@ import rospy
 from std_msgs.msg import Header
 from apriltags_ros.msg import AprilTagDetectionArray, AprilTagDetection
 from geometry_msgs.msg import PoseWithCovarianceStamped, PoseWithCovariance, PointStamped, Point, TransformStamped, \
-    Transform
-from tf import TransformBroadcaster
+    Transform, Quaternion
+from tf import TransformBroadcaster, TransformListener
+from tf.transformations import euler_from_quaternion, quaternion_from_euler
 
 from iarc_main.msg import RoombaSighting, Roomba
 
@@ -18,14 +19,14 @@ class TagTransformer(object):
     into RoombaSighting messages for processing by the rest of the stack.
     """
 
-    def __init__(self, linear_covariance=0.1, angular_covariance=0.5, tf_frame='map', camera_fov=1.0):
+    def __init__(self, linear_covariance=0.1, angular_covariance=0.5, tf_frame='odom', camera_fov=1.0):
         """
         :param linear_covariance: (meters) the linear covariance associated with a tag detection
         :param angular_covariance: (radians) the angular covariance of a tag
-        :param tf_frame (str): The initial TF frame name to use before any detections come in.
+        :param tf_frame (str): The TF frame of the map / world.
         :param camera_fov (float): The FOV radius of the camera, in meters.
         """
-        rospy.Subscriber('tag_detections', AprilTagDetectionArray, self.on_tags)
+        self.tf = TransformListener()
         self.pub = rospy.Publisher('visible_roombas', RoombaSighting, queue_size=0)
 
         self.tf_pub = TransformBroadcaster()
@@ -35,11 +36,15 @@ class TagTransformer(object):
         cov[21] = cov[28] = cov[35] = angular_covariance
         self.covariance = cov
 
-        self.tf_frame = tf_frame  # TF frame is unknown until we get a message with a tag in it
         self.fov = camera_fov
+
+        self.camera_frame = tf_frame  # TF frame is unknown until we get a message with a tag in it
+        self.map_frame = tf_frame
 
         # Negates x and y coordinates of tag detections
         self.apply_apriltag_fix = True
+        
+        rospy.Subscriber('tag_detections', AprilTagDetectionArray, self.on_tags)
 
     def on_tags(self, msg):
         """
@@ -58,11 +63,18 @@ class TagTransformer(object):
 
             roomba_frame_id = 'roombas/{}'.format(tag.id)
 
+            # Transform the detection into map frame, and constrain it to be flat on the ground
+            pose = self.tf.transformPose(self.map_frame, tag.pose)
+            pose.pose.position.z = 0
+            _, _, z_angle = euler_from_quaternion([getattr(pose.pose.orientation, s) for s in 'xyzw'])
+            pose.pose.orientation = Quaternion(*quaternion_from_euler(0, 0, z_angle))
+
+
             roomba = Roomba()
             roomba.visible_location = PoseWithCovarianceStamped(
-                header=tag.pose.header,
+                header=pose.header,
                 pose=PoseWithCovariance(
-                    pose=tag.pose.pose,
+                    pose=pose.pose,
                     covariance=self.covariance
                 )
             )
@@ -77,7 +89,7 @@ class TagTransformer(object):
             sighting.data.append(roomba)
             sighting.magical_ids.append(tag.id)
 
-            self.tf_frame = tag.pose.header.frame_id
+            self.camera_frame = tag.pose.header.frame_id
 
             # self.tf_pub.sendTransform(roomba.visible_location.pose.pose.position,
             #                           roomba.visible_location.pose.pose.orientation,
@@ -100,7 +112,7 @@ class TagTransformer(object):
         sighting.fov_center = PointStamped(
             header=Header(
                 stamp=rospy.Time(0),
-                frame_id=self.tf_frame
+                frame_id=self.camera_frame
             ),
             point=Point()
         )

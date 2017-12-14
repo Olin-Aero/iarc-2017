@@ -259,6 +259,7 @@ while not rospy.is_shutdown():
         bestRoomba, bestRoombaScore = drone.targetSelect(drone.goodnessScore())
         print('Best Score: %f Best Roomba: %s' % (bestRoombaScore, bestRoomba.frame_id))
 
+exit()
 
 states = [
     'init',
