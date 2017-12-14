@@ -1,3 +1,4 @@
+#!/usr/bin/env python2
 # from transitions import Machine
 import numpy as np
 import os
@@ -11,7 +12,7 @@ import tf
 import tf.transformations
 from geometry_msgs.msg import Twist
 from iarc_main.msg import Roomba, RoombaList
-from std_msgs.msg import Float64
+from std_msgs.msg import Float64, String
 
 from PredictionEngine import PredictionEngine
 
@@ -81,7 +82,7 @@ class Drone(object):
         :return:
         """
         self.getPose()
-        t = 0 #Initialize time estimate
+        t = 0  # Initialize time estimate
 
         print(action)
         if action == Action.TOPHIT:
@@ -89,13 +90,15 @@ class Drone(object):
             x_d = self.drone_pos[0] - target.visible_location.pose.pose.position.x
             y_d = self.drone_pos[1] - target.visible_location.pose.pose.position.y
             d_xy = np.sqrt(x_d ** 2 + y_d ** 2)
-            t = d_xy/XY_VEL + 0*(self.height-ROOMBA_HEIGHT)/Z_VEL
+            t = d_xy / XY_VEL + 0 * (self.height - ROOMBA_HEIGHT) / Z_VEL
         elif action == Action.LANDINFRONT:
             angle = self.orientationToHeading(target.visible_location.pose.pose.orientation)
-            x_d = self.drone_pos[0] - (target.visible_location.pose.pose.position.x + LAND_IN_FRONT_DIST*np.cos(angle))
-            y_d = self.drone_pos[1] - (target.visible_location.pose.pose.position.y + LAND_IN_FRONT_DIST*np.sin(angle))
+            x_d = self.drone_pos[0] - (
+            target.visible_location.pose.pose.position.x + LAND_IN_FRONT_DIST * np.cos(angle))
+            y_d = self.drone_pos[1] - (
+            target.visible_location.pose.pose.position.y + LAND_IN_FRONT_DIST * np.sin(angle))
             d_xy = np.sqrt(x_d ** 2 + y_d ** 2)
-            t = d_xy/XY_VEL + 0*(self.height-ROOMBA_HEIGHT)/Z_VEL
+            t = d_xy / XY_VEL + 0 * (self.height - ROOMBA_HEIGHT) / Z_VEL
 
         return t
 
@@ -118,12 +121,12 @@ class Drone(object):
         Higher score is better.
 
         Returns: [(Roomba, Score)]
+        :rtype list[tuple[Roomba, float]]
         """
 
         def headingScore(roomba):
             # print(roomba.visible_location.pose.pose.orientation)
             heading = self.orientationToHeading(roomba.visible_location.pose.pose.orientation)
-
 
             return np.sin(heading)
 
@@ -243,11 +246,38 @@ class Drone(object):
 
         return res
 
+
+class DroneCommander(object):
+    def __init__(self):
+        self._behavior_pub = rospy.Publisher('/arbiter/activate_behavior', String, queue_size=10)
+        self._target_pub = rospy.Publisher('/target', Roomba, queue_size=10)
+
+    def output(self, behavior, target=None):
+        """
+        :param str behavior: One of "zero", "follow", or "landinfront"
+        :param (Roomba) target:
+        :return:
+        """
+
+        if behavior not in ['zero', 'follow', 'landinfront', 'teleop']:
+            raise Exception('Illegal behavior commanded: {}'.format(behavior))
+
+        if behavior == 'landinfront':
+            behavior = 'follow'
+
+        self._behavior_pub.publish(behavior)
+
+        if target:
+            self._target_pub.publish(target)
+
+
 rospy.init_node('strategy')
 
 drone = Drone()
+commander = DroneCommander()
+r = rospy.Rate(10)
 while not rospy.is_shutdown():
-    time.sleep(.1)
+    r.sleep()
     print('_' * 80)
     # print(drone.goodnessScore())
     if drone.goodnessScore() != []:
@@ -258,6 +288,10 @@ while not rospy.is_shutdown():
 
         bestRoomba, bestRoombaScore = drone.targetSelect(drone.goodnessScore())
         print('Best Score: %f Best Roomba: %s' % (bestRoombaScore, bestRoomba.frame_id))
+        commander.output('follow', bestRoomba)
+    else:
+        print "No Roombas found"
+        commander.output('zero')
 
 exit()
 
