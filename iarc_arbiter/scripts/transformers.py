@@ -73,7 +73,7 @@ class PIDController(object):
                                  rospy.get_param('~min_vertical_vel', 0.1), 0.0, 3.0)
 
         self.config.add_variable("angle_offset", "Angle the drone should face relative to commanded",
-                                 rospy.get_param('~angle_offset', 0), -np.pi, np.pi)
+                                 rospy.get_param('~angle_offset', 0.0), -3.14, 3.14)
 
         # self.maxvelocity = rospy.get_param('~max_velocity', 1.0)  # Max velocity the drone can reach
         # self.kpturn = rospy.get_param('~kp_turn', 0.0)  # Proportional angular for turning
@@ -115,7 +115,8 @@ class PIDController(object):
 
         vel = Twist()
 
-        position = self.transformPoseFull('base_link', msg, 'odom').pose.position
+        pose = self.transformPoseFull('base_link', msg, 'odom')
+        position = pose.pose.position
         # position = self.tf.transformPose('base_link', msg).pose.position
 
         # Plan motion
@@ -164,7 +165,7 @@ class PIDController(object):
 
         ## Turn drone toward the provided orientation
         _, _, angle_err = tf.transformations.euler_from_quaternion(
-            [getattr(position.pose.orientation, s) for s in 'xyzw'])
+            [getattr(pose.pose.orientation, s) for s in 'xyzw'])
         angle_err += self.config.angle_offset
 
         # Normalize the angle

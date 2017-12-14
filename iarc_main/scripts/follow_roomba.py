@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
 import rospy
 from geometry_msgs.msg import Twist, PoseStamped
 from iarc_arbiter.msg import RegisterBehavior
@@ -35,7 +35,7 @@ class RoombaFollower(object):
         """
         if self.latest_target.frame_id == '':
             rospy.logerr_throttle(5, "No target roomba set, commanding 0 velocity.")
-            self.stop_pub.publish(Twist(0, 0, 0))
+            self.stop_pub.publish(Twist())
             return
 
         pose_stamped = PoseStamped()
@@ -43,7 +43,7 @@ class RoombaFollower(object):
         pose_stamped.pose.position.y = des_y
         pose_stamped.pose.position.z = des_z
         pose_stamped.header.frame_id = self.latest_target.frame_id
-        pose_stamped.header.frame_id = rospy.Time(0)
+        pose_stamped.header.stamp = rospy.Time(0)
 
         self.pos_pub.publish(pose_stamped)
 
