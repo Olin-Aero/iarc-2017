@@ -262,7 +262,9 @@ class DroneCommander(object):
         if behavior not in ['zero', 'follow', 'landinfront', 'teleop']:
             raise Exception('Illegal behavior commanded: {}'.format(behavior))
 
+        # landinfront has not been implemented yet, fall back to following
         if behavior == 'landinfront':
+            rospy.logerr_throttle(5, "landinfront not implemented, following instead")
             behavior = 'follow'
 
         self._behavior_pub.publish(behavior)
@@ -271,34 +273,41 @@ class DroneCommander(object):
             self._target_pub.publish(target)
 
 
-rospy.init_node('strategy')
+if __name__ == '__main__':
+    rospy.init_node('strategy')
 
-drone = Drone()
-commander = DroneCommander()
-r = rospy.Rate(10)
-last_valid_time = rospy.Time(0)
-while not rospy.is_shutdown():
-    r.sleep()
-    print('_' * 80)
-    # print(drone.goodnessScore())
-    scoresList = drone.goodnessScore()
-    if scoresList != []:
-        last_valid_time = rospy.Time.now()
-        for roomba, score in scoresList:
-            # print(score)
-            drone.actionTimeEstimate(roomba, Action.LANDINFRONT)
-            print('score: %f roomba: %s' % (score, roomba.frame_id))
+    drone = Drone()
+    commander = DroneCommander()
+    r = rospy.Rate(10)
+    last_valid_time = rospy.Time(0)
 
-        bestRoomba, bestRoombaScore = drone.targetSelect(scoresList)
-        print('Best Score: %f Best Roomba: %s' % (bestRoombaScore, bestRoomba.frame_id))
-        commander.output('follow', bestRoomba)
-    else:
-        print "No Roombas found"
-        if rospy.Time.now() - last_valid_time > rospy.Duration.from_sec(5.0):
-            print "Falling back to teleop mode"
-            commander.output('teleop')
+    rospy.on_shutdown(lambda: commander.output('teleop'))
 
-exit()
+    while not rospy.is_shutdown():
+        r.sleep()
+        print('_' * 80)
+        # print(drone.goodnessScore())
+        scoresList = drone.goodnessScore()
+        if len(scoresList) > 0:
+            last_valid_time = rospy.Time.now()
+            for roomba, score in scoresList:
+                # print(score)
+                # drone.actionTimeEstimate(roomba, Action.LANDINFRONT)
+                print('score: %f roomba: %s' % (score, roomba.frame_id))
+
+            bestRoomba, bestRoombaScore = drone.targetSelect(scoresList)
+            print('Best Score: %f Best Roomba: %s' % (bestRoombaScore, bestRoomba.frame_id))
+
+            # TODO: use drone.chooseAction to pick what behavior is best, rather than following unconditionally
+            commander.output('follow', bestRoomba)
+        else:
+            print "No Roombas found"
+            if rospy.Time.now() - last_valid_time > rospy.Duration.from_sec(5.0):
+                print "Falling back to teleop mode"
+                # TODO: this should fall back to search mode of some sort
+                commander.output('teleop')
+
+    exit()
 
 states = [
     'init',

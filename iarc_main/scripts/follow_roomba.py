@@ -7,18 +7,17 @@ from iarc_main.msg import Roomba
 
 
 class RoombaFollower(object):
-    def __init__(self, timeout=5.0):
-        self.pub = rospy.Publisher('/follow/cmd_pos', PoseStamped, queue_size=10)
+    def __init__(self):
+        self.pos_pub = rospy.Publisher('/follow/cmd_pos', PoseStamped, queue_size=10)
+        self.stop_pub = rospy.Publisher('/follow/cmd_vel', Twist, queue_size=10)
 
         # Register this behavior (FollowBehavior) to the arbiter
         rospy.Publisher('/arbiter/register', RegisterBehavior, latch=True, queue_size=10).publish(name='follow')
 
         self.target_sub = rospy.Subscriber('/target', Roomba, self.on_target)
 
-        self.latest_target = None  # type: Roomba
-        self.latest_time = rospy.Time(0)
-
-        self.timeout = rospy.Duration.from_sec(timeout)
+        # A target with '' as a frame_id represents not having an active target
+        self.latest_target = Roomba(frame_id='')
 
     def on_target(self, msg):
         """
@@ -26,21 +25,17 @@ class RoombaFollower(object):
         :return: None
         """
         self.latest_target = msg
-        self.latest_time = rospy.Time.now()
 
     def follow_roomba(self, des_x=0, des_y=0, des_z=2.0):
         """
-        Follow the latest recieved Roomba
+        Follow the latest received Roomba
         :param des_x: desired position x
         :param des_y: desired position y
         :param des_z: desired position z
         """
-        if not self.latest_target:
-            rospy.logerr_throttle(5, "No target roomba set!")
-            return
-
-        if rospy.Time.now() - self.latest_time > self.timeout:
-            rospy.logerr_throttle(5, "Too long elapsed since last target!")
+        if self.latest_target.frame_id == '':
+            rospy.logerr_throttle(5, "No target roomba set, commanding 0 velocity.")
+            self.stop_pub.publish(Twist(0, 0, 0))
             return
 
         pose_stamped = PoseStamped()
@@ -50,7 +45,7 @@ class RoombaFollower(object):
         pose_stamped.header.frame_id = self.latest_target.frame_id
         pose_stamped.header.frame_id = rospy.Time(0)
 
-        self.pub.publish(pose_stamped)
+        self.pos_pub.publish(pose_stamped)
 
     def run(self):
         r = rospy.Rate(10)
