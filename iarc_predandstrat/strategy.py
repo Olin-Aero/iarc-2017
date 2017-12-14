@@ -94,9 +94,9 @@ class Drone(object):
         elif action == Action.LANDINFRONT:
             angle = self.orientationToHeading(target.visible_location.pose.pose.orientation)
             x_d = self.drone_pos[0] - (
-            target.visible_location.pose.pose.position.x + LAND_IN_FRONT_DIST * np.cos(angle))
+                target.visible_location.pose.pose.position.x + LAND_IN_FRONT_DIST * np.cos(angle))
             y_d = self.drone_pos[1] - (
-            target.visible_location.pose.pose.position.y + LAND_IN_FRONT_DIST * np.sin(angle))
+                target.visible_location.pose.pose.position.y + LAND_IN_FRONT_DIST * np.sin(angle))
             d_xy = np.sqrt(x_d ** 2 + y_d ** 2)
             t = d_xy / XY_VEL + 0 * (self.height - ROOMBA_HEIGHT) / Z_VEL
 
@@ -254,7 +254,7 @@ class DroneCommander(object):
 
     def output(self, behavior, target=None):
         """
-        :param str behavior: One of "zero", "follow", or "landinfront"
+        :param str behavior: One of "teleop", "follow", or "landinfront"
         :param (Roomba) target:
         :return:
         """
@@ -276,22 +276,27 @@ rospy.init_node('strategy')
 drone = Drone()
 commander = DroneCommander()
 r = rospy.Rate(10)
+last_valid_time = rospy.Time(0)
 while not rospy.is_shutdown():
     r.sleep()
     print('_' * 80)
     # print(drone.goodnessScore())
-    if drone.goodnessScore() != []:
-        for roomba, score in drone.goodnessScore():
+    scoresList = drone.goodnessScore()
+    if scoresList != []:
+        last_valid_time = rospy.Time.now()
+        for roomba, score in scoresList:
             # print(score)
             drone.actionTimeEstimate(roomba, Action.LANDINFRONT)
             print('score: %f roomba: %s' % (score, roomba.frame_id))
 
-        bestRoomba, bestRoombaScore = drone.targetSelect(drone.goodnessScore())
+        bestRoomba, bestRoombaScore = drone.targetSelect(scoresList)
         print('Best Score: %f Best Roomba: %s' % (bestRoombaScore, bestRoomba.frame_id))
         commander.output('follow', bestRoomba)
     else:
         print "No Roombas found"
-        commander.output('zero')
+        if rospy.Time.now() - last_valid_time > rospy.Duration.from_sec(5.0):
+            print "Falling back to teleop mode"
+            commander.output('teleop')
 
 exit()
 
