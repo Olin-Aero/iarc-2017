@@ -310,7 +310,12 @@ class Drone:
         self.test_change_height(self.NORMAL_HEIGHT)
         r = rospy.Rate(10)
 
-        while True:
+        i = 0
+        while i <= 8:
+            position, quaternion = self.tf.lookupTransform("map", self.current_target.frame_id, rospy.Time(0))
+            if position[1] < -10 or position[1] > 10 or position[0] < - 10 or position[0] > 10:
+                i += 1
+                self.current_target = Roomba("target%d" % i)
             angle, is_rotating = self.target_facing_angle()
             r.sleep()
 
@@ -339,7 +344,7 @@ class Drone:
 if __name__ == '__main__':
     rospy.init_node('Example')
     rospy.sleep(0.5)
-    roomba = Roomba("target4")
+    roomba = Roomba("target7")
     drone = Drone(target=roomba)
 
     # Register this behavior (FollowBehavior) to the arbiter
