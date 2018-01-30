@@ -1,4 +1,11 @@
 #!/usr/bin/env python2
+"""
+This file represents the main strategy node.
+It takes as input the positions of the Roombas on the field,
+and outputs commands to the Arbiter.
+
+Owner: Schommer
+"""
 import numpy as np
 import os
 import rospkg
