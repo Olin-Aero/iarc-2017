@@ -7,7 +7,6 @@ This is intended for a real-time constantly-running
 Roomba position prediction.
 """
 
-
 import math
 import random
 
@@ -93,36 +92,18 @@ def fiveSecSim(last_turn, last_noise, start_pose, end_time):
     mean_x = mean_pos[0]
     mean_y = mean_pos[1]
     mean_quaternion = tf.transformations.quaternion_from_euler(0, 0, mean_pos[2])
-    msg = Pose(position=Point(mean_x, mean_y, 0), orientation=Quaternion(mean_quaternion[0], mean_quaternion[1], mean_quaternion[2], mean_quaternion[3]))
-
-    # TODO: Calculate covariance using eigenvectors of covariance matrix
-    cov = [0] * 36
-    cov[0], cov[7], junk = np.std(roomba_pos, axis=0)
-
-    # print np.cov([roomba_pos[0],roomba_pos[1]],mean_pos)
+    msg = Pose(position=Point(mean_x, mean_y, 0),
+               orientation=Quaternion(mean_quaternion[0], mean_quaternion[1], mean_quaternion[2], mean_quaternion[3]))
 
     pad = np.zeros(20)
-    yaw = tf.transformations.quaternion_from_euler(pad,pad,np.array(roomba_pos)[:,2])
-    print yaw
-    XYZRPY = [np.array(roomba_pos)[:,0],np.array(roomba_pos)[:,1],pad,pad,pad,np.array(roomba_pos)[:,2]]
 
-    # XYcovariance = np.cov(np.array(roomba_pos)[:,0],np.array(roomba_pos)[:,1])
-    # print "XY cov: ", covariance
-    # eigvals, eigvecs = np.linalg.eig(covariance)
-    # print "Eigenvalues", eigvals
-    # print "Eigenvectors", eigvecs
-
-
-    # print "XY: ", np.array(roomba_pos)[:,0],np.array(roomba_pos)[:,1]
-    # print "Orientation: ", [mean_quaternion[0],mean_quaternion[1],mean_quaternion[2]]
-    # print "Orientation cov:", np.cov([mean_quaternion[0],mean_quaternion[1],mean_quaternion[2]])
-
+    XYZRPY = [np.array(roomba_pos)[:, 0], np.array(roomba_pos)[:, 1], pad, pad, pad, np.array(roomba_pos)[:, 2]]
 
     return PoseWithCovarianceStamped(
         header=start_pose.header,
         pose=PoseWithCovariance(
             pose=msg,
-            covariance=cov
+            covariance=XYZRPY
         )
     )
 
@@ -144,3 +125,25 @@ def locCalc(start_loc, dt, orient, vel=0.33):
     curr_y = past_y + dt * vel * math.sin(orient)
 
     return curr_x, curr_y, orient
+
+
+def test():
+    last_noise = rospy.Time(secs=0)
+    last_turn = rospy.Time(secs=0)
+    end_time = rospy.Time(secs=7)
+
+    # Create a PoseWithCovariance
+    header = rospy.Header(stamp=rospy.Time(secs=2))
+    q = tf.transformations.quaternion_from_euler(0, 0, math.pi)
+    msg = Pose(position=Point(0, 0, 0), orientation=Quaternion(q[0], q[1], q[2], q[3]))
+    pose = PoseWithCovariance(pose=msg)
+    start_pose = PoseWithCovarianceStamped(header=header, pose=pose)
+
+    roomba_pos = fiveSecSim(last_turn, last_noise, start_pose, end_time)
+
+    print(roomba_pos)
+
+
+if __name__ == '__main__':
+    # Run test case
+    test()
