@@ -12,7 +12,7 @@ from geometry_msgs.msg import Twist
 from iarc_main.msg import Roomba, RoombaList
 from std_msgs.msg import Float64, String
 
-from PredictionEngine import PredictionEngine
+from five_sec_sim import fiveSecSim
 
 rospack = rospkg.RosPack()
 iarc_sim_path = rospack.get_path('iarc_sim_2d')
@@ -35,7 +35,6 @@ class Action(Enum):
 class Drone(object):
     def __init__(self, C1=1, C2=1, C3=1, C4=1, C5=1, MIN_OBSTACLE_DISTANCE=1.5, FIELD_SIZE=20.0):
         self.tf = tf.TransformListener()
-        self.predictor = PredictionEngine(tf_listener=self.tf)
         self.tag = 'drone'
         rospy.Subscriber('/seen_roombas', RoombaList, self.recordVisible)
         rospy.Subscriber('/drone/height', Float64, self.recordHeight)
@@ -202,7 +201,7 @@ class Drone(object):
         # Step 1: check for a win condition
         roombaWillWin = False
         for dt in range(0, 20, 3):
-            prediction = self.predictor.predict_future_position(target, rospy.Time.now() + rospy.Duration.from_sec(dt))
+            prediction = fiveSecSim(target.last_turn, target.visible_location, rospy.Time.now() + rospy.Duration.from_sec(dt))
             if prediction.pose.pose.position.y > self.FIELD_SIZE / 2:
                 roombaWillWin = True
                 break
@@ -221,7 +220,7 @@ class Drone(object):
 
         # Step 3: check for 180 degree turns
         expected_time = rospy.Time.now() + TURN_TIME
-        expected_pos = self.predictor.predict_future_position(target, expected_time)
+        expected_pos = fiveSecSim(target.last_turn, target.visible_location, expected_time)
         cycle_phase = (expected_time - target.last_turn).to_sec() % 20
 
         expected_angle = tf.transformations.euler_from_quaternion(expected_pos.pose.pose.orientation)[2]

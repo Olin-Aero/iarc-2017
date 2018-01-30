@@ -8,13 +8,9 @@ should move here.
 """
 
 import rospy
-from geometry_msgs.msg import PoseWithCovarianceStamped, PoseStamped, Pose
-from std_msgs.msg import Header
+from geometry_msgs.msg import PoseWithCovarianceStamped
 from iarc_main.msg import Roomba
-
-import tf
-
-import heatmap
+`
 
 
 class PredictionEngine(object):
@@ -37,22 +33,7 @@ class PredictionEngine(object):
 
         pose = roomba.visible_location
 
-        # TODO: Use tf to get pose if the visible_location is unset or out of date
-        # if not self.tf.canTransform('map', roomba.frame_id, rospy.Time(0)):
-        #     raise Exception('Unable to find transform!')
-        #
-        # newPose = self.tf.transformPose('map',
-        #                       PoseStamped(
-        #                           header=Header(
-        #                               frame_id=roomba.frame_id,
-        #                               stamp=rospy.Time(0)
-        #                           ),
-        #                           pose=Pose()
-        #                       ))
-        #
-        # pose =
-
-        return heatmap.fiveSecSim(roomba.last_turn, pose, time)
+        return fiveSecSim(roomba.last_turn, pose, time)
 
     def ros_node(self):
         """
