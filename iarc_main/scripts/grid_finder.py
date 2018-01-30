@@ -2,25 +2,28 @@
 
 ''' 
 Subscribes to a camera feed and publishes the pose of a grid square.
-Does not yet track change in squares to find global reference frame.
 Image coordinate system: z is into image, x is right, y is down.
-Global coordinate system: z is down, right hand rule
+Global coordinate system: x is forward, y is left, z is up.
+Units: inches (TODO: change)
 
-@author Paul Nadan
-11/15/2017
+
+// TODO: Switch to 4x4 matrices
 '''
 
 import numpy as np
 import cv2
 import rospy
-from sensor_msgs.msg import Image
-from geometry_msgs.msg import Pose, PoseStamped, Quaternion
+import tf
+from sensor_msgs.msg import Image, CompressedImage
+from geometry_msgs.msg import Pose, PoseStamped, Quaternion, TransformStamped
+from nav_msgs.msg import Odometry
 from cv_bridge import CvBridge, CvBridgeError
 from matplotlib import pyplot as plt
-from tf.transformations import quaternion_from_euler, euler_from_quaternion
+from tf.transformations import *
 
 
-IMAGE_FEED = "/usb_cam/image_raw" # ROS topic publishing grid images
+IMAGE_FEED = "/ardrone/bottom/image_raw/compressed" # ROS topic publishing grid images
+SENSOR_FEED = "/odometry/filtered" # ROS topic publishing sensor data
 LOWER_COLOR_THRESHOLD = 150 # Darkest color of a line out of 255
 UPPER_COLOR_THRESHOLD = 255 # Lightest color of a line out of 255
 MIN_CONTOUR_SIZE = 200 # Size cutoff in pixels for filtering out noise
@@ -35,68 +38,44 @@ MIN_ANGLE = np.pi/36 # Angle in radians between 2 lines to be considered differe
 MIN_INTERSECT_ANGLE = np.pi/12 # Minimum angle in radians between 2 intersecting lines
 SIDE_LENGTH = 9 # Size of original grid square in inches
 CAMERA_RATIO = 4/3*720 #3264 # Intrinsic property of camera
-SAMPLE_PERIOD = 100 # Number of frames between samples
+TIME_OFFSET = 0 # Amount to project timestamp forward in time
+SAMPLE_PERIOD = 1000 # Number of frames between samples
 
 class grid_finder:
     def __init__(self):
         rospy.init_node('grid_finder')
         self.count = -1
-        self.pub = rospy.Publisher('/grid', PoseStamped, queue_size=10)
-        rospy.Subscriber(IMAGE_FEED, Image, self.image_raw_callback)
         self.bridge = CvBridge()
-        self.x = 0
-        self.y = 0
-        self.angle = 0
+        self.br = tf.TransformBroadcaster()
+        self.listener = tf.TransformListener()
+        self.odomGridAng = np.array(euler_matrix(0,0,0))[:3, :3]
+        self.odomGridPos = (0,0,0)
+        rospy.Subscriber(IMAGE_FEED, CompressedImage, self.image_raw_callback)
 
     def image_raw_callback(self, msg):
         self.count+=1
         try:
-            frame = self.bridge.imgmsg_to_cv2(msg, "bgr8")
+            frame = self.bridge.compressed_imgmsg_to_cv2(msg, "bgr8")
             frame = cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)
-            pose = findGrid(frame,self.count%SAMPLE_PERIOD==0)
-            # print(pose)
-            if pose:
-                angleOffset = self.updateAngle(pose)
-                self.updateLocation(pose, angleOffset)
-                output = PoseStamped()
-                euler = np.array(euler_from_quaternion(pose[0]))
-                euler[2] = self.angle
-                output.pose.orientation = Quaternion(*quaternion_from_euler(*euler))
-                output.pose.position.x = self.x
-                output.pose.position.y = self.y
-                print(int(self.x), int(self.y), int(pose[1][2]), int(self.angle*180/np.pi)%360)
-                output.pose.position.z = pose[1][2]
-                output.header.frame_id = "map"
-                self.pub.publish(output)
-
+            ang, pos = findGrid(frame,self.count%SAMPLE_PERIOD==0)
+            print (ang, pos)
+            if not ang is None:
+                camOdomAng, camOdomPos = poseFromTransform(self.listener.lookupTransform(msg.header.frame_id, "odom", msg.header.stamp-rospy.Duration(.1)))
+                lastPos = np.add(camOdomPos, self.odomGridPos)
+                lastAng = np.dot(camOdomAng, self.odomGridAng)
+                newAng = updateAngle(ang, lastAng)
+                pos = np.dot(np.dot(np.transpose(ang), newAng), pos) # Adjust position from updating angle
+                newPos = updateLocation(pos, lastPos)
+                print(int(newPos[0]), int(newPos[1]), int(newPos[2]), int(euler_from_matrix(newAng)[2]*180/np.pi)%360)
+                self.odomGridAng = np.dot(np.transpose(camOdomAng), newAng)
+                self.odomGridPos = np.subtract(newPos, camOdomPos)
+                self.publish()
         except CvBridgeError as e:
             print(e)
 
-    def updateAngle(self, pose):
-        '''Computes actual global yaw, compensating for 90 degree rotations of grid squares'''
-        yaw = euler_from_quaternion(pose[0])[2]
-        delta = (yaw-self.angle)%(np.pi/2)
-        self.angle = self.angle+delta
-        if delta > np.pi/4:
-            self.angle = self.angle-np.pi/2
-        return self.angle - yaw - np.pi/2
-        # TODO: Gyro integration and filtering
-
-    def updateLocation(self, pose, angleOffset=0):
-        '''Computes actual global position, compensating for switching between grid squares'''
-        # x2 = -pose[1][0]*np.cos(self.angle)-pose[1][1]*np.sin(self.angle)
-        # y2 = -pose[1][0]*np.sin(self.angle)+pose[1][1]*np.cos(self.angle)
-        x2 = np.cos(angleOffset)*pose[1][0]-np.sin(angleOffset)*pose[1][1]
-        y2 = np.sin(angleOffset)*pose[1][0]+np.cos(angleOffset)*pose[1][1]
-        dX = (x2 - self.x)%SIDE_LENGTH
-        dY = (y2 - self.y)%SIDE_LENGTH
-        self.x = self.x+dX
-        self.y = self.y+dY
-        if dX > SIDE_LENGTH/2:
-            self.x = self.x - SIDE_LENGTH
-        if dY > SIDE_LENGTH/2:
-            self.y = self.y - SIDE_LENGTH
-        # TODO: Optical flow integration and filtering
+    def publish(self):
+        # self.br.sendTransform(self.odomGridPos, quaternion_from_matrix(self.odomGridAng), rospy.Time.now() + rospy.Duration(TIME_OFFSET), "odom", "grid")    
+        self.br.sendTransform(self.odomGridPos, [1,0,0,0], rospy.Time.now() + rospy.Duration(TIME_OFFSET), "odom", "grid")    
     
     def run(self):
         rospy.spin()
@@ -292,34 +271,29 @@ def closestDirection(d1,d2,direction):
 def getPose(vertices, sideLength):
     '''Determines the pose given the coordinates of the transformed square'''
     if vertices is None or len(vertices) < 4:
-        return None
+        return None, None
     square1x1 = [[-1, -1, 0],[1,-1, 0],[1, 1, 0],[-1, 1, 0]]
     square = np.float32([[b/2.0*sideLength for b in a] for a in square1x1])
     cameraMatrix = np.float64([[CAMERA_RATIO,0,0],[0,CAMERA_RATIO,0],[0,0,1]])
     ret, rvec, tvec = cv2.solvePnP(square, np.float32(vertices), cameraMatrix, np.zeros(4))
 
-    rmat = cv2.Rodrigues(rvec)[0]
-    rmat = np.transpose(rmat)
-    rot = [[1,0,0],[0,-1,0],[0,0,-1]]
-    rmat = np.dot(rot,rmat)
-    tvec = -np.dot(rmat,tvec)
-    qw = np.sqrt(1 + rmat[0][0] + rmat[1][1] + rmat[2][2]) /2
-    qx = (rmat[2][1] - rmat[1][2])/( 4 *qw)
-    qy = (rmat[0][2] - rmat[2][0])/( 4 *qw)
-    qz = (rmat[1][0] - rmat[0][1])/( 4 *qw)
+    # rmat = cv2.Rodrigues(rvec)[0] # grid in camera frame
+    # rmat = np.transpose(rmat) # camera in grid frame
+    # rot = [[1,0,0],[0,-1,0],[0,0,-1]] # reorient axes
+    # rmat = np.dot(rot,rmat)
+    # tvec = -np.dot(rmat,tvec) # camera in grid frame
+    # pos = [tvec[0][0],tvec[1][0],tvec[2][0]]
+    # pose = [np.append(rmat[0],pos[0]), np.append(rmat[1],pos[1]), np.append(rmat[2],pos[2]), [0,0,0,1]]
 
-    # angle = np.linalg.norm(rvec) # World to camera
-    # angle = angle # Camera to world
-    # axis = [x[0]/angle for x in rvec]
-    # qx = axis[0] * np.sin(angle/2)
-    # qy = axis[1] * np.sin(angle/2)
-    # qz = axis[2] * np.sin(angle/2)
-    # qw = np.cos(angle/2)
-    # pos = [x[0] for x in tvec]
-    
-    quat = [qx,qy,qz,qw]
+    rmat = cv2.Rodrigues(rvec)[0] # grid in camera frame
+    rmat = np.transpose(rmat) # camera in grid frame
+    rot = [[1,0,0],[0,-1,0],[0,0,-1]] # reorient axes
+    rmat = np.dot(rot,rmat)
+    tvec = -np.dot(rmat,tvec) # camera in grid frame
     pos = [tvec[0][0],tvec[1][0],tvec[2][0]]
-    return (quat,pos)
+    pose = (rmat, pos)
+    
+    return pose
 
 def orderVertices(vertices):
     '''Returns the given vertices in counterclockwise order (relative to right-handed xy axes)'''
@@ -333,6 +307,54 @@ def orderVertices(vertices):
     else:
         order = [0,2,3,1]
     return [vertices[i] for i in order]
+
+def updateAngle(ang, lastAng):
+    '''Computes updated orientation, compensating for 90 degree rotations of grid squares'''
+    euler = np.array(euler_from_matrix(ang))
+    yaw = euler[2]
+    lastyaw = euler_from_matrix(lastAng)[2]
+    delta = (yaw-lastyaw)%(np.pi/2)
+    updatedyaw = yaw+delta
+    if delta > np.pi/4:
+        updatedyaw -= np.pi/2
+    euler[2] = updatedyaw
+    return np.array(euler_matrix(*euler))[:3,:3]
+
+def updateLocation(pos, lastPos):
+    '''Computes updated global position, compensating for switching between grid squares'''
+    dX = (pos[0] - lastPos[0])%SIDE_LENGTH
+    dY = (pos[1] - lastPos[1])%SIDE_LENGTH
+    pos[0] += dX
+    pos[1] += dY
+    if dX > SIDE_LENGTH/2:
+        pos[0] -= SIDE_LENGTH
+    if dY > SIDE_LENGTH/2:
+        pos[1] -= SIDE_LENGTH
+    return pos
+
+def poseFromTransform(transform):
+    '''Converts a TransformStamped to a 4x4 matrix'''
+    pos = transform[0]
+    quat = transform[1]
+    # pos = [transform.translation.x, transform.translation.y, transform.translation.z]
+    # quat = [transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w]
+    ang = np.array(quaternion_matrix(quat))
+    ang = ang[0:3,0:3]
+    # pose = compose_matrix(angles=euler_from_quaternion(quat), translate=pos)
+    return (ang, pos)
+
+# def transformFromPose(ang, pos):
+#     '''Converts a 4x4 matrix to a TransformStamped'''
+#     t = TransformStamped()
+#     quat = quaternion_from_matrix(ang)
+#     t.translation.x = pos[0]
+#     t.translation.y = pos[1]
+#     t.translation.z = pos[2]
+#     t.rotation.x = quat[0]
+#     t.rotation.y = quat[1]
+#     t.rotation.z = quat[2]
+#     t.rotation.w = quat[3]
+#     return t
 
 if __name__ == '__main__':
     finder = grid_finder()
