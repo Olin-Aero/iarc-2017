@@ -164,6 +164,7 @@ class UKFEstimate(Particle):
     def predict(self, t, dt, obs):
         # predict ...
         # obs = observability
+        self.ukf.P = (self.ukf.P + self.ukf.P.T) / 2.0
         self.ukf.predict(dt, fx_args=(t,obs))
         self._pose = self.ukf.x.copy()
     def update(self, pose):
