@@ -1,25 +1,18 @@
 import math
-import rospkg
 
 import rospy
-from numpy import sign, pi
-import sys
-import os
-from geometry_msgs.msg import Twist, PoseStamped, Vector3
+import tf
+import tf.transformations
+from geometry_msgs.msg import Twist, PoseStamped
 from iarc_arbiter.msg import RegisterBehavior
-from std_msgs.msg import Float64, String
-import tf, tf.transformations
-
 from iarc_main.msg import Roomba
-
-rospack = rospkg.RosPack()
-iarc_sim_path = rospack.get_path('iarc_sim_2d')
-sys.path.append(os.path.join(iarc_sim_path, 'src'))
-
-import config as cfg
+from numpy import pi
+from std_msgs.msg import String
 
 
 class Drone:
+    ROOMBA_HEIGHT = 0.1  # Height of a Roomba top in meters
+
     def __init__(self, target=None):
         self.should_hit_button = False
         self.should_land_front = False
@@ -141,11 +134,11 @@ class Drone:
         self.follow_roomba_global()
         if self.should_hit_button:
             # Hit the button
-            self.change_height(cfg.ROOMBA_HEIGHT - 0.1)
+            self.change_height(self.ROOMBA_HEIGHT - 0.1)
             if self.distance_from_target() < 0.1:
 
                 # 0.1 is roomba's height
-                if self.height() <= cfg.ROOMBA_HEIGHT:
+                if self.height() <= self.ROOMBA_HEIGHT:
                     print "Button hit"
                     self.should_hit_button = False
                     self.change_height(self.NORMAL_HEIGHT)
