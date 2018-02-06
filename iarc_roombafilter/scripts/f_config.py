@@ -6,7 +6,7 @@ import numpy as np
 
 # Roomba Type/Color Definitions
 T_NULL, T_DRONE, T_TARG, T_OBST, T_SIMP = range(5)
-C_NULL, C_RED, C_GREEN = range(2)
+C_NULL, C_RED, C_GREEN = range(3)
 
 # Standard Deviations
 S_X, S_Y, S_T, S_V, S_W = (0.1, 0.1, 0.34, 0.1, 0.3)

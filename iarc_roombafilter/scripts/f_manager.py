@@ -62,7 +62,7 @@ class UKFManager(object):
         ukf = UKF(**self.ukf_args)
         ukf.Q = self.Q.copy()
         ukf.R = self.R.copy()
-        ukf.x = pose.copy()
+        ukf.x = np.copy(pose)
         ukf.P = self.P.copy()
         # TODO : fill in more info, such as color(red/green/unknown), type(target/obs/unknown)
         self.est[self.p_idx] = UKFEstimate(pose,

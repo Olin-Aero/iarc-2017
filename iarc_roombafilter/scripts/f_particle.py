@@ -76,7 +76,7 @@ class Particle(object):
 
     def as_vec(self):
         # TODO : add velocity components
-        return self._pose[:3].copy()
+        return np.copy(self._pose[:3])
     def p(self, t):
         return self._p0 * P_DECAY ** (t-self._t0)
 
@@ -166,7 +166,7 @@ class UKFEstimate(Particle):
         # obs = observability
         self.ukf.predict(dt, fx_args=(t,obs))
         self._pose = self.ukf.x.copy()
-    def update(self, pos):
+    def update(self, pose):
         self.ukf.update(pose)
     def p(self):
         # TODO : hard-coded error margin
