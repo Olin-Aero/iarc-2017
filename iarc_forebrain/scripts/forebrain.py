@@ -16,7 +16,7 @@ class Strategy(object):
         r = rospy.Rate(20)
         self.world.waitForStart()
 
-        while not self.drone.is_flying:
+        while not self.drone.is_flying():
             self.drone.takeoff(1.5)
             r.sleep()
 

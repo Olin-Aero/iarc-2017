@@ -3,6 +3,7 @@ import math
 import rospy
 import tf
 import tf.transformations
+from ardrone_autonomy.msg import Navdata
 from geometry_msgs.msg import Twist, PoseStamped, Pose, Point, Quaternion
 from iarc_arbiter.msg import RegisterBehavior
 from iarc_main.msg import Roomba
@@ -22,7 +23,7 @@ class Drone:
         self.vel3d = Twist()
 
         # World state
-        self.is_flying = False
+        self._remembers_flying = False
 
         # Remembered control state
         self.last_height = 0.0
@@ -43,6 +44,18 @@ class Drone:
 
         rospy.Subscriber("/cmd_vel", Twist, self.record_vel)
 
+        self.navdata = None
+        rospy.Subscriber('/ardrone/navdata', Navdata, self.onNavdata)
+
+    def is_flying(self):
+        if self.navdata is not None:
+            # List of states taken from
+            # http://ardrone-autonomy.readthedocs.io/en/latest/reading.html#legacy-navigation-data
+            # "flying" = Flying or Hovering or Landing or Looping
+            return self.navdata.state in [3, 7, 4, 8, 9]
+        else:
+            return self._remembers_flying
+
     def takeoff(self, height=NORMAL_HEIGHT):
         """
         Commands the drone to takeoff from ground level. Directly commands the low-level controls,
@@ -54,7 +67,7 @@ class Drone:
         self.last_height = height
 
         self.takeoffPub.publish(Empty())
-        self.is_flying = True
+        self._remembers_flying = True
 
     def land(self):
         """
@@ -66,7 +79,7 @@ class Drone:
         self.last_height = 0
 
         self.landPub.publish(Empty())
-        self.is_flying = False
+        self._remembers_flying = False
 
     def hover(self, time, height=None):
         """
@@ -132,6 +145,12 @@ class Drone:
         linear = self.get_pos(frame).pose.linear
 
         return math.sqrt(linear.x**2+linear.y**2)
+
+    def onNavdata(self, msg):
+        """
+        :param (Navdata) msg:
+        """
+        self.navdata = msg
 
 ############ Old stuff ############
 
