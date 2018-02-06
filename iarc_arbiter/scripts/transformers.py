@@ -1,13 +1,14 @@
-import rospy
 import math
+import numpy as np
+from numpy import sign
+
+import rospy
+import tf.transformations
 from geometry_msgs.msg import Twist, PoseStamped, Pose, Point, Quaternion
+from nav_msgs.msg import Odometry
 from std_msgs.msg import Header
 from tf import TransformListener
-
 from tf.listener import xyz_to_mat44, xyzw_to_mat44
-import tf.transformations
-
-import numpy as np
 
 
 class Command:
@@ -46,7 +47,6 @@ class PIDController(object):
         self.tf = tf
         self.config = ddynrec
 
-        # Testing follow behavior at position (x, y) = (1, 1) relative to target
         self.last_time = rospy.Time(0)
 
         self.config.add_variable("max_velocity", "Max velocity the drone can reach",
@@ -56,13 +56,28 @@ class PIDController(object):
                                  rospy.get_param('~kp_turn', 0.0), 0.0, 2.0)
 
         self.config.add_variable("kp", "Proportional Linear",
-                                 rospy.get_param('~kp', 0.3), 0.0, .5)
+                                 rospy.get_param('~kp', 0.2), 0.0, .5)
 
         self.config.add_variable("ki", "Integral",
                                  rospy.get_param('~ki', 0.0), 0.0, .5)
 
         self.config.add_variable("kd", "Derivative",
-                                 rospy.get_param('~kd', 0.3), 0.0, 2.0)
+                                 rospy.get_param('~kd', 0.2), 0.0, 2.0)
+
+        self.config.add_variable("kp_height", "Proportional control for altitude adjustment",
+                                 rospy.get_param('~kp_height', 0.5), 0.0, 2.0)
+
+        self.config.add_variable("max_vertical_vel", "Maximum speed the drone is allowed to ascend or descend",
+                                 rospy.get_param('~max_vertical_vel', 0.5), 0.0, 3.0)
+
+        self.config.add_variable("min_vertical_vel", "Minimum speed the drone is allowed to ascend or descend",
+                                 rospy.get_param('~min_vertical_vel', 0.1), 0.0, 3.0)
+
+        self.config.add_variable("angle_offset", "Angle the drone should face relative to commanded",
+                                 rospy.get_param('~angle_offset', 0.0), -3.14, 3.14)
+
+        self.config.add_variable("use_vel_derivs", "Should  we use the drone's velocity as the derivative terms?",
+                                 rospy.get_param('~use_vel_derivs', True))
 
         # self.maxvelocity = rospy.get_param('~max_velocity', 1.0)  # Max velocity the drone can reach
         # self.kpturn = rospy.get_param('~kp_turn', 0.0)  # Proportional angular for turning
@@ -70,10 +85,38 @@ class PIDController(object):
         # self.ki = rospy.get_param('~ki', 0)#0.02)  # Integral linear
         # self.kd = rospy.get_param('~kd', 0.1)  # Derivative linear
 
+        # self.kp_height = 1.0
+        # self.MAX_VERTICAL_VEL = 1.5
+        # self.MIN_VERTICAL_VEL = 0.2
+
+        self.last_odom = Odometry()
+        self.odom_sub = rospy.Subscriber('/ardrone/odometry', Odometry, self.on_odom)
+
         self.integral_x = 0.0
         self.previous_error_x = 0.0
         self.integral_y = 0.0
         self.previous_error_y = 0.0
+
+    def on_odom(self, msg):
+        """
+        :param Odometry msg:
+        """
+        self.last_odom = msg
+
+    def calculate_z_vel(self, error):
+        if abs(error) <= 0.05:
+            # Good enough! Stop publishing height changing
+            return 0
+
+        vel = error * self.config.kp_height
+
+        if abs(vel) < self.config.min_vertical_vel:
+            vel = sign(vel) * self.config.min_vertical_vel
+
+        if abs(vel) > self.config.max_vertical_vel:
+            vel = sign(vel) * self.config.max_vertical_vel
+
+        return vel
 
     def cmd_pos(self, msg):
         """
@@ -85,7 +128,8 @@ class PIDController(object):
 
         vel = Twist()
 
-        position = self.transformPoseFull('base_link', msg, 'odom').pose.position
+        pose = self.transformPoseFull('base_link', msg, 'odom')
+        position = pose.pose.position
         # position = self.tf.transformPose('base_link', msg).pose.position
 
         # Plan motion
@@ -100,16 +144,26 @@ class PIDController(object):
         # Calculate DIP velocity_x
         error_x = position.x
         self.integral_x = self.integral_x + error_x * dt
-        derivative_x = (error_x - self.previous_error_x) / dt
+
+        if self.config.use_vel_derivs:
+            derivative_x = -self.last_odom.twist.twist.linear.x
+        else:
+            derivative_x = (error_x - self.previous_error_x) / dt
+
         self.previous_error_x = error_x
         dip_x = self.config.kp * error_x + self.config.ki * self.integral_x + self.config.kd * derivative_x
 
         # Calculate DIP velocity_y
         error_y = position.y
-        integral_y = self.integral_y + error_y * dt
-        derivative_y = (error_y - self.previous_error_y) / dt
+        self.integral_y = self.integral_y + error_y * dt
+
+        if self.config.use_vel_derivs:
+            derivative_y = -self.last_odom.twist.twist.linear.y
+        else:
+            derivative_y = (error_y - self.previous_error_y) / dt
+
         self.previous_error_y = error_y
-        dip_y = self.config.kp * error_y + self.config.ki * integral_y + self.config.kd * derivative_y
+        dip_y = self.config.kp * error_y + self.config.ki * self.integral_y + self.config.kd * derivative_y
 
         # Combined velocity
         dip_diagonal = math.sqrt(dip_x ** 2 + dip_y ** 2)
@@ -129,8 +183,21 @@ class PIDController(object):
             self.integral_x = 0.0
             self.integral_y = 0.0
 
-        # Turn drone to where it's heading to
-        vel.angular.z = self.config.kp_turn * math.atan2(vel.linear.y, vel.linear.x)
+        # Preserve the z value of velocity
+        vel.linear.z = self.calculate_z_vel(position.z)
+
+        ## Turn drone toward the provided orientation
+        _, _, angle_err = tf.transformations.euler_from_quaternion(
+            [getattr(pose.pose.orientation, s) for s in 'xyzw'])
+        angle_err += self.config.angle_offset
+
+        # Normalize the angle
+        while angle_err <= -np.pi:
+            angle_err += 2 * np.pi
+        while angle_err > np.pi:
+            angle_err -= 2 * np.pi
+
+        vel.angular.z = self.config.kp_turn * angle_err
 
         print("Calculated vel: {}".format(vel))
 

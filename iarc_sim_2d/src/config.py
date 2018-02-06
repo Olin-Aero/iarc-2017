@@ -99,6 +99,12 @@ OBSTACLE_POLE_RADIUS = .05
 DRONE_RADIUS = .258
 ROTOR_OFFSET = .15
 
+XY_VEL = .8 #Typical velocity in Meters per second
+Z_VEL = .4
+LAND_IN_FRONT_DIST = .5
+ROOMBA_HEIGHT = .1
+
+
 #Angle of bottom camera field of view, in radians
 BOTTOM_CAMERA_FOV = PI/3
 
