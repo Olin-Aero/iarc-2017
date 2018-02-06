@@ -36,6 +36,8 @@ class UKFManager(object):
 
         # TODO : arbitrary covariances
         self.P = np.diag(np.square(sigmas))# initial covariance
+        self.P[3,3] = 100.0
+        self.P[4,4] = 100.0
         self.R = np.diag(np.square([0.1, 0.1, np.deg2rad(5)])) # measurement noise: 5cm/5deg err.
 
         # process noise
@@ -75,7 +77,8 @@ class UKFManager(object):
     def predict(self, t, dt):
         # predict from dt
         for e in est.values():
-            e.predict(t, dt, obs=(t > e._t0 + 1.0))
+            # TODO : Observation flag assignment somewhere
+            e.predict(t, dt, obs=True)#(t > e._t0 + 1.0))
             # TODO(yoonyoungcho) : arbitrary time threshold
             # only start simulational iteration
             # if it has been more than a second since observation.
@@ -95,6 +98,7 @@ class UKFManager(object):
 
         # predict from dt
         for e in est.values():
+            print dt
             e.predict(t, dt, obs=(e._pose in obs_ar))
 
         # assign observations
@@ -103,7 +107,6 @@ class UKFManager(object):
                 prob[k2i[k],j] = est[k].match(o)
                 cost[k2i[k],j] = est[k].cost(o)
         i_idx, j_idx = linear_sum_assignment(cost)
-        #print i_idx, j_idx
 
         # update
         # collect "new" particles

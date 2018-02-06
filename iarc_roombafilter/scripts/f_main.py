@@ -24,7 +24,7 @@ def random_pose():
 def main():
     # parameters
     n_targets = 20
-    dt = 0.025
+    dt = 0.05
     steps = (100.0 / dt)
     sigmas = np.asarray([S_X, S_Y, S_T, S_V, S_W])
 
@@ -45,10 +45,10 @@ def main():
     manager = UKFManager(dt, sigmas)
     particles = {}
 
-    for i, t in enumerate(targets):
-        # initial estimates with noisy pose
-        pose = add_noise(t._pose, sigmas)
-        manager.create(pose)
+    #for i, t in enumerate(targets):
+    #    # initial estimates with noisy pose
+    #    pose = add_noise(t._pose, sigmas)
+    #    manager.create(pose)
 
     t = 3.0
     while True:
@@ -61,8 +61,16 @@ def main():
         obs = []
         for r in targets:
             if r._pose in obs_ar:
-                o = r.clone()
-                o._pose = add_noise(r._pose, s=dt*sigmas)
+                p = add_noise(r._pose, s=dt*sigmas)
+                p[-2:] = 0.0
+                print p
+                #o = r.clone()
+                #o._pose = add_noise(r._pose, s=dt*sigmas)
+                o = ObservationParticle(
+                        pose=p,
+                        t=T_TARG,
+                        c=None
+                        )
                 obs.append(o)
 
         # render

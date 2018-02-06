@@ -12,12 +12,14 @@ from iarc_main.msg import Roomba, RoombaSighting
 from std_msgs.msg import Header
 from geometry_msgs.msg import PoseWithCovariance, PoseWithCovarianceStamped, PointStamped
 
+R = 10.0
+
 def is_visible(src, dst):
     # dst pose is visible from src pose
     p0 = src.position
     p1 = dst.position
     r2 = (p0.x - p1.x)**2 + (p0.y - p1.y)**2
-    return (r2 < 3.0**2) # within +-3m radius
+    return (r2 < R**2) # within +-3m radius
 
 class GazeboInterface(object):
     def __init__(self):
@@ -60,7 +62,7 @@ class GazeboInterface(object):
                 header = Header(stamp=now, frame_id="map"),
                 data = obs,
                 fov_center = PointStamped(Header(stamp=now, frame_id="map"), p0.position),
-                fov_radius = 3.0
+                fov_radius = R
                 )
         self._pub.publish(msg)
 

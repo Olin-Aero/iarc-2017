@@ -35,7 +35,7 @@ class UKFManagerROS(object):
 
         # unroll parameters ...
         self._max_targets = rospy.get_param('~max_targets', default=30)
-        self._sigma = rospy.get_param('~sigma', default=list(cfg.SIGMAS))
+        self._sigma = np.copy(rospy.get_param('~sigma', default=list(cfg.SIGMAS)))
         self._p_keep = rospy.get_param('~p_keep', default=cfg.P_KEEP)
         self._p_match = rospy.get_param('~p_match', default=cfg.P_MATCH)
         self._p_clear = rospy.get_param('~p_clear', default=cfg.P_CLEAR)
@@ -67,7 +67,7 @@ class UKFManagerROS(object):
             p = self._tf.transformPose('map', p).pose
             p, q = p.position, p.orientation
             h = tf.transformations.euler_from_quaternion([q.x,q.y,q.z,q.w])[2]
-            pose = [p.x, p.y, h, 0, 0]
+            pose = np.asarray([p.x, p.y, h, 0.0, 0.0])
             # TODO(yoonyoungcho) : is current code handling NaN well?
 
             # roomba type handling
@@ -79,26 +79,54 @@ class UKFManagerROS(object):
                 else:
                     r_type = cfg.T_TARG
                     r_col = (cfg.C_RED if r.type == Roomba.RED else cfg.C_GREEN)
+
+            # TODO : debugging ...
+            # r_type = cfg.T_TARG
+            # r_col = None
             
             o = ObservationParticle(
                     pose=pose,
                     t=r_type,
-                    c=r_col
+                    c=r_col,
                     )
             obs.append(o)
 
         # TODO(yoonyoungcho) does filterpy support retrodictive updates?
         # TODO(yoonyoungcho) t = t0+dt or t1-dt?
-        t = msg.header.stamp.to_sec()
-        self._mgr.step(obs, t, t-self._t, obs_ar)
+        #t = msg.header.stamp.to_sec()
+        t = rospy.Time.now().to_sec()
+        dt = t - self._t
+
+        flg = True
+        if dt > 0:
+            print dt
+            try:
+                e = self._mgr.estimates()[0]
+            except Exception:
+                flg = False
+            if flg:
+                print e._pose[3] # v
+                prv = np.copy(e._pose)
+            self._mgr.step(obs, t, dt, obs_ar)
+            if flg:
+                nxt = e._pose.copy()
+                #print prv, '->', nxt
+            self._t = t
 
     def publish(self):
         now = rospy.Time.now()
         cov = np.eye(6) * 1e-6 # TODO : do real covs
         cov = cov.flatten()
         msgs = []
+
+        #try:
+        #    print self._mgr.estimates()[0]._pose
+        #except Exception as e:
+        #    pass
+
         for e in self._mgr.estimates():
             (x,y,t,v,w) = e._pose
+            #print x, v
             s,c = np.sin(t/2.0), np.cos(t/2.0)
             p = Point(x,y,0)
             q = Quaternion(0,0,s,c)
@@ -111,12 +139,14 @@ class UKFManagerROS(object):
             msg = Roomba(now, "map", Roomba.UNKNOWN, loc)
             msgs.append(msg)
         msg = RoombaList(Header(stamp=now,frame_id="map"), msgs)
+        #print len(msgs)
         self._pub.publish(msg)
 
     def run(self):
         rate = rospy.Rate(self._rate)
+        self._t = rospy.Time.now().to_sec()
         while not rospy.is_shutdown():
-            self._t = rospy.Time.now().to_sec()
+            #self._t = rospy.Time.now().to_sec()
             self.publish()
             rate.sleep()
 
@@ -124,7 +154,7 @@ class UKFManagerROS(object):
 def main():
     rospy.init_node('roomba_filter')
     # TODO : fix dt / sigmas instantiation
-    mgr = UKFManagerROS(dt=1e-3)
+    mgr = UKFManagerROS(dt=1e-2)
     mgr.run()
 
 if __name__ == "__main__":
