@@ -3,35 +3,137 @@ import math
 import rospy
 import tf
 import tf.transformations
-from geometry_msgs.msg import Twist, PoseStamped
+from geometry_msgs.msg import Twist, PoseStamped, Pose, Point, Quaternion
 from iarc_arbiter.msg import RegisterBehavior
 from iarc_main.msg import Roomba
 from numpy import pi
-from std_msgs.msg import String
+from std_msgs.msg import String, Empty, Header
 
 
 class Drone:
     ROOMBA_HEIGHT = 0.1  # Height of a Roomba top in meters
+    MAX_VERTICAL_VEL = 2.0
+    MIN_VERTICAL_VEL = 0.8
+    NORMAL_HEIGHT = 2.5
 
     def __init__(self, target=None):
         self.should_hit_button = False
         self.should_land_front = False
         self.vel3d = Twist()
-        self.MAX_VERTICAL_VEL = 2.0
-        self.MIN_VERTICAL_VEL = 0.8
-        self.NORMAL_HEIGHT = 2.5
 
-        self.height_target = 0.0
+        # World state
+        self.is_flying = False
 
+        # Remembered control state
+        self.last_height = 0.0
         self.current_target = target  # Roomba class
+
         self.prev_target_facing_angle = None  # in radian
 
         self.FRAME_ID = "base_link"
         self.tf = tf.TransformListener()
-        self.followPosPub = rospy.Publisher('/follow/cmd_pos', PoseStamped, queue_size=10)
-        self.followVelPub = rospy.Publisher('/follow/cmd_vel', Twist, queue_size=10)
+
+        self.posPub = rospy.Publisher('/forebrain/cmd_pos', PoseStamped, queue_size=0)
+        self.velPub = rospy.Publisher('/forebrain/cmd_vel', Twist, queue_size=0)
+        self.takeoffPub = rospy.Publisher('/forebrain/cmd_takeoff', Empty, queue_size=0)
+        self.landPub = rospy.Publisher('/forebrain/cmd_land', Empty, queue_size=0)
+
+        rospy.Publisher('/arbiter/register', RegisterBehavior, latch=True, queue_size=10).publish(name='forebrain')
+        rospy.Publisher('/arbiter/activate_behavior', String, latch=True, queue_size=10).publish('forebrain')
 
         rospy.Subscriber("/cmd_vel", Twist, self.record_vel)
+
+    def takeoff(self, height=NORMAL_HEIGHT):
+        """
+        Commands the drone to takeoff from ground level. Directly commands the low-level controls,
+        and might need changes as hardware gets upgraded.
+        TODO: Use the height immediately
+        :param (float) height: Height in meters
+        :return: None
+        """
+        self.last_height = height
+
+        self.takeoffPub.publish(Empty())
+        self.is_flying = True
+
+    def land(self):
+        """
+        Commands the drone to takeoff from ground level. Directly commands the low-level controls,
+        and might need changes as hardware gets upgraded.
+        :param (float) height: Height in meters
+        :return: None
+        """
+        self.last_height = 0
+
+        self.landPub.publish(Empty())
+        self.is_flying = False
+
+    def hover(self, time, height=None):
+        """
+        Publishes 0 velocity for the given duration
+        TODO: Store the starting position, and stay there
+        :param time:
+        :param height:
+        :return:
+        """
+        if height is None:
+            height = self.last_height
+        else:
+            self.last_height = height
+
+        if type(time) != rospy.Duration:
+            time = rospy.Duration.from_sec(time)
+
+        hover_start_time = rospy.Time.now()
+
+        start_pos = self.get_pos('odom')
+        start_pos.pose.position.z = height
+
+        # Always use the latest available information
+        start_pos.header.stamp = rospy.Time(0)
+
+        r = rospy.Rate(10)
+        while rospy.Time.now() - hover_start_time < time:
+            self.posPub.publish(start_pos)
+            r.sleep()
+
+    def get_pos(self, frame='map'):
+        """
+        Gets the position of the drone in the map (or relative to some other coordinate frame)
+
+        :param frame: The world frame in which to return the result
+        :return (PoseStamped): The position of the drone at the latest available time
+        """
+        time = self.tf.getLatestCommonTime(frame, self.FRAME_ID)
+        position, quaternion = self.tf.lookupTransform(frame, self.FRAME_ID, time)
+
+        return PoseStamped(
+            header=Header(
+                stamp=time,
+                frame_id=frame
+            ),
+            pose=Pose(
+                position=Point(
+                    x=position[0], y=position[1], z=position[2]
+                ),
+                orientation=Quaternion(
+                    x=quaternion[0], y=quaternion[1], z=quaternion[2], w=quaternion[3]
+                )
+            )
+        )
+
+    def distance_from(self, frame):
+        """
+        Returns the linear distance along the ground between the robot and the origin of the provided TF frame.
+        TODO: Allow PoseStamped as imput, rather than just using the origin.
+        :param (str) frame: The TF frame to measure to
+        :return:
+        """
+        linear = self.get_pos(frame).pose.linear
+
+        return math.sqrt(linear.x**2+linear.y**2)
+
+############ Old stuff ############
 
     def record_vel(self, msg):
         # TODO: Use Odometry topic for velocity information
@@ -51,15 +153,15 @@ class Drone:
             roomba = self.current_target
 
         if des_z is not None:
-            self.height_target = des_z
+            self.last_height = des_z
 
         pose_stamped = PoseStamped()
         pose_stamped.pose.position.x = des_x
         pose_stamped.pose.position.y = des_y
-        pose_stamped.pose.position.z = self.height_target
+        pose_stamped.pose.position.z = self.last_height
         pose_stamped.header.frame_id = roomba.frame_id
 
-        self.followPosPub.publish(pose_stamped)
+        self.posPub.publish(pose_stamped)
 
     def follow_roomba_global(self, des_x=0.0, des_y=0.0, des_z=None):
         """
@@ -74,15 +176,15 @@ class Drone:
         position = self.position_of_roomba()
 
         if des_z is not None:
-            self.height_target = position[2] + des_z
+            self.last_height = position[2] + des_z
 
         pose_stamped = PoseStamped()
         pose_stamped.pose.position.x = position[0] + des_x
         pose_stamped.pose.position.y = position[1] + des_y
-        pose_stamped.pose.position.z = self.height_target
+        pose_stamped.pose.position.z = self.last_height
         pose_stamped.header.frame_id = "map"
 
-        self.followPosPub.publish(pose_stamped)
+        self.posPub.publish(pose_stamped)
 
     def move(self, des_x=0.0, des_y=0.0, des_z=None):
         """
@@ -94,7 +196,7 @@ class Drone:
         """
 
         if des_z is None:
-            des_z = self.height_target - self.height()
+            des_z = self.last_height - self.height()
 
         pose_stamped = PoseStamped()
         pose_stamped.pose.position.x = des_x
@@ -102,14 +204,14 @@ class Drone:
         pose_stamped.pose.position.z = des_z
         pose_stamped.header.frame_id = self.FRAME_ID
 
-        self.followPosPub.publish(pose_stamped)
+        self.posPub.publish(pose_stamped)
 
     def change_height(self, height):
         """
         Change drone's height to height
         :param height: Desired height, in meters
         """
-        self.height_target = height
+        self.last_height = height
         self.move()
 
     def stand_still(self):
@@ -118,7 +220,7 @@ class Drone:
         NOTE: commands zero velocity, overriding vertical height setpoints
         :return: None
         """
-        self.followVelPub.publish(Twist())
+        self.velPub.publish(Twist())
 
     def push_button(self):
         """
