@@ -36,8 +36,8 @@ class UKFManager(object):
 
         # TODO : arbitrary covariances
         self.P = np.diag(np.square(sigmas))# initial covariance
-        self.P[3,3] = 100.0
-        self.P[4,4] = 100.0
+        self.P[3,3] = 1.0
+        self.P[4,4] = 1.0
         self.R = np.diag(np.square([0.1, 0.1, np.deg2rad(5)])) # measurement noise: 5cm/5deg err.
 
         # process noise
@@ -64,7 +64,10 @@ class UKFManager(object):
         ukf = UKF(**self.ukf_args)
         ukf.Q = self.Q.copy()
         ukf.R = self.R.copy()
-        ukf.x = np.copy(pose)
+
+        ukf.x = np.zeros(5, dtype=np.float32)
+        ukf.x[:3] = pose[:3]
+
         ukf.P = self.P.copy()
         # TODO : fill in more info, such as color(red/green/unknown), type(target/obs/unknown)
         self.est[self.p_idx] = UKFEstimate(pose,
@@ -98,8 +101,7 @@ class UKFManager(object):
 
         # predict from dt
         for e in est.values():
-            print dt
-            e.predict(t, dt, obs=(e._pose in obs_ar))
+            e.predict(t, dt, obs=True)#(e._pose in obs_ar))
 
         # assign observations
         for k in est.keys():
@@ -113,11 +115,16 @@ class UKFManager(object):
         k_clear = []
         add_obs = np.ones(m)
 
+        s = None
+        cnt=0
+
         for (i,j) in zip(i_idx, j_idx):
+            cnt += 1
             k = i2k[i]
             if est[k]._pose in obs_ar:
                 if (prob[i,j] > P_MATCH):
                     #try:
+                    s = ('est', est[k].ukf.x, 'obs', obs[j]._pose)
                     est[k].update(obs[j]._pose[:3])
                     # TODO : p0-t0 necessary?
                     est[k]._p0 = prob[i,j]
@@ -130,6 +137,8 @@ class UKFManager(object):
             else:
                 # no updates ...
                 pass
+        #print 'cnt', cnt
+        #print 'Diff', s
 
         # clear invalid (unobserved) estimates
         if m > 0:

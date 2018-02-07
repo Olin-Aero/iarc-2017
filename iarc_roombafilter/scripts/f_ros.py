@@ -44,15 +44,29 @@ class UKFManagerROS(object):
 
         # create ROS interfaces
         self._tf = tf.TransformListener()
-        self._sub = rospy.Subscriber(self._obs_topic, RoombaSighting, self.obs_cb)
+        self._sub = rospy.Subscriber(self._obs_topic, RoombaSighting, self.obs_cb, queue_size=1)
         self._pub = rospy.Publisher('roombas', RoombaList, queue_size=10)
         self._mgr = UKFManager(dt, self._sigma)
         self._t = rospy.Time.now()
 
+        self._obs = None
+
     def obs_cb(self, msg):
         """
-        Perform filtering according to observation.
+        Save observation for processing ...
         """
+        self._obs = msg
+
+    def obs_proc(self):
+        """
+        Perform filtering according to observation.
+        Decoupled from obs_cb to only process latest observation.
+        """
+        msg = self._obs
+        self._obs = None
+        if msg == None:
+            return
+
         pos = self._tf.transformPoint('map', msg.fov_center)
         obs_ar = CircularObservation(
                 pos.point.x,
@@ -63,12 +77,17 @@ class UKFManagerROS(object):
         # format observation data ...
         obs = []
         for r in msg.data:
+
+            #print r.visible_location.header.frame_id
+            #print r.visible_location.pose.pose.position.x
+
             p = PoseStamped(r.visible_location.header, r.visible_location.pose.pose)
             p = self._tf.transformPose('map', p).pose
             p, q = p.position, p.orientation
             h = tf.transformations.euler_from_quaternion([q.x,q.y,q.z,q.w])[2]
-            pose = np.asarray([p.x, p.y, h, 0.0, 0.0])
-            # TODO(yoonyoungcho) : is current code handling NaN well?
+
+            pose = np.asarray([p.x, p.y, h])
+            # note : no velocity information is available.
 
             # roomba type handling
             r_type = cfg.T_NULL
@@ -81,8 +100,8 @@ class UKFManagerROS(object):
                     r_col = (cfg.C_RED if r.type == Roomba.RED else cfg.C_GREEN)
 
             # TODO : debugging ...
-            # r_type = cfg.T_TARG
-            # r_col = None
+            r_type = cfg.T_TARG
+            r_col = None
             
             o = ObservationParticle(
                     pose=pose,
@@ -96,21 +115,8 @@ class UKFManagerROS(object):
         #t = msg.header.stamp.to_sec()
         t = rospy.Time.now().to_sec()
         dt = t - self._t
-
-        flg = True
         if dt > 0:
-            print dt
-            try:
-                e = self._mgr.estimates()[0]
-            except Exception:
-                flg = False
-            if flg:
-                print e._pose[3] # v
-                prv = np.copy(e._pose)
             self._mgr.step(obs, t, dt, obs_ar)
-            if flg:
-                nxt = e._pose.copy()
-                #print prv, '->', nxt
             self._t = t
 
     def publish(self):
@@ -147,6 +153,7 @@ class UKFManagerROS(object):
         self._t = rospy.Time.now().to_sec()
         while not rospy.is_shutdown():
             #self._t = rospy.Time.now().to_sec()
+            self.obs_proc()
             self.publish()
             rate.sleep()
 

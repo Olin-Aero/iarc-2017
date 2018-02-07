@@ -1,0 +1,10 @@
+<launch>
+	<arg name="sim" default="true"/>
+	<arg name="viz" default="true"/>
+	<node if="$(arg sim)" name="gz_int" pkg="iarc_roombafilter" type="f_gz.py"/>
+	<node name="filter" pkg="iarc_roombafilter" type="f_ros.py" output="screen"/>
+	<group if="$(arg viz)">
+		<node name="rviz_int" pkg="iarc_roombafilter" type="f_rviz.py"/>
+		<node name="rviz" pkg="rviz" type="rviz" args="-d $(find iarc_roombafilter)/config/filter_status.rviz"/>
+	</group>
+</launch>

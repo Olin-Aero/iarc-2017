@@ -71,6 +71,7 @@ def main():
                         t=T_TARG,
                         c=None
                         )
+                print o
                 obs.append(o)
 
         # render

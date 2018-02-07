@@ -15,7 +15,8 @@ class Particle(object):
         t = type, enum(int)
         c = color, enum(int)
         """
-        self._pose = pose
+        self._pose = np.zeros(5, dtype=np.float32)
+        self._pose[:3] = pose[:3]
 
         self._p0 = p0 # initial observation probability
         self._t0 = t0 # initial observation time
