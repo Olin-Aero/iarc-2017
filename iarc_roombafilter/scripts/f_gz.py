@@ -7,10 +7,12 @@ Intended as placeholder until actual roomba sighting code works.
 
 import numpy as np
 import rospy
+import tf
+
 from gazebo_msgs.msg import ModelStates
 from iarc_main.msg import Roomba, RoombaSighting
 from std_msgs.msg import Header
-from geometry_msgs.msg import PoseWithCovariance, PoseWithCovarianceStamped, PointStamped
+from geometry_msgs.msg import PoseWithCovariance, PoseWithCovarianceStamped, Point, PointStamped, PoseStamped
 
 R = 3.0
 
@@ -24,8 +26,10 @@ def is_visible(src, dst):
 class GazeboInterface(object):
     def __init__(self):
         rospy.init_node("gz_interface")
+        self._tf = tf.TransformListener()
         self._sub = rospy.Subscriber('/gazebo/model_states', ModelStates, self.gz_cb)
         self._pub = rospy.Publisher('roomba_obs', RoombaSighting, queue_size=1)
+
     def gz_cb(self, msg):
         now = rospy.Time.now()
         #cov = np.zeros((6,6)) #???
@@ -44,24 +48,31 @@ class GazeboInterface(object):
             if not is_visible(p0, p):
                 continue
 
+            # pretend like the drone saw it
+            p = PoseStamped(Header(frame_id="map", stamp=rospy.Time()), p) # gz in map frame
+            try:
+                p = self._tf.transformPose("/drone/base_footprint", p) # to drone frame
+            except Exception:
+                break
+
             loc = PoseWithCovarianceStamped(
-                    Header(stamp=now, frame_id="map"),
+                    p.header,
                     PoseWithCovariance(
-                        p,
+                        p.pose,
                         cov
                     ))
 
+
             if (n.startswith('target')):
                 #TODO(yoonyoungcho) : Green-Red Differentiation somehow?
-                obs.append(Roomba(now, "map", Roomba.GREEN, loc))
+                obs.append(Roomba(now, "/drone/base_footprint", Roomba.GREEN, loc))
             elif (n.startswith('obstacle')):
-                obs.append(Roomba(now, "map", Roomba.OBSTACLE, loc))
-
+                obs.append(Roomba(now, "/drone/base_footprint", Roomba.OBSTACLE, loc))
 
         msg = RoombaSighting(
-                header = Header(stamp=now, frame_id="map"),
+                header = Header(stamp=now, frame_id="/drone/base_footprint"),
                 data = obs,
-                fov_center = PointStamped(Header(stamp=now, frame_id="map"), p0.position),
+                fov_center = PointStamped(Header(stamp=now, frame_id="/drone/base_footprint"), Point(0,0,0)),
                 fov_radius = R
                 )
         self._pub.publish(msg)

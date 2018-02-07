@@ -40,10 +40,10 @@ class UKFManagerROS(object):
         self._p_match = rospy.get_param('~p_match', default=cfg.P_MATCH)
         self._p_clear = rospy.get_param('~p_clear', default=cfg.P_CLEAR)
         self._obs_topic = rospy.get_param('~obs_topic', default='roomba_obs')
-        self._rate = rospy.get_param('~rate', default=100)
+        self._rate = rospy.get_param('~rate', default=10)
 
         # create ROS interfaces
-        self._tf = tf.TransformListener()
+        self._tf = tf.TransformListener(True, cache_time=rospy.Duration(5))
         self._sub = rospy.Subscriber(self._obs_topic, RoombaSighting, self.obs_cb, queue_size=1)
         self._pub = rospy.Publisher('roombas', RoombaList, queue_size=10)
         self._mgr = UKFManager(dt, self._sigma)
@@ -67,7 +67,14 @@ class UKFManagerROS(object):
         if msg == None:
             return
 
-        pos = self._tf.transformPoint('map', msg.fov_center)
+        try:
+            # TODO : kind-of ugly hack to pull stamp into most recent available tf
+            # better way?
+            msg.fov_center.header.stamp = rospy.Time(0)
+            pos = self._tf.transformPoint('map', msg.fov_center)
+        except tf.Exception as e:
+            return
+
         obs_ar = CircularObservation(
                 pos.point.x,
                 pos.point.y,

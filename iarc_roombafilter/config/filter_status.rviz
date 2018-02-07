@@ -7,6 +7,7 @@ Panels:
         - /Global Options1
         - /Status1
         - /Grid1
+        - /TF1
       Splitter Ratio: 0.5
     Tree Height: 775
   - Class: rviz/Selection
@@ -64,6 +65,49 @@ Visualization Manager:
       Radius: 0.100000001
       Reference Frame: <Fixed Frame>
       Value: true
+    - Class: rviz/TF
+      Enabled: true
+      Frame Timeout: 15
+      Frames:
+        All Enabled: false
+        drone/ardrone_base_bottomcam:
+          Value: false
+        drone/ardrone_base_frontcam:
+          Value: false
+        drone/base_footprint:
+          Value: true
+        drone/base_link:
+          Value: true
+        drone/base_stabilized:
+          Value: false
+        drone/bottom_link:
+          Value: false
+        drone/front_link:
+          Value: false
+        drone/sonar_link:
+          Value: false
+        map:
+          Value: true
+      Marker Scale: 1
+      Name: TF
+      Show Arrows: true
+      Show Axes: true
+      Show Names: true
+      Tree:
+        map:
+          drone/base_footprint:
+            drone/base_stabilized:
+              drone/base_link:
+                drone/bottom_link:
+                  drone/ardrone_base_bottomcam:
+                    {}
+                drone/front_link:
+                  drone/ardrone_base_frontcam:
+                    {}
+                drone/sonar_link:
+                  {}
+      Update Interval: 0
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
@@ -98,7 +142,7 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.00999999978
-      Scale: 40
+      Scale: 20
       Target Frame: <Fixed Frame>
       Value: TopDownOrtho (rviz)
       X: 0

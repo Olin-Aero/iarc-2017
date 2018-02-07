@@ -7,6 +7,7 @@ Use for debugging purposes.
 """
 
 import rospy
+import tf
 
 from std_msgs.msg import Header
 from geometry_msgs.msg import Pose, PoseStamped, PoseWithCovariance, PoseWithCovarianceStamped
@@ -18,6 +19,9 @@ from visualization_msgs.msg import Marker, MarkerArray
 class RVIZInterface(object):
     def __init__(self):
         rospy.init_node("rviz_interface")
+
+        self._drone = None
+        self._tf = tf.TransformListener()
 
         self._gz = []
         self._obs = []
@@ -31,29 +35,50 @@ class RVIZInterface(object):
         # publish ...
         self._pub = rospy.Publisher("roomba_markers", MarkerArray, queue_size=10)
         self._mks = MarkerArray()
+        self._mk_max = 20
+        for i in range(self._mk_max):
+            m = Marker()
+            m.header.frame_id="map"
+            m.type = m.SPHERE
+            m.action = m.ADD
+            m.scale.x = m.scale.y = m.scale.z = 1.0
+            m.color.r = m.color.g = m.color.b = 1.0
+            m.color.a = 0.0
+            self._mks.markers.append(m)
 
     def gz_cb(self, msg):
-        # list of poses w.r.t. map
         self._gz = [p for (n,p) in zip(msg.name, msg.pose) if (n.startswith('target') or n.startswith('obstacle'))]
+        self._drone = msg.pose[msg.name.index("quadrotor")]
+
     def obs_cb(self, msg):
-        self._obs = [r.visible_location.pose.pose for r in msg.data]
+        h = Header(frame_id = msg.header.frame_id)
+        obs = [r.visible_location.pose.pose for r in msg.data]
+        self._obs = [self._tf.transformPose('map', PoseStamped(h, r)).pose for r in obs]
+
     def est_cb(self, msg):
-        self._est = [r.visible_location.pose.pose for r in msg.data]
+        h = Header(frame_id = msg.header.frame_id)
+        est = [r.visible_location.pose.pose for r in msg.data]
+        self._est = [self._tf.transformPose('map', PoseStamped(h, r)).pose for r in est]
+
     def publish(self):
-        self._mks = MarkerArray()
+        print dir(self._mks)
         self._mk_idx = 0
+        if self._drone:
+            self.add_marker(self._drone, [1,1,1, 1.0], 1.0)
+            self.add_marker(self._drone, [1,1,1, 0.1], 3.0)
         for p in self._gz:
             self.add_marker(p, [1,0,0, 0.3], 1.0) # red = ground truth
         for p in self._obs:
             self.add_marker(p, [0,1,0, 0.2], 1.5) # green = observation
         for p in self._est:
             self.add_marker(p, [0,0,1, 0.5], 2.0) # blue = estimates
+        for i in range(self._mk_idx, self._mk_max):
+            self._mks.markers[i].color.a = 0.0
+
         self._pub.publish(self._mks)
+
     def add_marker(self, pose, color, scale):
-        marker = Marker()
-        marker.header.frame_id = "map"
-        marker.type = marker.SPHERE
-        marker.action = marker.ADD
+        marker = self._mks.markers[self._mk_idx]
         marker.scale.x = 0.2 * scale
         marker.scale.y = 0.2 * scale
         marker.scale.z = 0.2 * scale
@@ -68,6 +93,7 @@ class RVIZInterface(object):
         marker.id = self._mk_idx
         self._mk_idx += 1
         self._mks.markers.append(marker)
+            
     def run(self):
         rate = rospy.Rate(50)
         while not rospy.is_shutdown():
