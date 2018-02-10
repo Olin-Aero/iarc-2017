@@ -12,6 +12,8 @@ class Strategy(object):
         self.drone = Drone()
         self.world = WorldState()
 
+        rospy.sleep(1)
+
     def test_hover(self):
         r = rospy.Rate(20)
         self.world.waitForStart()
@@ -40,19 +42,12 @@ class Strategy(object):
             r.sleep()
 
         rospy.loginfo('Hovering')
-        self.drone.hover(2)
+        self.drone.hover(7)
 
-        rospy.loginfo('Moving 1')
-        self.drone.move_to(0, 1, 'odom')
-
-        rospy.loginfo('Moving 2')
-        self.drone.move_to(1, 1, 'odom')
-
-        rospy.loginfo('Moving 3')
-        self.drone.move_to(1, 0, 'odom')
-
-        rospy.loginfo('Moving 4')
-        self.drone.move_to(0, 0, 'odom')
+        for target in [(0, 1), (1, 1), (1, 0), (0, 0)]:
+            rospy.loginfo('Moving to {}'.format(target))
+            self.drone.move_to(target[0], target[1], 'odom')
+            self.drone.hover(2)
 
         self.drone.land()
 
