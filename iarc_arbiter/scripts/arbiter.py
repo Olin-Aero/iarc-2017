@@ -191,7 +191,10 @@ class Arbiter:
             self.publish_debug()
             self.null_behavior.handle_message('cmd_vel', Twist())
 
-            r.sleep()
+            try:
+                r.sleep()
+            except rospy.ROSTimeMovedBackwardsException:
+                r = rospy.Rate(20)
 
 
 class Behavior:
