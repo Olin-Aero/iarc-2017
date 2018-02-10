@@ -10,6 +10,7 @@
 #include <QGraphicsView>
 #include <QGraphicsScene>
 #include <QTime>
+#include <QGraphicsTextItem>
 
 #include "qrobot.h"
 
@@ -33,6 +34,7 @@ class MainWindow : public QMainWindow{
         QTime ref;
         QTime now;
         double sim_ref;
+        QGraphicsTextItem* alt_txt_item;
     public:
         explicit MainWindow(QWidget* parent, const QPixmap& map);
         ~MainWindow();
@@ -55,6 +57,9 @@ class MainWindow : public QMainWindow{
     public:
         double get_sim_accel();
         double get_time();
+
+    // TODO : ugly hack to show drone height
+    void show_height(float z);
 
 };
 

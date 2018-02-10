@@ -25,6 +25,7 @@ void ROSRobot::publish(){
     //also publish
     pos_msg.x=x;
     pos_msg.y=y;
+    //pos_msg.z=z;
     pos_msg.theta=t;
     pub.publish(pos_msg);
 }
