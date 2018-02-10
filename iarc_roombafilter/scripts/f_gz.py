@@ -14,7 +14,7 @@ from iarc_main.msg import Roomba, RoombaSighting
 from std_msgs.msg import Header
 from geometry_msgs.msg import PoseWithCovariance, PoseWithCovarianceStamped, Point, PointStamped, PoseStamped
 
-R = 3.0
+R = 10.0
 
 def is_visible(src, dst):
     # dst pose is visible from src pose
@@ -27,10 +27,20 @@ class GazeboInterface(object):
     def __init__(self):
         rospy.init_node("gz_interface")
         self._tf = tf.TransformListener()
-        self._sub = rospy.Subscriber('/gazebo/model_states', ModelStates, self.gz_cb)
+        self._sub = rospy.Subscriber('/gazebo/model_states', ModelStates, self._gz_cb)
         self._pub = rospy.Publisher('roomba_obs', RoombaSighting, queue_size=1)
+        self._msg = None
 
-    def gz_cb(self, msg):
+    def _gz_cb(self, msg):
+        # save msg for later proc ...
+        self._msg = msg
+
+    def publish(self):
+        msg = self._msg
+        self._msg = None
+        if msg is None:
+            return
+
         now = rospy.Time.now()
         #cov = np.zeros((6,6)) #???
         cov = 1e-6 * np.eye(6)
@@ -62,7 +72,6 @@ class GazeboInterface(object):
                         cov
                     ))
 
-
             if (n.startswith('target')):
                 #TODO(yoonyoungcho) : Green-Red Differentiation somehow?
                 obs.append(Roomba(now, "/drone/base_footprint", Roomba.GREEN, loc))
@@ -78,7 +87,10 @@ class GazeboInterface(object):
         self._pub.publish(msg)
 
     def run(self):
-        rospy.spin()
+        rate = rospy.Rate(50)
+        while not rospy.is_shutdown():
+            self.publish()
+            rate.sleep()
 
 def main():
     gi = GazeboInterface()

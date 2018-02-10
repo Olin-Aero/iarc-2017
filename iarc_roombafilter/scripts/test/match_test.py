@@ -23,14 +23,16 @@ cmap = plt.cm.get_cmap('plasma')
 c = []
 for pose in poses:
     p = Particle(pose)
-    c.append(p0.match(p))
+    #c.append(p0.match(p))
+    c.append(p0.cost(p))
+print np.max(c)
 
 names = ['x','y','h','v','w']
 ax_xidx = 0
-ax_yidx = 2
+ax_yidx = 1
 
 sc=plt.scatter(poses[:,ax_xidx], poses[:,ax_yidx], c=c, cmap=cmap)
-plt.scatter([0],[0],marker='+', c='r', lw=20)
+#plt.scatter([0],[0],marker='+', c='r', lw=20)
 plt.colorbar(sc)
 plt.xlabel(names[ax_xidx])
 plt.ylabel(names[ax_yidx])

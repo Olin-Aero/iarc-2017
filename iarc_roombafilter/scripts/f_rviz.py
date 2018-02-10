@@ -28,14 +28,14 @@ class RVIZInterface(object):
         self._est = []
 
         # subscribe ...
-        self._gz_sub = rospy.Subscriber('/gazebo/model_states', ModelStates, self.gz_cb)
-        self._obs_sub = rospy.Subscriber("roomba_obs", RoombaSighting, self.obs_cb)
-        self._est_sub = rospy.Subscriber("roombas", RoombaList, self.est_cb)
+        self._gz_sub = rospy.Subscriber('/gazebo/model_states', ModelStates, self.gz_cb, queue_size=1)
+        self._obs_sub = rospy.Subscriber("roomba_obs", RoombaSighting, self.obs_cb, queue_size=1)
+        self._est_sub = rospy.Subscriber("roombas", RoombaList, self.est_cb, queue_size=1)
 
         # publish ...
         self._pub = rospy.Publisher("roomba_markers", MarkerArray, queue_size=10)
         self._mks = MarkerArray()
-        self._mk_max = 20
+        self._mk_max = 50 # 14 * 3 + 2 + leeway
         for i in range(self._mk_max):
             m = Marker()
             m.header.frame_id="map"
@@ -53,12 +53,19 @@ class RVIZInterface(object):
     def obs_cb(self, msg):
         h = Header(frame_id = msg.header.frame_id)
         obs = [r.visible_location.pose.pose for r in msg.data]
-        self._obs = [self._tf.transformPose('map', PoseStamped(h, r)).pose for r in obs]
+        try:
+            self._obs = [self._tf.transformPose('map', PoseStamped(h, r)).pose for r in obs]
+        except Exception as e:
+            print e
+            self._obs = []
 
     def est_cb(self, msg):
         h = Header(frame_id = msg.header.frame_id)
         est = [r.visible_location.pose.pose for r in msg.data]
-        self._est = [self._tf.transformPose('map', PoseStamped(h, r)).pose for r in est]
+        try:
+            self._est = [self._tf.transformPose('map', PoseStamped(h, r)).pose for r in est]
+        except Exception:
+            self._est = []
 
     def publish(self):
         print dir(self._mks)

@@ -1,4 +1,4 @@
-from f_config import *
+import f_config as cfg
 import numpy as np
 
 def ukf_hx(x):
@@ -9,11 +9,11 @@ def ukf_fx(x0, dt, t, obs):
     if not obs:
         # not observable
         # make simulated predictions based on roomba model
-        if t % INT_REVERSE < T_180:
+        if t % cfg.INT_REVERSE < cfg.T_180:
             v = 0.0
             w = np.pi / T_180
             # 1.375
-        elif t % INT_NOISE < T_NOISE:
+        elif t % cfg.INT_NOISE < cfg.T_NOISE:
             v = 0.0
             w = 0.0
             # assume constant w

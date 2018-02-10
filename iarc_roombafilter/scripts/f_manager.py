@@ -36,13 +36,11 @@ class UKFManager(object):
 
         # TODO : arbitrary covariances
         self.P = np.diag(np.square(sigmas))# initial covariance
-        self.P[3,3] = 1.0
-        self.P[4,4] = 1.0
         self.R = np.diag(np.square([0.1, 0.1, np.deg2rad(5)])) # measurement noise: 5cm/5deg err.
 
         # process noise
         #G = [0.5*dt**2, 0.5*dt**2, 0.5*dt**2, dt, dt] # acceleration-noise model
-        self.Q = dt * np.diag([0.02, 0.02, np.deg2rad(3), 0.01, 0.01])
+        self.Q = np.diag([0.02, 0.02, np.deg2rad(3), 0.01, 0.01])
         #self.Q = np.square(np.diag(G) * 8.8)
         # G = np.reshape(G, [-1,1])
         # print G.T
@@ -61,7 +59,9 @@ class UKFManager(object):
         self.est = {}
 
     def create(self, pose, *args, **kwargs):
+        print 'CREATE!'
         ukf = UKF(**self.ukf_args)
+        ukf._Q = self.Q.copy()
         ukf.Q = self.Q.copy()
         ukf.R = self.R.copy()
 
@@ -94,12 +94,13 @@ class UKFManager(object):
         # assert(m == len(obs_ar))
 
         prob = np.zeros(shape=(n,m), dtype=np.float32)
-        cost = np.ones(shape=(n,m), dtype=np.float32)
+        #cost = np.ones(shape=(n,m), dtype=np.float32)
 
         i2k = est.keys()
         k2i = {i2k[i]:i for i in range(n)}
 
         # predict from dt
+        # TODO : deal with expected behavior ( turn at ... ) vs. predicted behavior (difference in position, etc.)
         for e in est.values():
             e.predict(t, dt, obs=True)#(e._pose in obs_ar))
 
@@ -107,8 +108,10 @@ class UKFManager(object):
         for k in est.keys():
             for j, o in enumerate(obs):
                 prob[k2i[k],j] = est[k].match(o)
-                cost[k2i[k],j] = est[k].cost(o)
-        i_idx, j_idx = linear_sum_assignment(cost)
+                #cost[k2i[k],j] = est[k].cost(o)
+
+        #i_idx, j_idx = linear_sum_assignment(cost)
+        i_idx, j_idx = linear_sum_assignment(1.0 - prob)
 
         # update
         # collect "new" particles

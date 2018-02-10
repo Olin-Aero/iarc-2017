@@ -36,6 +36,7 @@ class UKFManagerROS(object):
         # unroll parameters ...
         self._max_targets = rospy.get_param('~max_targets', default=30)
         self._sigma = np.copy(rospy.get_param('~sigma', default=list(cfg.SIGMAS)))
+        Particle.set_sigmas(np.copy(self._sigma))
         self._p_keep = rospy.get_param('~p_keep', default=cfg.P_KEEP)
         self._p_match = rospy.get_param('~p_match', default=cfg.P_MATCH)
         self._p_clear = rospy.get_param('~p_clear', default=cfg.P_CLEAR)

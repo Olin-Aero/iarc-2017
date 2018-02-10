@@ -1,13 +1,17 @@
-from f_config import *
+import f_config as cfg
 from f_filter import *
 from scipy.stats import mvn
 
 class Particle(object):
     ID_INVALID = -1
+    SIGMAS = cfg.SIGMAS
+    @staticmethod
+    def set_sigmas(sigmas):
+        Particle.SIGMAS = sigmas
     def __init__(
             self, pose,
             p0=1.0, t0=0.0,
-            t=T_TARG, c=None):
+            t=cfg.T_TARG, c=None):
         """
         pose = np.array(shape=5, dtype=np.float32)
         p0 = observation probability
@@ -53,17 +57,18 @@ class Particle(object):
     def match(self, p2):
         # TODO : incorporate velocities
         # TODO : consider color[r/g] and type[t/o], when provided
-        p1  = self.as_vec()
-        p2  = p2.as_vec()
+        p1 = self.as_vec()
+        p2 = p2.as_vec()
         d = np.abs(ukf_residual(p1,p2))
-        cov = np.diag([S_X**2, S_X**2, S_T**2])
+        cov = np.diag(self.SIGMAS[:3])
         # assume independent x-y-t
-        p, _ = mvn.mvnun(
-                -d, d,
-                np.zeros_like(d),
-                cov
-                )
-        return (1 - p) # outer-probability
+        p, _ = mvn.mvnun(d, [20,20,np.pi], np.zeros_like(d), cov)
+        # TODO : 20 here is based on the knowledge of IARC grid
+        #if 0.5<p:  # this inversion is used for two-sided statistical testing
+        #    p=1-p
+
+        return p*(2 ** 3) # account for quartiles
+        #return 1 - 2*p#(1 - p) # outer-probability
 
     def cost(self, p2):
         # currently cost() is different from f(match())
@@ -87,13 +92,13 @@ class Target(Particle):
     def __init__(
             self, pose,
             p0=1.0, t0=0.0,
-            t=T_TARG, c=None):
+            t=cfg.T_TARG, c=None):
         """
         Refer to Particle() for parameter definition.
         """
         super(Target, self).__init__(
             pose, p0, t0, t, c)
-        self._state = S_RUN
+        self._state = cfg.S_RUN
 
     def step(self, t, dt):
         # evolve pose ...
@@ -106,24 +111,24 @@ class Target(Particle):
         # state transition
         t1 = t+dt
         next_state = self._state
-        if t1 % INT_REVERSE < T_180:
-            next_state = S_TURN
-        elif t1 % INT_NOISE < T_NOISE:
-            next_state = S_NOISE
+        if t1 % cfg.INT_REVERSE < cfg.T_180:
+            next_state = cfg.S_TURN
+        elif t1 % cfg.INT_NOISE < cfg.T_NOISE:
+            next_state = cfg.S_NOISE
         else:
-            next_state = S_RUN
+            next_state = cfg.S_RUN
 
         if self._state != next_state:
             # initialize state
-            if next_state == S_TURN:
+            if next_state == cfg.S_TURN:
                 self._pose[3] = 0.0
-                self._pose[4] = np.random.normal(np.pi/T_180, S_W*dt)
-            elif next_state == S_NOISE:
+                self._pose[4] = np.random.normal(np.pi/cfg.T_180, self.SIGMAS[4]*dt)
+            elif next_state == cfg.S_NOISE:
                 self._pose[3] = 0.0
                 self._pose[4] = np.random.uniform(-MAX_NOISE_W, MAX_NOISE_W)
-            elif next_state == S_RUN:
-                self._pose[3] = np.random.normal(0.33, S_V*dt)
-                self._pose[4] = np.random.normal(0.0, S_W*dt)
+            elif next_state == cfg.S_RUN:
+                self._pose[3] = np.random.normal(0.33, self.SIGMAS[3]*dt)
+                self._pose[4] = np.random.normal(0.0, self.SIGMAS[4]*dt)
             self._state = next_state
 
 
@@ -131,7 +136,7 @@ class SimpleParticle(Particle):
     def __init__(
             self, pose,
             p0=1.0, t0=0.0,
-            t=T_SIMP, c=None):
+            t=cfg.T_SIMP, c=None):
         """
         Refer to Particle() for parameter definition.
         """
@@ -144,7 +149,7 @@ class Drone(Particle):
     def __init__(
             self, pose,
             p0=1.0, t0=0.0,
-            t=T_DRONE, c=None):
+            t=cfg.T_DRONE, c=None):
         """
         Refer to Particle() for parameter definition.
         """
@@ -155,7 +160,7 @@ class UKFEstimate(Particle):
     def __init__(
             self, pose,
             p0=1.0, t0=0.0,
-            t=T_TARG, c=None,
+            t=cfg.T_TARG, c=None,
             ukf=None
             ):
         super(UKFEstimate, self).__init__(
@@ -165,14 +170,15 @@ class UKFEstimate(Particle):
         # predict ...
         # obs = observability
         self.ukf.P = (self.ukf.P + self.ukf.P.T) / 2.0
+        self.ukf.Q = dt * self.ukf._Q
         self.ukf.predict(dt, fx_args=(t,obs))
         self._pose = self.ukf.x.copy()
     def update(self, pose):
         self.ukf.update(pose)
     def p(self):
         # TODO : hard-coded error margin
-        cov = self.ukf.P[:3,:3] # ignore velocity components
-        # error margin, +- 0.5m
+        cov = self.ukf.P[:3,:3] # ignore velocity components ( for now )
+        # error margin, +- 0.5m, 30 deg.
         d = np.asarray([0.5, 0.5, np.deg2rad(30)])
         _p, _ = mvn.mvnun(
             -d, d,
@@ -187,7 +193,7 @@ class ObservationParticle(Particle):
     def __init__(
             self, pose,
             p0=1.0, t0=0.0,
-            t=T_NULL, c=C_NULL
+            t=cfg.T_NULL, c=cfg.C_NULL
             ):
         super(ObservationParticle, self).__init__(
                 pose, p0, t0, t, c)

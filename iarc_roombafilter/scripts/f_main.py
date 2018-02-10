@@ -63,7 +63,7 @@ def main():
             if r._pose in obs_ar:
                 p = add_noise(r._pose, s=dt*sigmas)
                 p[-2:] = 0.0
-                print p
+                #print p
                 #o = r.clone()
                 #o._pose = add_noise(r._pose, s=dt*sigmas)
                 o = ObservationParticle(
@@ -71,7 +71,7 @@ def main():
                         t=T_TARG,
                         c=None
                         )
-                print o
+                #print o
                 obs.append(o)
 
         # render
