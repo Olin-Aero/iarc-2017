@@ -115,6 +115,50 @@ class Drone:
             self.posPub.publish(start_pos)
             r.sleep()
 
+    def move_to(self, des_x=0.0, des_y=0.0, frame='map', height=None, tol=0.1):
+        """
+        Tells the drone to move to a specific position on the field, and blocks until the drone is
+        within tol of the target, counting only horizontal distance
+        :param des_x:
+        :param des_y:
+        :param frame:
+        :param height:
+        :param tol:
+        :return:
+        """
+
+        r = rospy.Rate(20)
+        while not rospy.is_shutdown():
+            rel_pos = self.get_pos(frame).pose.position
+            dist = math.sqrt((rel_pos.x - des_x) ** 2 + (rel_pos.y - des_y) ** 2)
+
+            if dist <= tol:
+                break
+
+            self.move_towards(des_x, des_y, frame, height)
+
+            r.sleep()
+
+    def move_towards(self, des_x=0.0, des_y=0.0, frame='map', height=None):
+        """
+        Tells the drone to move towards a specific position on the field, then returns
+        :param des_x: desired position x
+        :param des_y: desired position y
+        """
+
+        if height is None:
+            height = self.last_height
+        else:
+            self.last_height = height
+
+        pose_stamped = PoseStamped()
+        pose_stamped.pose.position.x = des_x
+        pose_stamped.pose.position.y = des_y
+        pose_stamped.pose.position.z = height
+        pose_stamped.header.frame_id = frame
+
+        self.posPub.publish(pose_stamped)
+
     def get_pos(self, frame='map'):
         """
         Gets the position of the drone in the map (or relative to some other coordinate frame)
@@ -149,7 +193,7 @@ class Drone:
         """
         linear = self.get_pos(frame).pose.linear
 
-        return math.sqrt(linear.x**2+linear.y**2)
+        return math.sqrt(linear.x ** 2 + linear.y ** 2)
 
     def onNavdata(self, msg):
         """
@@ -157,7 +201,7 @@ class Drone:
         """
         self.navdata = msg
 
-############ Old stuff ############
+    ############ Old stuff ############
 
     def record_vel(self, msg):
         # TODO: Use Odometry topic for velocity information
@@ -207,26 +251,6 @@ class Drone:
         pose_stamped.pose.position.y = position[1] + des_y
         pose_stamped.pose.position.z = self.last_height
         pose_stamped.header.frame_id = "map"
-
-        self.posPub.publish(pose_stamped)
-
-    def move(self, des_x=0.0, des_y=0.0, des_z=None):
-        """
-        Tell the drone to move relative to itself, going to the height target if des_z
-        is not specified
-        :param des_x: desired position x
-        :param des_y: desired position y
-        :param des_z: desired position z
-        """
-
-        if des_z is None:
-            des_z = self.last_height - self.height()
-
-        pose_stamped = PoseStamped()
-        pose_stamped.pose.position.x = des_x
-        pose_stamped.pose.position.y = des_y
-        pose_stamped.pose.position.z = des_z
-        pose_stamped.header.frame_id = self.FRAME_ID
 
         self.posPub.publish(pose_stamped)
 

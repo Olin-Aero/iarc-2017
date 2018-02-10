@@ -1,4 +1,4 @@
-#!/usr/bin/env/python2
+#!/usr/bin/env python2
 import rospy
 from std_msgs.msg import Bool
 
@@ -12,19 +12,54 @@ class Strategy(object):
         self.drone = Drone()
         self.world = WorldState()
 
-    def run(self):
+    def test_hover(self):
         r = rospy.Rate(20)
         self.world.waitForStart()
 
+        rospy.loginfo('Taking off')
         while not self.drone.is_flying():
             self.drone.takeoff(1.5)
             r.sleep()
 
-        self.drone.hover(60)
+        rospy.loginfo('Hovering')
+        self.drone.hover(5)
+
+        rospy.loginfo('Landing')
+        self.drone.land()
+
+        rospy.loginfo('Done!')
+        rospy.sleep(5)
+
+    def test_square(self):
+        r = rospy.Rate(20)
+        self.world.waitForStart()
+
+        rospy.loginfo('Taking off')
+        while not self.drone.is_flying():
+            self.drone.takeoff(1.5)
+            r.sleep()
+
+        rospy.loginfo('Hovering')
+        self.drone.hover(2)
+
+        rospy.loginfo('Moving 1')
+        self.drone.move_to(0, 1, 'odom')
+
+        rospy.loginfo('Moving 2')
+        self.drone.move_to(1, 1, 'odom')
+
+        rospy.loginfo('Moving 3')
+        self.drone.move_to(1, 0, 'odom')
+
+        rospy.loginfo('Moving 4')
+        self.drone.move_to(0, 0, 'odom')
 
         self.drone.land()
 
-        rospy.sleep(10)
+        rospy.sleep(3)
+
+    def run(self):
+        self.test_square()
 
 
 class WorldState(object):

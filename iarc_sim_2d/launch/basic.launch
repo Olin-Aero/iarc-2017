@@ -12,6 +12,8 @@
 	
 	<node name="cmd_vel_fwd" pkg="topic_tools" type="relay" args="/cmd_vel /drone/cmd_vel" />
 
-	<node name="base_link_tf" pkg="tf" type="static_transform_publisher" args="0 0 0 0 0 0 drone base_link 30" />	
+	<node name="base_link_tf" pkg="tf" type="static_transform_publisher" args="0 0 0 0 0 0 drone base_link 30" />
+
+	<node name="odom_tf" pkg="tf" type="static_transform_publisher" args="0 0 0 0 0 0 map odom 30" />	r
 
 </launch>
