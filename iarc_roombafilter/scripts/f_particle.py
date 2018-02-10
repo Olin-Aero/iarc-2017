@@ -76,7 +76,6 @@ class Particle(object):
         return np.linalg.norm(np.multiply(delta, weights))
 
     def as_vec(self):
-        # TODO : add velocity components
         return np.copy(self._pose[:3])
     def p(self, t):
         return self._p0 * P_DECAY ** (t-self._t0)
@@ -192,3 +191,5 @@ class ObservationParticle(Particle):
             ):
         super(ObservationParticle, self).__init__(
                 pose, p0, t0, t, c)
+    def as_vec(self):
+        return np.copy(self._pose[:3])
