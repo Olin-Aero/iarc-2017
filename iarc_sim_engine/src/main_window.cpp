@@ -25,6 +25,11 @@ MainWindow::MainWindow(QWidget* parent, const QPixmap& map):
         auto bk = new QGraphicsPixmapItem(map);
         scene->addItem(bk);
 
+        // Add Altitude
+        alt_txt_item = new QGraphicsTextItem("0.0");
+        alt_txt_item->setDefaultTextColor(QColor::fromRgbF(1.0,1.0,1.0));
+        scene->addItem(alt_txt_item);
+        
         view->setScene(scene);
         view->scale(float(view->width())/map.width(), float(view->height())/map.height());
 
@@ -97,4 +102,9 @@ double MainWindow::get_sim_accel(){
 double MainWindow::get_time(){
     auto _now = QTime::currentTime();
     return sim_ref + accel * ref.msecsTo(_now)/1000.0;
+}
+
+// TODO : ugly hack to display altitude
+void MainWindow::show_height(float z){
+    alt_txt_item->setPlainText(QString::number(z));
 }
