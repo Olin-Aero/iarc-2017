@@ -48,6 +48,11 @@ class Drone:
         rospy.Subscriber('/ardrone/navdata', Navdata, self.onNavdata)
 
     def is_flying(self):
+        """
+        Tells whether the drone is currently flying. That includes the state where it is in the process
+        of landing, but not the state where it is in the process of taking off.
+        :return (Bool): is the drone flying?
+        """
         if self.navdata is not None:
             # List of states taken from
             # http://ardrone-autonomy.readthedocs.io/en/latest/reading.html#legacy-navigation-data
