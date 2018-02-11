@@ -19,6 +19,10 @@ void Robot::update(float dt){
 
     z += vz*dt;
 
+    if(z < 0){
+        z=0;
+    }
+
     t += w*dt;
 }
 void Robot::set_pos(float _x, float _y, float _z, float _t){

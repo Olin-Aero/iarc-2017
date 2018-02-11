@@ -102,6 +102,7 @@ class Drone:
         if block:
             r = rospy.Rate(10)
             while self.get_altitude() > 0.2:
+                self.landPub.publish(Empty())
                 r.sleep()
             rospy.sleep(0.5)
 
