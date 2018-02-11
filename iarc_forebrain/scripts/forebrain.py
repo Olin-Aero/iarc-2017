@@ -19,9 +19,7 @@ class Strategy(object):
         self.world.waitForStart()
 
         rospy.loginfo('Taking off')
-        while not self.drone.is_flying():
-            self.drone.takeoff(1.5)
-            r.sleep()
+        self.drone.takeoff(1.5)
 
         rospy.loginfo('Hovering')
         self.drone.hover(5)
@@ -30,28 +28,25 @@ class Strategy(object):
         self.drone.land()
 
         rospy.loginfo('Done!')
-        rospy.sleep(5)
 
     def test_square(self):
         r = rospy.Rate(20)
         self.world.waitForStart()
 
         rospy.loginfo('Taking off')
-        while not self.drone.is_flying():
-            self.drone.takeoff(1.5)
-            r.sleep()
+        self.drone.takeoff(1.5)
 
         rospy.loginfo('Hovering')
-        self.drone.hover(7)
+        self.drone.hover(2)
 
         for target in [(0, 1), (1, 1), (1, 0), (0, 0)]:
             rospy.loginfo('Moving to {}'.format(target))
             self.drone.move_to(target[0], target[1], 'odom')
+            rospy.loginfo('Hovering')
             self.drone.hover(2)
 
+        rospy.loginfo('Landing')
         self.drone.land()
-
-        rospy.sleep(3)
 
     def run(self):
         self.test_square()

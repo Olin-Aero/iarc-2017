@@ -170,10 +170,14 @@ class Arbiter:
         # Publish the result to the ROS network
         if cmd.takeoff:
             self.takeoff_pub.publish(Empty())
-            self.vel_pub.publish(Twist())
+            vel = Twist()
+            vel.linear.z = 0.5
+            self.vel_pub.publish(vel)
         elif cmd.land:
             self.land_pub.publish(Empty())
-            self.vel_pub.publish(Twist())
+            vel = Twist()
+            vel.linear.z = -0.5
+            self.vel_pub.publish(vel)
         else:
             self.vel_pub.publish(cmd.vel)
 

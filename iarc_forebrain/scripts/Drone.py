@@ -64,36 +64,54 @@ class Drone:
         else:
             return self._remembers_flying
 
-    def takeoff(self, height=NORMAL_HEIGHT):
+    def takeoff(self, height=None, tol=0.2):
         """
-        Commands the drone to takeoff from ground level. Directly commands the low-level controls,
-        and might need changes as hardware gets upgraded.
-        TODO: Use the height immediately
+        Commands the drone to takeoff from ground level, and blocks until it has done so.
         :param (float) height: Height in meters
+        :param (float) tol: Tolerance to desired height to wait until reaching. Set to 0 to disable.
         :return: None
         """
-        self.last_height = height
+        if self.last_height is None:
+            self.last_height = self.NORMAL_HEIGHT
+        if height is None:
+            height = self.last_height
+        else:
+            self.last_height = height
 
         self.takeoffPub.publish(Empty())
+
+        if tol != 0:
+            r = rospy.Rate(10)
+            while height - self.get_altitude() > tol:
+                self.hover(time=0, height=height)
+                r.sleep()
+
         self._remembers_flying = True
 
-    def land(self):
+    def land(self, block=True):
         """
         Commands the drone to takeoff from ground level. Directly commands the low-level controls,
         and might need changes as hardware gets upgraded.
-        :param (float) height: Height in meters
+        :param (bool) block: Wait until vehicle reaches ground?
         :return: None
         """
         self.last_height = 0
 
         self.landPub.publish(Empty())
+
+        if block:
+            r = rospy.Rate(10)
+            while self.get_altitude() > 0.2:
+                r.sleep()
+            rospy.sleep(0.5)
+
         self._remembers_flying = False
 
-    def hover(self, time, height=None):
+    def hover(self, time=0, height=None):
         """
         Publishes 0 velocity for the given duration
         TODO: Store the starting position, and stay there
-        :param time:
+        :param (float | rospy.Duration) time: If nonzero, hovers for this amount of time.
         :param height:
         :return:
         """
@@ -114,9 +132,10 @@ class Drone:
         start_pos.header.stamp = rospy.Time(0)
 
         r = rospy.Rate(10)
+        self.posPub.publish(start_pos)
         while rospy.Time.now() - hover_start_time < time:
-            self.posPub.publish(start_pos)
             r.sleep()
+            self.posPub.publish(start_pos)
 
     def move_to(self, des_x=0.0, des_y=0.0, frame='map', height=None, tol=0.2):
         """
@@ -186,6 +205,9 @@ class Drone:
                 )
             )
         )
+
+    def get_altitude(self):
+        return self.get_pos(frame='odom').pose.position.z
 
     def distance_from(self, frame):
         """
