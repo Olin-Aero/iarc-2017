@@ -1,12 +1,14 @@
 #!/usr/bin/env python2
-import rospy
-import transformers
-from geometry_msgs.msg import Twist, PoseStamped
-from std_msgs.msg import Empty, String
-from iarc_arbiter.msg import RegisterBehavior
+from threading import Thread
 
-from tf import TransformListener
+import rospy
 from ddynamic_reconfigure_python.ddynamic_reconfigure import DDynamicReconfigure
+from geometry_msgs.msg import Twist, PoseStamped
+from iarc_arbiter.msg import RegisterBehavior
+from std_msgs.msg import Empty, String
+from tf import TransformListener
+
+import transformers
 
 
 class Arbiter:
@@ -23,7 +25,9 @@ class Arbiter:
     """
 
     def __init__(self):
-        self.null_behavior = Behavior(self.process_command, 'zero')
+        # The Null behavior will automatically process a 0-velocity Twist at 10hz
+        self.null_behavior = Behavior(self.process_command, 'zero', freq=10)
+        self.null_behavior.handle_message('cmd_vel', Twist())
 
         self.behaviors = {'zero': self.null_behavior}
         self.active_behavior_name = 'zero'
@@ -68,6 +72,9 @@ class Arbiter:
 
         rospy.Subscriber('/arbiter/activate_behavior', String, self.handle_activate)
 
+        self.ddynrec.add_variable("midbrain_freq", "Frequency of the main control loop for PIDs",
+                                  rospy.get_param('~midbrain_freq', 100), 1, 1000)
+
         self.start_ddynrec()
 
         rospy.sleep(0.5)
@@ -77,6 +84,7 @@ class Arbiter:
         Helper function to start the ddynamic reconfigure server with a callback
         function that updates the self.ddynrec attribute.
         """
+
         def callback(config, level):
             """
             A callback function used to as the parameter in the ddynrec.start() function.
@@ -124,12 +132,15 @@ class Arbiter:
         :type req: RegisterBehavior
         """
         if req.name in self.behaviors:
-            rospy.logerr("Behavior {} already exists".format(req.name))
+            rospy.logwarn("Behavior {} already exists".format(req.name))
+            old = self.behaviors[req.name]
+            old.stop()
 
         if not req.name:
             rospy.logerr("Behavior cannot be created with empty name")
+            return
 
-        behavior = Behavior(self.process_command, req.name)
+        behavior = Behavior(self.process_command, req.name, freq=self.ddynrec.midbrain_freq if req.fast else 0)
         behavior.subscribe(self.transformers)
         self.behaviors[req.name] = behavior
         rospy.loginfo("Created behavior {}".format(behavior))
@@ -189,7 +200,6 @@ class Arbiter:
 
         while not rospy.is_shutdown():
             self.publish_debug()
-            self.null_behavior.handle_message('cmd_vel', Twist())
 
             try:
                 r.sleep()
@@ -198,17 +208,47 @@ class Arbiter:
 
 
 class Behavior:
-    def __init__(self, callback, name):
+    def __init__(self, callback, name, freq=0):
         """
         :param (str, str, Any)->bool callback: The function to be called when this behavior receives a command
         :param name: The name used to refer to this elsewhere in ROS
+        :param int freq: The frequency at which to automatically publish.
+                If 0, publishes immediately on message reception.
         """
 
         self.name = name
         self.callback = callback
-        self.subscribers = dict()
+        self.subscribers = dict()  # type: dict[str, rospy.Subscriber]
 
         self.last_msg_time = rospy.Time(0)
+        self.last_msg_topic = ''
+        self.last_msg = None
+
+        self.auto_publish = (freq != 0)
+
+        if self.auto_publish:
+            def target():
+                r = rospy.Rate(freq)
+                while not rospy.is_shutdown() and self.auto_publish:
+                    r.sleep()
+                    if self.last_msg_topic and self.last_msg:
+                        self.callback(self.name, self.last_msg_topic, self.last_msg)
+
+            self.thread = Thread(target=target)
+            self.thread.daemon = True
+            self.thread.start()
+        else:
+            self.thread = None
+
+    def stop(self):
+        """
+        Gracefully shuts down the threads and subscribers associated with this behavior
+        :return: None
+        """
+        self.auto_publish = False
+
+        for sub in self.subscribers.itervalues():
+            sub.unregister()
 
     def handle_message(self, topic, msg):
         """
@@ -220,7 +260,11 @@ class Behavior:
         :return: None
         """
         self.last_msg_time = rospy.Time.now()
-        self.callback(self.name, topic, msg)
+        self.last_msg_topic = topic
+        self.last_msg = msg
+
+        if not self.auto_publish:
+            self.callback(self.name, topic, msg)
 
     def subscribe(self, topics):
         """

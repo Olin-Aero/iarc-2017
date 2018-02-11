@@ -39,8 +39,11 @@ class Drone:
         self.takeoffPub = rospy.Publisher('/forebrain/cmd_takeoff', Empty, queue_size=0)
         self.landPub = rospy.Publisher('/forebrain/cmd_land', Empty, queue_size=0)
 
-        rospy.Publisher('/arbiter/register', RegisterBehavior, latch=True, queue_size=10).publish(name='forebrain')
-        rospy.Publisher('/arbiter/activate_behavior', String, latch=True, queue_size=10).publish('forebrain')
+        rospy.Publisher('/arbiter/register', RegisterBehavior, latch=True, queue_size=10).publish(
+            name='forebrain', fast=True)
+        rospy.sleep(0.1)
+        rospy.Publisher('/arbiter/activate_behavior', String, latch=True, queue_size=10).publish(
+            'forebrain')
 
         rospy.Subscriber("/cmd_vel", Twist, self.record_vel)
 
