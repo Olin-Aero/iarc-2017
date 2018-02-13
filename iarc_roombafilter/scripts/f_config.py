@@ -32,3 +32,8 @@ T_NOISE=0.85
 
 # Roomba States
 S_WAIT, S_RUN, S_NOISE, S_TURN, S_END = range(5)
+
+# Additional Constants ...
+
+T_OBS = 0.5
+# wait 500ms until observation flag is cleared

@@ -11,7 +11,7 @@ def ukf_fx(x0, dt, t, obs):
         # make simulated predictions based on roomba model
         if t % cfg.INT_REVERSE < cfg.T_180:
             v = 0.0
-            w = np.pi / T_180
+            w = np.pi / cfg.T_180
             # 1.375
         elif t % cfg.INT_NOISE < cfg.T_NOISE:
             v = 0.0

@@ -36,11 +36,12 @@ class UKFManager(object):
 
         # TODO : arbitrary covariances
         self.P = np.diag(np.square(sigmas))# initial covariance
+        #self.P[3,3] = self.P[4,4] = 100
         self.R = np.diag(np.square([0.1, 0.1, np.deg2rad(5)])) # measurement noise: 5cm/5deg err.
 
         # process noise
         #G = [0.5*dt**2, 0.5*dt**2, 0.5*dt**2, dt, dt] # acceleration-noise model
-        self.Q = np.diag([0.02, 0.02, np.deg2rad(3), 0.01, 0.01])
+        self.Q = 0.5 * np.diag([0.02, 0.02, np.deg2rad(3), 0.01, 0.01])
         #self.Q = np.square(np.diag(G) * 8.8)
         # G = np.reshape(G, [-1,1])
         # print G.T
@@ -59,14 +60,13 @@ class UKFManager(object):
         self.est = {}
 
     def create(self, pose, *args, **kwargs):
-        print 'CREATE!'
         ukf = UKF(**self.ukf_args)
         ukf._Q = self.Q.copy()
         ukf.Q = self.Q.copy()
         ukf.R = self.R.copy()
 
-        ukf.x = np.zeros(5, dtype=np.float32)
-        ukf.x[:3] = pose[:3]
+        ukf.x = pose#np.zeros(5, dtype=np.float32)
+        #ukf.x[:3] = pose[:3]
 
         ukf.P = self.P.copy()
         # TODO : fill in more info, such as color(red/green/unknown), type(target/obs/unknown)
@@ -81,7 +81,7 @@ class UKFManager(object):
         # predict from dt
         for e in est.values():
             # TODO : Observation flag assignment somewhere
-            e.predict(t, dt, obs=True)#(t > e._t0 + 1.0))
+            e.predict(t, dt, obs=(t < e._t0 + cfg.T_OBS))#True(t > e._t0 + 1.0))
             # TODO(yoonyoungcho) : arbitrary time threshold
             # only start simulational iteration
             # if it has been more than a second since observation.
@@ -102,7 +102,8 @@ class UKFManager(object):
         # predict from dt
         # TODO : deal with expected behavior ( turn at ... ) vs. predicted behavior (difference in position, etc.)
         for e in est.values():
-            e.predict(t, dt, obs=True)#(e._pose in obs_ar))
+            #e.predict(t, dt, obs=True)#(e._pose in obs_ar))
+            e.predict(t, dt, obs=e._pose in obs_ar)
 
         # assign observations
         for k in est.keys():
@@ -161,9 +162,27 @@ class UKFManager(object):
         self.est = {k:v for (k,v) in est.iteritems() if (v.p() > P_KEEP) and (k not in k_clear)}
 
         # create new particles from observation
+        # and make a guess based on current time
+
         new_j = np.where(add_obs)[0]
         for o in [obs[j] for j in new_j]:
-            self.create(o._pose)
+            p = np.copy(o._pose)
+            v,w = 0,0
+
+            # make initial guess ...
+            # WARNING : only applicable for TARGET roombas
+            if t % cfg.INT_REVERSE < cfg.T_180:
+                v = 0.0
+                w = np.pi / T_180
+            elif t % cfg.INT_NOISE < cfg.T_NOISE:
+                v = 0.0
+                w = 0.0
+            else:
+                v = .33
+                w = 0.0
+            p[3:] = (v,w)
+
+            self.create(p)
         # TODO : merge particles that are too similar?
 
     def estimates(self):

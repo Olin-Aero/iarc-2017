@@ -19,8 +19,11 @@ class Particle(object):
         t = type, enum(int)
         c = color, enum(int)
         """
-        self._pose = np.zeros(5, dtype=np.float32)
-        self._pose[:3] = pose[:3]
+        if len(pose) == 3:
+            self._pose = np.zeros(5, dtype=np.float32)
+            self._pose[:3] = pose[:3]
+        else:
+            self._pose = np.copy(pose)
 
         self._p0 = p0 # initial observation probability
         self._t0 = t0 # initial observation time
@@ -101,12 +104,13 @@ class Target(Particle):
         self._state = cfg.S_RUN
 
     def step(self, t, dt):
+
         # evolve pose ...
-        (x,y,t,v,w) = self._pose
-        x += (v * np.cos(t) * dt)
-        y += (v * np.sin(t) * dt)
-        t += (w * dt)
-        self._pose[:] = [x,y,t,v,w]
+        (x,y,h,v,w) = self._pose
+        x += (v * np.cos(h) * dt)
+        y += (v * np.sin(h) * dt)
+        h += (w * dt)
+        self._pose[:] = [x,y,h,v,w]
 
         # state transition
         t1 = t+dt
@@ -125,7 +129,7 @@ class Target(Particle):
                 self._pose[4] = np.random.normal(np.pi/cfg.T_180, self.SIGMAS[4]*dt)
             elif next_state == cfg.S_NOISE:
                 self._pose[3] = 0.0
-                self._pose[4] = np.random.uniform(-MAX_NOISE_W, MAX_NOISE_W)
+                self._pose[4] = np.random.uniform(-cfg.MAX_NOISE_W, cfg.MAX_NOISE_W)
             elif next_state == cfg.S_RUN:
                 self._pose[3] = np.random.normal(0.33, self.SIGMAS[3]*dt)
                 self._pose[4] = np.random.normal(0.0, self.SIGMAS[4]*dt)
@@ -166,11 +170,12 @@ class UKFEstimate(Particle):
         super(UKFEstimate, self).__init__(
                 pose, p0, t0, t, c)
         self.ukf = ukf
-    def predict(self, t, dt, obs):
+    def predict(self, t, dt, obs=False):
         # predict ...
         # obs = observability
         self.ukf.P = (self.ukf.P + self.ukf.P.T) / 2.0
         self.ukf.Q = dt * self.ukf._Q
+
         self.ukf.predict(dt, fx_args=(t,obs))
         self._pose = self.ukf.x.copy()
     def update(self, pose):

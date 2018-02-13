@@ -17,14 +17,15 @@ def random_pose():
     x = np.random.uniform(-10.0, 10.0)
     y = np.random.uniform(-10.0, 10.0)
     t = np.random.uniform(-np.pi, np.pi)
-    v = np.abs(np.random.normal(0.27, 0.33))
-    w = np.random.choice([-1,1]) * np.random.normal(0.8, 1.2)
+    #v = np.abs(np.random.normal(0.27, 0.33))
+    v = np.random.uniform(0.27, 0.33)
+    w = 0.1 * np.random.choice([-1,1]) * np.random.normal(0.8, 1.2)
     return np.asarray([x,y,t,v,w], dtype=np.float32)
 
 def main():
     # parameters
     n_targets = 20
-    dt = 0.05
+    dt = 0.01
     steps = (100.0 / dt)
     sigmas = np.asarray([S_X, S_Y, S_T, S_V, S_W])
 
@@ -59,10 +60,10 @@ def main():
                 3.0 # TODO : arbitrary, fix
                 )
         obs = []
+
         for r in targets:
             if r._pose in obs_ar:
-                p = add_noise(r._pose, s=dt*sigmas)
-                p[-2:] = 0.0
+                p = add_noise(r._pose, s=dt*sigmas)[:3]
                 #print p
                 #o = r.clone()
                 #o._pose = add_noise(r._pose, s=dt*sigmas)
@@ -80,7 +81,7 @@ def main():
                 [_t._pose for _t in targets],
                 manager.estimates(),
                 t,
-                delay=10
+                delay=2
                 )
 
         # filter
@@ -91,6 +92,7 @@ def main():
             _t.step(t,dt)
 
         if k == 27:
+            print 'done'
             break
         t += dt
 
