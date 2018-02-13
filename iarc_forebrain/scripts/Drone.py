@@ -165,6 +165,8 @@ class Drone:
     def move_towards(self, des_x=0.0, des_y=0.0, frame='map', height=None):
         """
         Tells the drone to move towards a specific position on the field, then returns
+        :param height: Flight altitude, meters. Defaults to previously commanded height.
+        :param frame: The tf frame associated with the target
         :param des_x: desired position x
         :param des_y: desired position y
         """
