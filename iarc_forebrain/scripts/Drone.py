@@ -5,7 +5,7 @@ import tf
 import tf.transformations
 from ardrone_autonomy.msg import Navdata
 from geometry_msgs.msg import Twist, PoseStamped, Pose, Point, Quaternion
-from iarc_arbiter.msg import RegisterBehavior
+from iarc_arbiter.msg import RegisterBehavior, VelAlt
 from iarc_main.msg import Roomba
 from numpy import pi
 from std_msgs.msg import String, Empty, Header
@@ -17,7 +17,10 @@ class Drone:
     MIN_VERTICAL_VEL = 0.8
     NORMAL_HEIGHT = 2.5
 
-    def __init__(self, target=None, tf=None):
+    def __init__(self, target=None, tfl=None):
+        """
+        :type tfl: tf.TransformListener
+        """
         self.should_hit_button = False
         self.should_land_front = False
         self.vel3d = Twist()
@@ -33,15 +36,16 @@ class Drone:
 
         self.FRAME_ID = "base_link"
 
-        if tf is None:
+        if tfl is None:
             self.tf = tf.TransformListener()
         else:
-            self.tf = tf
+            self.tf = tfl
 
         self.posPub = rospy.Publisher('/forebrain/cmd_pos', PoseStamped, queue_size=0)
         self.velPub = rospy.Publisher('/forebrain/cmd_vel', Twist, queue_size=0)
         self.takeoffPub = rospy.Publisher('/forebrain/cmd_takeoff', Empty, queue_size=0)
         self.landPub = rospy.Publisher('/forebrain/cmd_land', Empty, queue_size=0)
+        self.velAltPub = rospy.Publisher('/forebrain/cmd_vel_alt', VelAlt, queue_size=0)
 
         rospy.Publisher('/arbiter/register', RegisterBehavior, latch=True, queue_size=10).publish(
             name='forebrain', fast=True)
@@ -86,7 +90,7 @@ class Drone:
 
         if tol != 0:
             r = rospy.Rate(10)
-            while height - self.get_altitude() > tol:
+            while height - self.get_altitude() > tol and not rospy.is_shutdown():
                 self.hover(time=0, height=height)
                 r.sleep()
 
@@ -105,7 +109,7 @@ class Drone:
 
         if block:
             r = rospy.Rate(10)
-            while self.get_altitude() > 0.2:
+            while self.get_altitude() > 0.2 and not rospy.is_shutdown():
                 self.landPub.publish(Empty())
                 r.sleep()
             rospy.sleep(0.5)
@@ -128,10 +132,13 @@ class Drone:
         if type(time) != rospy.Duration:
             time = rospy.Duration.from_sec(time)
 
-        if time.to_sec() == 0:
-            self.velPub.publish(Twist())
+        if time.to_sec() < 1.0:
+            # For short duration hovers, just aim for 0 velocity
+            self.velAltPub.publish(VelAlt(height=height))
+            rospy.sleep(time.to_sec())
             return
         else:
+            # For long duration hovers, try to actively stay in the same place
             hover_start_time = rospy.Time.now()
 
             start_pos = self.get_pos('odom')

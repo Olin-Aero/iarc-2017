@@ -15,9 +15,9 @@ class Strategy(object):
     def __init__(self):
         rospy.init_node('forebrain')
 
-        tf = TransformListener()
-        self.drone = Drone(tf=tf)
-        self.world = WorldState(tf=tf)
+        tfl = TransformListener()
+        self.drone = Drone(tfl=tfl)
+        self.world = WorldState(tfl=tfl)
 
         rospy.sleep(1)
 
@@ -115,17 +115,17 @@ def angle_diff(a, b):
 
 class WorldState(object):
     CORRECT_DIRECTION = pi/2
-    def __init__(self, tf=None):
+    def __init__(self, tfl=None):
         self.has_started = False
         self.round_start_time = rospy.Time(0)
 
         self.targets = []  # type: List[Roomba]
         self.obstacles = []  # type: List[Roomba]
 
-        if tf is None:
-            self.tf = TransformListener()
+        if tfl is None:
+            self.tfl = TransformListener()
         else:
-            self.tf = tf
+            self.tfl = tfl
 
         self.startSub = rospy.Subscriber('start_round', Bool, self.onStart)
         self.roombaSub = rospy.Subscriber('seen_roombas', RoombaList, self.onRoombas)
@@ -165,7 +165,7 @@ class WorldState(object):
         :return float: The angle the target is facing from -PI to PI, where pi/2 is towards green, and -pi/2 is towards red
         """
 
-        position, quaternion = self.tf.lookupTransform("map", roomba.frame_id, rospy.Time(0))
+        position, quaternion = self.tfl.lookupTransform("map", roomba.frame_id, rospy.Time(0))
         euler = tf.transformations.euler_from_quaternion(quaternion)
 
         return euler[-1]

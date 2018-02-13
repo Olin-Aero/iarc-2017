@@ -5,6 +5,7 @@ import rospy
 from ddynamic_reconfigure_python.ddynamic_reconfigure import DDynamicReconfigure
 from geometry_msgs.msg import Twist, PoseStamped
 from iarc_arbiter.msg import RegisterBehavior
+from iarc_arbiter.msg import VelAlt
 from std_msgs.msg import Empty, String
 from tf import TransformListener
 
@@ -40,13 +41,15 @@ class Arbiter:
         # They are functions that take input of whatever type the topic is, and produce a transformers.Command
         # object.
 
-        pid = transformers.PIDController(self.tf, self.ddynrec)
-        print pid.cmd_pos
+        alt_pid = transformers.PIDAltController(self.tf, self.ddynrec)
+        pos_pid = transformers.PIDPosController(self.tf, self.ddynrec, alt_pid)
+        print pos_pid.cmd_pos
         self.transformers = {
             'cmd_vel': (Twist, transformers.cmd_vel),
             'cmd_takeoff': (Empty, transformers.cmd_takeoff),
             'cmd_land': (Empty, transformers.cmd_land),
-            'cmd_pos': (PoseStamped, pid.cmd_pos),
+            'cmd_pos': (PoseStamped, pos_pid.cmd_pos),
+            'cmd_vel_alt': (VelAlt, alt_pid.cmd_vel_alt)
         }
         """:type : dict[str, (str, (Any) -> transformers.Command)]"""
 
@@ -183,7 +186,7 @@ class Arbiter:
 
         # Log it
         self.active_pub.publish(String(behavior))
-        rospy.loginfo_throttle(1, "Command published by {}".format(behavior))
+        rospy.loginfo_throttle(1, "Command published by {}/{}".format(behavior, topic))
 
         return True
 
