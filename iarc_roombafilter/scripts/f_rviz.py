@@ -71,14 +71,14 @@ class RVIZInterface(object):
         print dir(self._mks)
         self._mk_idx = 0
         if self._drone:
-            self.add_marker(self._drone, [1,1,1, 1.0], 1.0)
-            self.add_marker(self._drone, [1,1,1, 0.1], 3.0)
+            self.add_marker(self._drone, [1,1,1, 1.0], 0.2)
+            self.add_marker(self._drone, [1,1,1, 0.1], 2*3.0) #+-3m
         for p in self._gz:
-            self.add_marker(p, [1,0,0, 0.3], 1.0) # red = ground truth
+            self.add_marker(p, [1,0,0, 0.3], 0.2) # red = ground truth
         for p in self._obs:
-            self.add_marker(p, [0,1,0, 0.2], 1.5) # green = observation
+            self.add_marker(p, [0,1,0, 0.2], 0.3) # green = observation
         for p in self._est:
-            self.add_marker(p, [0,0,1, 0.5], 2.0) # blue = estimates
+            self.add_marker(p, [0,0,1, 0.5], 0.4) # blue = estimates
         for i in range(self._mk_idx, self._mk_max):
             self._mks.markers[i].color.a = 0.0
 
@@ -86,9 +86,9 @@ class RVIZInterface(object):
 
     def add_marker(self, pose, color, scale):
         marker = self._mks.markers[self._mk_idx]
-        marker.scale.x = 0.2 * scale
-        marker.scale.y = 0.2 * scale
-        marker.scale.z = 0.2 * scale
+        marker.scale.x = scale
+        marker.scale.y = scale
+        marker.scale.z = scale
         marker.color.r = color[0]
         marker.color.g = color[1]
         marker.color.b = color[2]

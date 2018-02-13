@@ -41,7 +41,7 @@ class UKFManager(object):
 
         # process noise
         #G = [0.5*dt**2, 0.5*dt**2, 0.5*dt**2, dt, dt] # acceleration-noise model
-        self.Q = 0.5 * np.diag([0.02, 0.02, np.deg2rad(3), 0.01, 0.01])
+        self.Q = np.diag([0.02, 0.02, np.deg2rad(3), 0.01, 0.01])
         #self.Q = np.square(np.diag(G) * 8.8)
         # G = np.reshape(G, [-1,1])
         # print G.T

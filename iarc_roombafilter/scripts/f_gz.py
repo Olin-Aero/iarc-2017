@@ -14,7 +14,7 @@ from iarc_main.msg import Roomba, RoombaSighting
 from std_msgs.msg import Header
 from geometry_msgs.msg import PoseWithCovariance, PoseWithCovarianceStamped, Point, PointStamped, PoseStamped
 
-R = 10.0
+R = 3.0
 
 def is_visible(src, dst):
     # dst pose is visible from src pose
