@@ -1,11 +1,16 @@
 #!/usr/bin/env python2
-# from transitions import Machine
+"""
+This file represents the main strategy node.
+It takes as input the positions of the Roombas on the field,
+and outputs commands to the Arbiter.
+
+Owner: Schommer
+"""
 import numpy as np
 import os
 import rospkg
 import sys
 # from pygraphviz import *
-import time
 from enum import Enum
 import rospy
 import tf
@@ -14,7 +19,7 @@ from geometry_msgs.msg import Twist
 from iarc_main.msg import Roomba, RoombaList
 from std_msgs.msg import Float64, String
 
-from PredictionEngine import PredictionEngine
+from five_sec_sim import fiveSecSim
 
 rospack = rospkg.RosPack()
 iarc_sim_path = rospack.get_path('iarc_sim_2d')
@@ -27,17 +32,16 @@ class Action(Enum):
     """
     Action Enum for all possible actions.
     """
-    TOPHIT = 1
-    LANDINFRONT = 2
-    TOPHIT2X = 3
-    TOPHIT3X = 4
+    TOP_HIT = 1
+    LAND_IN_FRONT = 2
+    TOP_HIT_2X = 3
+    TOP_HIT_3X = 4
     WAIT = 5
 
 
 class Drone(object):
     def __init__(self, C1=1, C2=1, C3=1, C4=1, C5=1, MIN_OBSTACLE_DISTANCE=1.5, FIELD_SIZE=20.0):
         self.tf = tf.TransformListener()
-        self.predictor = PredictionEngine(tf_listener=self.tf)
         self.tag = 'drone'
         rospy.Subscriber('/seen_roombas', RoombaList, self.recordVisible)
         rospy.Subscriber('/drone/height', Float64, self.recordHeight)
@@ -85,13 +89,13 @@ class Drone(object):
         t = 0  # Initialize time estimate
 
         print(action)
-        if action == Action.TOPHIT:
+        if action == Action.TOP_HIT:
 
             x_d = self.drone_pos[0] - target.visible_location.pose.pose.position.x
             y_d = self.drone_pos[1] - target.visible_location.pose.pose.position.y
             d_xy = np.sqrt(x_d ** 2 + y_d ** 2)
             t = d_xy / XY_VEL + 0 * (self.height - ROOMBA_HEIGHT) / Z_VEL
-        elif action == Action.LANDINFRONT:
+        elif action == Action.LAND_IN_FRONT:
             angle = self.orientationToHeading(target.visible_location.pose.pose.orientation)
             x_d = self.drone_pos[0] - (
                 target.visible_location.pose.pose.position.x + LAND_IN_FRONT_DIST * np.cos(angle))
@@ -204,7 +208,7 @@ class Drone(object):
         # Step 1: check for a win condition
         roombaWillWin = False
         for dt in range(0, 20, 3):
-            prediction = self.predictor.predict_future_position(target, rospy.Time.now() + rospy.Duration.from_sec(dt))
+            prediction = fiveSecSim(target.last_turn, target.visible_location, rospy.Time.now() + rospy.Duration.from_sec(dt))
             if prediction.pose.pose.position.y > self.FIELD_SIZE / 2:
                 roombaWillWin = True
                 break
@@ -223,7 +227,7 @@ class Drone(object):
 
         # Step 3: check for 180 degree turns
         expected_time = rospy.Time.now() + TURN_TIME
-        expected_pos = self.predictor.predict_future_position(target, expected_time)
+        expected_pos = fiveSecSim(target.last_turn, target.visible_location, expected_time)
         cycle_phase = (expected_time - target.last_turn).to_sec() % 20
 
         expected_angle = tf.transformations.euler_from_quaternion(expected_pos.pose.pose.orientation)[2]
@@ -248,6 +252,9 @@ class Drone(object):
 
 
 class DroneCommander(object):
+    """
+    A DroneCommander is responsible for sending commands
+    that control the behavior of the drone by directly commanding the Arbiter."""
     def __init__(self):
         self._behavior_pub = rospy.Publisher('/arbiter/activate_behavior', String, queue_size=10)
         self._target_pub = rospy.Publisher('/target', Roomba, queue_size=10)
@@ -308,53 +315,3 @@ if __name__ == '__main__':
                 commander.output('teleop')
 
     exit()
-
-states = [
-    'init',
-    'search',
-    'follow',
-    'waitForValidRoomba',  # If a roomba is not availible to contact
-    'avoidObstacle',
-    'landInFront',
-    'pushButton',
-    'waitForGoodRoomba']
-
-transitions = [
-    {'trigger': 'start', 'source': 'init', 'dest': 'search'},
-    {'trigger': 'goodRoombaFound', 'source': 'search', 'dest': 'follow'},
-    {'trigger': 'timeInvalid', 'source': 'follow', 'dest': 'waitForValidRoomba'},
-    # timeInvalid signals that it's not the right time to follow the roomba.
-
-    # Null actions result in returning to search algorithm
-    {'trigger': 'null', 'source': 'follow', 'dest': 'search'},
-    {'trigger': 'null', 'source': 'waitForValidRoomba', 'dest': 'search'},
-    {'trigger': 'null', 'source': 'waitForGoodRoomba', 'dest': 'search'},
-    {'trigger': 'null', 'source': 'pushButton', 'dest': 'search'},
-    {'trigger': 'null', 'source': 'landInFront', 'dest': 'search'},
-
-    # Action triggers
-    {'trigger': '180Needed', 'source': 'follow', 'dest': 'landInFront'},
-    {'trigger': '45Needed', 'source': 'follow', 'dest': 'pushButton'},
-    {'trigger': 'timeElapsedNeeded', 'source': 'follow', 'dest': 'waitForGoodRoomba'},
-
-    {'trigger': 'actionCompleted', 'source': 'landInFront', 'dest': 'follow'},
-    {'trigger': 'actionCompleted', 'source': 'pushButton', 'dest': 'follow'},
-    {'trigger': 'actionCompleted', 'source': 'waitForGoodRoomba', 'dest': 'follow'},
-
-    # Obstacle triggers
-    {'trigger': 'obstacleInPath', 'source': 'search', 'dest': 'avoidObstacle'},
-    {'trigger': 'obstacleInPath', 'source': 'follow', 'dest': 'avoidObstacle'},
-    {'trigger': 'obstacleInPath', 'source': 'waitForValidRoomba', 'dest': 'avoidObstacle'},
-]
-
-machine = Machine(model=drone, states=states, transitions=transitions, initial='init')
-
-drone.get_graph().draw('state_diagram.png', prog='dot')
-
-drone.start()
-print(drone.state)
-
-print(cfg.ROOMBA_HEIGHT)
-drone.goodRoombaFound()
-
-print(drone.state)

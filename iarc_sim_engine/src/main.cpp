@@ -119,8 +119,18 @@ class ROSInterface{
             for(auto& r : robots){
                 r->update(dt);
             }
+
+            std::string s;
             for(auto& r : robots){
                 dynamic_cast<ROSRobot&>(*(r->robot)).publish();
+
+                // TODO : ugly hack to display altitude
+                r->robot->get_name(s);
+                if(s == "drone"){
+                    float x,y,z,t;
+                    r->robot->get_pos(x,y,z,t);
+                    w.show_height(z);
+                }
             }
             clock_msg.clock = ros::Time(w.get_time());
             clock_pub.publish(clock_msg);
