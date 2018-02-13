@@ -94,7 +94,7 @@ def vels(speed, turn):
 if __name__ == "__main__":
     settings = termios.tcgetattr(sys.stdin)
 
-    pub = rospy.Publisher('cmd_vel', Twist, queue_size=1)
+    pub = rospy.Publisher('/teleop/cmd_vel', Twist, queue_size=1)
     takeoff_pub = rospy.Publisher('/ardrone/takeoff', Empty, queue_size=1)
     land_pub = rospy.Publisher('/ardrone/land', Empty, queue_size=1)
     activate_pub = rospy.Publisher('/arbiter/activate_behavior', String, queue_size=1)

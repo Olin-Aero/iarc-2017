@@ -48,13 +48,14 @@ class Strategy(object):
         self.drone.land()
 
     def test_follow(self):
+        self.world.waitForStart()
         r = rospy.Rate(20)
 
         self.drone.takeoff(1.5)
         while not rospy.is_shutdown():
             target = self.choose_target(self.world.targets)
             if target is not None:
-                self.drone.move_towards(0, 0, target)
+                self.drone.move_towards(0, 0, target.frame_id)
             else:
                 self.drone.hover(0)
             r.sleep()
@@ -71,7 +72,7 @@ class Strategy(object):
         return None
 
     def run(self):
-        self.test_square()
+        self.test_follow()
 
 
 class WorldState(object):
@@ -107,7 +108,7 @@ class WorldState(object):
         self.targets = targets
         self.obstacles = obstacles
 
-        rospy.loginfo_throttle()
+        rospy.loginfo_throttle(1, "{} targets and {} obstacles known".format(len(self.targets), len(self.obstacles)))
 
     def waitForStart(self):
         r = rospy.Rate(50)
