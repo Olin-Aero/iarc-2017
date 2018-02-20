@@ -99,22 +99,15 @@ class UKFManagerROS(object):
 
             # roomba type handling
             r_type = cfg.T_NULL
-            r_col = cfg.C_NULL
             if r.type != Roomba.UNKNOWN:
                 if r.type == Roomba.OBSTACLE:
                     r_type = cfg.T_OBST
                 else:
-                    r_type = cfg.T_TARG
-                    r_col = (cfg.C_RED if r.type == Roomba.RED else cfg.C_GREEN)
+                    r_type = cfg.T_RED if r.type == Roomba.RED else cfg.T_GREEN
 
-            # TODO : debugging ...
-            r_type = cfg.T_TARG
-            r_col = None
-            
             o = ObservationParticle(
                     pose=pose,
                     t=r_type,
-                    c=r_col,
                     )
             obs.append(o)
 

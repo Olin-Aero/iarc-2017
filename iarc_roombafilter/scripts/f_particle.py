@@ -11,13 +11,12 @@ class Particle(object):
     def __init__(
             self, pose,
             p0=1.0, t0=0.0,
-            t=cfg.T_TARG, c=None):
+            t=cfg.T_NULL):
         """
         pose = np.array(shape=5, dtype=np.float32)
         p0 = observation probability
         t0 = observation time
         t = type, enum(int)
-        c = color, enum(int)
         """
         if len(pose) == 3:
             self._pose = np.zeros(5, dtype=np.float32)
@@ -29,7 +28,6 @@ class Particle(object):
         self._t0 = t0 # initial observation time
 
         self._t = t # particle type
-        self._c = c # color
 
     def __repr__(self):
         r = {
@@ -37,7 +35,6 @@ class Particle(object):
                 'p0' : self._p0,
                 't0' : self._t0,
                 't' : self._t,
-                'c' : self._c
                 }
         return str(r)
     def __str__(self):
@@ -72,17 +69,6 @@ class Particle(object):
 
         return p*(2 ** 3) # account for quartiles
         #return 1 - 2*p#(1 - p) # outer-probability
-
-    def cost(self, p2):
-        # currently cost() is different from f(match())
-        # mostly to avoid matching faraway objects with similar headings
-        p1 = self.as_vec()
-        p2 = p2.as_vec()
-        delta = np.abs(ukf_residual(p1,p2))
-        weights = [1.0, 1.0, 0.01]
-        # TODO : arbitrary weights
-        return np.linalg.norm(np.multiply(delta, weights))
-
     def as_vec(self):
         return np.copy(self._pose[:3])
     def p(self, t):
@@ -95,12 +81,12 @@ class Target(Particle):
     def __init__(
             self, pose,
             p0=1.0, t0=0.0,
-            t=cfg.T_TARG, c=None):
+            t=cfg.T_RED):
         """
         Refer to Particle() for parameter definition.
         """
         super(Target, self).__init__(
-            pose, p0, t0, t, c)
+            pose, p0, t0, t)
         self._state = cfg.S_RUN
 
     def step(self, t, dt):
@@ -140,12 +126,12 @@ class SimpleParticle(Particle):
     def __init__(
             self, pose,
             p0=1.0, t0=0.0,
-            t=cfg.T_SIMP, c=None):
+            t=cfg.T_SIMP):
         """
         Refer to Particle() for parameter definition.
         """
         super(SimpleParticle, self).__init__(
-                pose, p0, t0, t, c)
+                pose, p0, t0, t)
     def step(self, t, dt):
         self._pose.step(dt)
 
@@ -153,22 +139,22 @@ class Drone(Particle):
     def __init__(
             self, pose,
             p0=1.0, t0=0.0,
-            t=cfg.T_DRONE, c=None):
+            t=cfg.T_DRONE):
         """
         Refer to Particle() for parameter definition.
         """
         super(Drone, self).__init__(
-                pose, p0, t0, t, c)
+                pose, p0, t0, t)
 
 class UKFEstimate(Particle):
     def __init__(
             self, pose,
             p0=1.0, t0=0.0,
-            t=cfg.T_TARG, c=None,
+            t=cfg.T_NULL,
             ukf=None
             ):
         super(UKFEstimate, self).__init__(
-                pose, p0, t0, t, c)
+                pose, p0, t0, t)
         self.ukf = ukf
     def predict(self, t, dt, obs=False):
         # predict ...
@@ -198,9 +184,9 @@ class ObservationParticle(Particle):
     def __init__(
             self, pose,
             p0=1.0, t0=0.0,
-            t=cfg.T_NULL, c=cfg.C_NULL
+            t=cfg.T_NULL
             ):
         super(ObservationParticle, self).__init__(
-                pose, p0, t0, t, c)
+                pose, p0, t0, t)
     def as_vec(self):
         return np.copy(self._pose[:3])

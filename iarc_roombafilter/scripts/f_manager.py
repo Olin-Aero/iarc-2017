@@ -60,6 +60,7 @@ class UKFManager(object):
         self.est = {}
 
     def create(self, pose, *args, **kwargs):
+        print 'CREATE!'
         ukf = UKF(**self.ukf_args)
         ukf._Q = self.Q.copy()
         ukf.Q = self.Q.copy()
@@ -94,7 +95,6 @@ class UKFManager(object):
         # assert(m == len(obs_ar))
 
         prob = np.zeros(shape=(n,m), dtype=np.float32)
-        #cost = np.ones(shape=(n,m), dtype=np.float32)
 
         i2k = est.keys()
         k2i = {i2k[i]:i for i in range(n)}
@@ -109,9 +109,7 @@ class UKFManager(object):
         for k in est.keys():
             for j, o in enumerate(obs):
                 prob[k2i[k],j] = est[k].match(o)
-                #cost[k2i[k],j] = est[k].cost(o)
 
-        #i_idx, j_idx = linear_sum_assignment(cost)
         i_idx, j_idx = linear_sum_assignment(1.0 - prob)
 
         # update
@@ -163,6 +161,8 @@ class UKFManager(object):
 
         # create new particles from observation
         # and make a guess based on current time
+
+        # TODO : sync time with roombas' respective reference time somehow
 
         new_j = np.where(add_obs)[0]
         for o in [obs[j] for j in new_j]:

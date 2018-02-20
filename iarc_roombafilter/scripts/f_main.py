@@ -69,8 +69,7 @@ def main():
                 #o._pose = add_noise(r._pose, s=dt*sigmas)
                 o = ObservationParticle(
                         pose=p,
-                        t=T_TARG,
-                        c=None
+                        t=T_NULL,
                         )
                 #print o
                 obs.append(o)
