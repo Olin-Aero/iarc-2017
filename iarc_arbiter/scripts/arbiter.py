@@ -28,7 +28,6 @@ class Arbiter:
     def __init__(self):
         # The Null behavior will automatically process a 0-velocity Twist at 10hz
         self.null_behavior = Behavior(self.process_command, 'zero', freq=10)
-        self.null_behavior.handle_message('cmd_vel', Twist())
 
         self.behaviors = {'zero': self.null_behavior}
         self.active_behavior_name = 'zero'
@@ -79,6 +78,8 @@ class Arbiter:
                                   rospy.get_param('~midbrain_freq', 100), 1, 1000)
 
         self.start_ddynrec()
+
+        self.null_behavior.handle_message('cmd_vel', Twist())
 
         rospy.sleep(0.5)
 
@@ -270,8 +271,8 @@ class Behavior:
         self.last_msg_topic = topic
         self.last_msg = msg
 
-        if not self.auto_publish:
-            self.callback(self.name, topic, msg)
+        # if not self.auto_publish:
+        self.callback(self.name, topic, msg)
 
     def subscribe(self, topics):
         """

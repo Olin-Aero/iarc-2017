@@ -82,9 +82,9 @@ class Strategy(object):
                         rospy.loginfo('Redirected roomba: Failure :(')
                 else:
                     # Follow the roomba
-                    self.drone.move_towards(0, 0, target.frame_id)
+                    self.drone.move_towards(0, 0, target.frame_id, 1.5)
             else:
-                self.drone.hover(0)
+                self.drone.hover(0, 1.5)
             r.sleep()
 
     def choose_target(self, targets):
@@ -99,7 +99,7 @@ class Strategy(object):
         return None
 
     def run(self):
-        self.test_follow_redirect()
+        self.test_follow()
 
 
 def angle_diff(a, b):

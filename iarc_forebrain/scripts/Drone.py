@@ -132,6 +132,7 @@ class Drone:
         if type(time) != rospy.Duration:
             time = rospy.Duration.from_sec(time)
 
+        # TODO: Consider using position-based hovering in more situations
         if time.to_sec() < 1.0:
             # For short duration hovers, just aim for 0 velocity
             self.velAltPub.publish(VelAlt(height=height))
