@@ -4,8 +4,9 @@
 Subscribes to a camera feed and publishes the pose of a grid square.
 Image coordinate system: z is into image, x is right, y is down.
 Global coordinate system: x is forward, y is left, z is up.
-Units: inches (TODO: change)
 
+rosparam set use_sim_time true
+rosbag play --clock --rate 0.2 --start 10 filename.something
 '''
 
 import numpy as np
@@ -19,23 +20,22 @@ from cv_bridge import CvBridge, CvBridgeError
 from matplotlib import pyplot as plt
 from tf.transformations import *
 
-
 IMAGE_FEED = "/ardrone/bottom/image_raw/compressed" # ROS topic publishing grid images
 SENSOR_FEED = "/odometry/filtered" # ROS topic publishing sensor data
-LOWER_COLOR_THRESHOLD = 150 # Darkest color of a line out of 255
+LOWER_COLOR_THRESHOLD = 130#150 # Darkest color of a line out of 255
 UPPER_COLOR_THRESHOLD = 255 # Lightest color of a line out of 255
-MIN_CONTOUR_SIZE = 200 # Size cutoff in pixels for filtering out noise
+MIN_CONTOUR_SIZE = 200#200 # Size cutoff in pixels for filtering out noise
 DILATION_KERNEL_SIZE = 5 # Size of kernel in sqrt(pixels) for dilation
-DILATION_STRENGTH = 1 # Number of iterations to apply the dilation operation
+DILATION_STRENGTH = 7 # Number of iterations to apply the dilation operation
 BORDER_SIZE = 5 # Size of border in pixels to ignore when finding lines
 HOUGH_DIST_RES = 1 # Distance resolution of Hugh line transform in pixels
 HOUGH_ANGLE_RES = np.pi/180 # Angular resolution of Hugh line transform in radians
-HOUGH_THRESHOLD = 100 # Minimum number of points needed to determine a line
-MIN_DIST = 50 # Distance in pixels between 2 lines to be considered different
-MIN_ANGLE = np.pi/36 # Angle in radians between 2 lines to be considered different
+HOUGH_THRESHOLD = 85#100 # Minimum number of points needed to determine a line
+MIN_DIST = 100#50 # Distance in pixels between 2 lines to be considered different
+MIN_ANGLE = np.pi/12 # Angle in radians between 2 lines to be considered different
 MIN_INTERSECT_ANGLE = np.pi/12 # Minimum angle in radians between 2 intersecting lines
-SIDE_LENGTH = 9 # Size of original grid square in inches
-CAMERA_RATIO = 4/3*720 #3264 # Intrinsic property of camera
+SIDE_LENGTH = 0.5 # Size of original grid square in meters
+CAMERA_RATIO = 4/3*720 #4/3*720 #3264 # Intrinsic property of camera
 TIME_OFFSET = 0 # Amount to project timestamp forward in time
 SAMPLE_PERIOD = 1 # Number of frames between samples
 
@@ -46,7 +46,7 @@ class grid_finder:
         self.bridge = CvBridge()
         self.br = tf.TransformBroadcaster()
         self.listener = tf.TransformListener()
-        self.odomGridPose = numpy.identity(4)
+        self.odomGridPose = tf.transformations.euler_matrix(0,0,0)
         rospy.Subscriber(IMAGE_FEED, CompressedImage, self.image_raw_callback)
 
     def image_raw_callback(self, msg):
@@ -57,11 +57,15 @@ class grid_finder:
             pose = findGrid(frame,self.count%SAMPLE_PERIOD==0)
             #print (pose)
             if not pose[0] is None:
+                euler = euler_from_matrix(pose)
+                if np.linalg.norm([(euler[0]+2*np.pi)%(2*np.pi)-np.pi, (euler[1]+np.pi)%(2*np.pi)-np.pi]) > np.pi/4:
+                    print(euler)
+                    return
                 camOdomPose = poseFromTransform(self.listener.lookupTransform(msg.header.frame_id, "odom", msg.header.stamp-rospy.Duration(.1)))
-                # camOdomPose = poseFromTransform()
+                # camOdomPose = np.identity(4)
                 lastPose = np.dot(self.odomGridPose, camOdomPose)
                 pose = updateLocation(updateAngle(pose, lastPose), lastPose)
-                print(int(pose[0][3]), int(pose[1][3]), int(pose[2][3]), int(euler_from_matrix(pose)[2]*180/np.pi)%360)
+                print(int(pose[0][3]/SIDE_LENGTH), int(pose[1][3]/SIDE_LENGTH), int(pose[2][3]/SIDE_LENGTH), int(euler_from_matrix(pose)[2]*180/np.pi)%360)
                 self.odomGridPose = np.dot(pose, np.linalg.inv(camOdomPose))
                 self.publish()
         except CvBridgeError as e:
@@ -89,8 +93,7 @@ def findGrid(frame, display):
     upper = np.array([UPPER_COLOR_THRESHOLD])
     mask = cv2.inRange(frame, lower, upper)
     frame = cv2.bitwise_and(frame, frame, mask=mask)
-            
-
+    
     # Filter out small particles
     im2, contours, hierarchy = cv2.findContours(frame, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
     filter(lambda x:len(x)>MIN_CONTOUR_SIZE, contours)
@@ -98,7 +101,7 @@ def findGrid(frame, display):
 
     # Fill in gaps
     kernel = np.ones((DILATION_KERNEL_SIZE, DILATION_KERNEL_SIZE), np.uint8)
-    frame = cv2.dilate(frame, kernel, iterations=1)
+    frame = cv2.erode(frame, kernel, iterations=1)
 
     # Find edges
     edges = cv2.Canny(frame,0,255)
@@ -135,7 +138,7 @@ def findGrid(frame, display):
                 rho = line[0]
                 theta = line[1]
                 plotline = getLine(rho, theta)
-                cv2.line(color,plotline[0],plotline[1],(255,0,0),5)
+                cv2.line(color,plotline[0],plotline[1],(255,255,0),5)
         if intersections:
             for p in intersections:
                 cv2.line(color,p[0:2],p[0:2],(0,0,255),50)
@@ -150,6 +153,19 @@ def findGrid(frame, display):
         cv2.waitKey(3)
 
     return pose
+
+def skeleton(img):
+    ''' Converts an image into a morphological skeleton '''
+    skeleton = cv2.bitwise_and(img, cv2.bitwise_not(img))
+    for i in range(10):
+        kernel = np.ones((DILATION_KERNEL_SIZE, DILATION_KERNEL_SIZE), np.uint8)
+        temp = cv2.erode(img, kernel, iterations=1)
+        temp = cv2.dilate(img, kernel, iterations=1)
+        skeleton = cv2.bitwise_or(skeleton, cv2.bitwise_and(img, cv2.bitwise_not(temp)))
+        img = cv2.erode(img, kernel, iterations=1)
+        if not cv2.countNonZero(img):
+            break
+    return skeleton
 
 def getLine(rho, theta):
     '''Convert (rho, theta) defined line to endpoints'''
@@ -310,6 +326,8 @@ def updateAngle(pose, lastPose):
 def updateLocation(pose, lastPose):
     '''Computes updated global position, compensating for switching between grid squares'''
     pos = translation_from_matrix(pose)
+    rot = euler_matrix(*decompose_matrix(np.dot(pose, np.linalg.inv(lastPose)))[2])
+    lastPose = np.dot(rot, lastPose)
     lastPos = translation_from_matrix(lastPose)
     dX = (pos[0] - lastPos[0])%SIDE_LENGTH
     dY = (pos[1] - lastPos[1])%SIDE_LENGTH
