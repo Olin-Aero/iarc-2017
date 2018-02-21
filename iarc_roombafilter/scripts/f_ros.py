@@ -40,13 +40,14 @@ class UKFManagerROS(object):
         self._p_keep = rospy.get_param('~p_keep', default=cfg.P_KEEP)
         self._p_match = rospy.get_param('~p_match', default=cfg.P_MATCH)
         self._p_clear = rospy.get_param('~p_clear', default=cfg.P_CLEAR)
-        self._obs_topic = rospy.get_param('~obs_topic', default='roomba_obs')
-        self._rate = rospy.get_param('~rate', default=10)
+        self._obs_topic = rospy.get_param('~obs_topic', default='visible_roombas')
+        self._out_topic = rospy.get_param('~out_topic', default='filtered_roombas')
+        self._rate = rospy.get_param('~rate', default=50) #50hz
 
         # create ROS interfaces
         self._tf = tf.TransformListener(True, cache_time=rospy.Duration(5))
         self._sub = rospy.Subscriber(self._obs_topic, RoombaSighting, self.obs_cb, queue_size=1)
-        self._pub = rospy.Publisher('roombas', RoombaList, queue_size=10)
+        self._pub = rospy.Publisher(self._out_topic, RoombaList, queue_size=10)
         self._mgr = UKFManager(dt, self._sigma)
         self._t = rospy.Time.now()
 
