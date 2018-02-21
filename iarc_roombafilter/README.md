@@ -1,6 +1,8 @@
 # IARC Roomba Filter
 ---
 
+[pipeline.pdf](./figures/pipeline.pdf)
+
 This package primarily deals with multi-target model-based UKF tracking for IARC roombas.
 
 Demo video available [here](https://www.youtube.com/watch?v=vEf5ihOr4Sg) (02/12/2018);
