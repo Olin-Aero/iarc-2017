@@ -48,6 +48,7 @@ class grid_finder:
         self.listener = tf.TransformListener()
         self.odomGridPose = tf.transformations.euler_matrix(0,0,0)
         rospy.Subscriber(IMAGE_FEED, CompressedImage, self.image_raw_callback)
+        # self.camOdomPose = None
 
     def image_raw_callback(self, msg):
         self.count+=1
@@ -62,7 +63,9 @@ class grid_finder:
                     print(euler)
                     return
                 camOdomPose = poseFromTransform(self.listener.lookupTransform(msg.header.frame_id, "odom", msg.header.stamp-rospy.Duration(.1)))
-                # camOdomPose = np.identity(4)
+                # if self.camOdomPose is None:
+                #     self.camOdomPose = camOdomPose
+                # camOdomPose = self.camOdomPose#np.identity(4)
                 lastPose = np.dot(self.odomGridPose, camOdomPose)
                 pose = updateLocation(updateAngle(pose, lastPose), lastPose)
                 print(int(pose[0][3]/SIDE_LENGTH), int(pose[1][3]/SIDE_LENGTH), int(pose[2][3]/SIDE_LENGTH), int(euler_from_matrix(pose)[2]*180/np.pi)%360)
@@ -290,10 +293,20 @@ def getPose(vertices, sideLength):
 
     rmat = cv2.Rodrigues(rvec)[0] # grid in camera frame
     rmat = np.transpose(rmat) # camera in grid frame
-    rot = [[1,0,0],[0,-1,0],[0,0,-1]] # reorient axes
-    rmat = np.dot(rot,rmat)
-    tvec = -np.dot(rmat,tvec) # camera in grid frame
-    pos = [tvec[0][0],tvec[1][0],tvec[2][0]]
+    rot = [[1,0,0],[0,-1,0],[0,0,-1]] # camera to baselink
+    rmat = np.dot(rot,rmat) # baselink in grid frame
+    
+    # x, y are flipped, but z correct
+    tvec = np.dot(rmat,-tvec) # change of basis vectors, tvec switched frames
+    # tvec = np.multiply(tvec, [1, 1, -1]) # baselink in grid frame
+
+    # Right way
+    # tvec = grid in cam frame in cam vectors
+    # -tvec = cam in grid frame in cam vectors
+    # tvec[2] *= -1 converts to cam in grid frame in baselink vectors = baselink/grid in baselink vectors
+    # rmat*tvec = baselink/grid in grid vectors
+
+    pos = [-tvec[0][0],-tvec[1][0],tvec[2][0]]
     pose = [np.append(rmat[0],pos[0]), np.append(rmat[1],pos[1]), np.append(rmat[2],pos[2]), [0,0,0,1]]
 
     return pose
