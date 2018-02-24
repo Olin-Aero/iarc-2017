@@ -5,7 +5,7 @@ import tf
 import tf.transformations
 from ardrone_autonomy.msg import Navdata
 from geometry_msgs.msg import Twist, PoseStamped, Pose, Point, Quaternion
-from iarc_arbiter.msg import RegisterBehavior
+from iarc_arbiter.msg import RegisterBehavior, VelAlt
 from iarc_main.msg import Roomba
 from numpy import pi
 from std_msgs.msg import String, Empty, Header
@@ -17,7 +17,10 @@ class Drone:
     MIN_VERTICAL_VEL = 0.8
     NORMAL_HEIGHT = 2.5
 
-    def __init__(self, target=None):
+    def __init__(self, target=None, tfl=None):
+        """
+        :type tfl: tf.TransformListener
+        """
         self.should_hit_button = False
         self.should_land_front = False
         self.vel3d = Twist()
@@ -32,15 +35,23 @@ class Drone:
         self.prev_target_facing_angle = None  # in radian
 
         self.FRAME_ID = "base_link"
-        self.tf = tf.TransformListener()
+
+        if tfl is None:
+            self.tf = tf.TransformListener()
+        else:
+            self.tf = tfl
 
         self.posPub = rospy.Publisher('/forebrain/cmd_pos', PoseStamped, queue_size=0)
         self.velPub = rospy.Publisher('/forebrain/cmd_vel', Twist, queue_size=0)
         self.takeoffPub = rospy.Publisher('/forebrain/cmd_takeoff', Empty, queue_size=0)
         self.landPub = rospy.Publisher('/forebrain/cmd_land', Empty, queue_size=0)
+        self.velAltPub = rospy.Publisher('/forebrain/cmd_vel_alt', VelAlt, queue_size=0)
 
-        rospy.Publisher('/arbiter/register', RegisterBehavior, latch=True, queue_size=10).publish(name='forebrain')
-        rospy.Publisher('/arbiter/activate_behavior', String, latch=True, queue_size=10).publish('forebrain')
+        rospy.Publisher('/arbiter/register', RegisterBehavior, latch=True, queue_size=10).publish(
+            name='forebrain', fast=True)
+        rospy.sleep(0.1)
+        rospy.Publisher('/arbiter/activate_behavior', String, latch=True, queue_size=10).publish(
+            'forebrain')
 
         rospy.Subscriber("/cmd_vel", Twist, self.record_vel)
 
@@ -61,36 +72,55 @@ class Drone:
         else:
             return self._remembers_flying
 
-    def takeoff(self, height=NORMAL_HEIGHT):
+    def takeoff(self, height=None, tol=0.2):
         """
-        Commands the drone to takeoff from ground level. Directly commands the low-level controls,
-        and might need changes as hardware gets upgraded.
-        TODO: Use the height immediately
+        Commands the drone to takeoff from ground level, and blocks until it has done so.
         :param (float) height: Height in meters
+        :param (float) tol: Tolerance to desired height to wait until reaching. Set to 0 to disable.
         :return: None
         """
-        self.last_height = height
+        if self.last_height is None:
+            self.last_height = self.NORMAL_HEIGHT
+        if height is None:
+            height = self.last_height
+        else:
+            self.last_height = height
 
         self.takeoffPub.publish(Empty())
+
+        if tol != 0:
+            r = rospy.Rate(10)
+            while height - self.get_altitude() > tol and not rospy.is_shutdown():
+                self.hover(time=0, height=height)
+                r.sleep()
+
         self._remembers_flying = True
 
-    def land(self):
+    def land(self, block=True):
         """
         Commands the drone to takeoff from ground level. Directly commands the low-level controls,
         and might need changes as hardware gets upgraded.
-        :param (float) height: Height in meters
+        :param (bool) block: Wait until vehicle reaches ground?
         :return: None
         """
         self.last_height = 0
 
         self.landPub.publish(Empty())
+
+        if block:
+            r = rospy.Rate(10)
+            while self.get_altitude() > 0.2 and not rospy.is_shutdown():
+                self.landPub.publish(Empty())
+                r.sleep()
+            rospy.sleep(0.5)
+
         self._remembers_flying = False
 
-    def hover(self, time, height=None):
+    def hover(self, time=0, height=None):
         """
         Publishes 0 velocity for the given duration
         TODO: Store the starting position, and stay there
-        :param time:
+        :param (float | rospy.Duration) time: If nonzero, hovers for this amount of time.
         :param height:
         :return:
         """
@@ -102,23 +132,32 @@ class Drone:
         if type(time) != rospy.Duration:
             time = rospy.Duration.from_sec(time)
 
-        hover_start_time = rospy.Time.now()
+        # TODO: Consider using position-based hovering in more situations
+        if time.to_sec() < 1.0:
+            # For short duration hovers, just aim for 0 velocity
+            self.velAltPub.publish(VelAlt(height=height))
+            rospy.sleep(time.to_sec())
+            return
+        else:
+            # For long duration hovers, try to actively stay in the same place
+            hover_start_time = rospy.Time.now()
 
-        start_pos = self.get_pos('odom')
-        start_pos.pose.position.z = height
+            start_pos = self.get_pos('odom')
+            start_pos.pose.position.z = height
 
-        # Always use the latest available information
-        start_pos.header.stamp = rospy.Time(0)
+            # Always use the latest available information
+            start_pos.header.stamp = rospy.Time(0)
 
-        r = rospy.Rate(10)
-        while rospy.Time.now() - hover_start_time < time:
+            r = rospy.Rate(10)
             self.posPub.publish(start_pos)
-            r.sleep()
+            while rospy.Time.now() - hover_start_time < time:
+                r.sleep()
+                self.posPub.publish(start_pos)
 
     def move_to(self, des_x=0.0, des_y=0.0, frame='map', height=None, tol=0.2):
         """
         Tells the drone to move to a specific position on the field, and blocks until the drone is
-        within tol of the target, counting only horizontal distance
+        within tol of the target, counting vertical and horizontal distance
         :param des_x:
         :param des_y:
         :param frame:
@@ -130,7 +169,10 @@ class Drone:
         r = rospy.Rate(20)
         while not rospy.is_shutdown():
             rel_pos = self.get_pos(frame).pose.position
-            dist = math.sqrt((rel_pos.x - des_x) ** 2 + (rel_pos.y - des_y) ** 2)
+            dist = math.sqrt(
+                (rel_pos.x - des_x) ** 2 +
+                (rel_pos.y - des_y) ** 2 +
+                (rel_pos.z - height) ** 2)
 
             if dist <= tol:
                 break
@@ -142,6 +184,8 @@ class Drone:
     def move_towards(self, des_x=0.0, des_y=0.0, frame='map', height=None):
         """
         Tells the drone to move towards a specific position on the field, then returns
+        :param height: Flight altitude, meters. Defaults to previously commanded height.
+        :param frame: The tf frame associated with the target
         :param des_x: desired position x
         :param des_y: desired position y
         """
@@ -158,6 +202,31 @@ class Drone:
         pose_stamped.header.frame_id = frame
 
         self.posPub.publish(pose_stamped)
+
+    def redirect_180(self, roomba, front_dist=1.0, rest_time=5.0, height=None):
+        """
+        Redirects the target rooba 180 degrees by landing in front of it.
+        :param Roomba roomba: The target to redirect
+        :param float front_dist: How far in front to land
+        :param float rest_time: How long to sit on the ground(seconds)
+        :param float height: How high to fly after taking off again
+        :return bool: Success?
+        """
+        if height is None:
+            height = self.last_height
+        else:
+            self.last_height = height
+
+        self.move_to(front_dist, 0, roomba.frame_id, height=0.5)
+
+        rospy.sleep(0.5)
+
+        self.land()
+
+        rospy.sleep(rest_time)
+
+        self.takeoff(height)
+        self.hover(0, height)
 
     def get_pos(self, frame='map'):
         """
@@ -183,6 +252,9 @@ class Drone:
                 )
             )
         )
+
+    def get_altitude(self):
+        return self.get_pos(frame='odom').pose.position.z
 
     def distance_from(self, frame):
         """
@@ -254,22 +326,6 @@ class Drone:
 
         self.posPub.publish(pose_stamped)
 
-    def change_height(self, height):
-        """
-        Change drone's height to height
-        :param height: Desired height, in meters
-        """
-        self.last_height = height
-        self.move()
-
-    def stand_still(self):
-        """
-        Make our drone stand still
-        NOTE: commands zero velocity, overriding vertical height setpoints
-        :return: None
-        """
-        self.velPub.publish(Twist())
-
     def push_button(self):
         """
         Make our drone push button. Go together with a boolean should_hit_button
@@ -293,7 +349,7 @@ class Drone:
                     self.should_hit_button = False
                     self.change_height(self.NORMAL_HEIGHT)
 
-    def land_front(self):
+    def land_front_old(self):
         """
         Make our drone land in front of the current target. Go together with a boolean should_land_front
         should_land_front is True, execute this method
@@ -319,22 +375,6 @@ class Drone:
                     print "Landed in front, waiting for roomba"
                     self.stand_still()
 
-    def distance_from_target(self):
-        """
-        Get the distance from the target relative to drone
-        :return: Float: distance
-        """
-        if self.current_target is None:
-            return None
-
-        position, quaternion = self.tf.lookupTransform(self.FRAME_ID, self.current_target.frame_id, rospy.Time(0))
-        distance = math.sqrt(position[0] ** 2 + position[1] ** 2)
-        return distance
-
-    def height(self):
-        position, quaternion = self.tf.lookupTransform('map', self.FRAME_ID, rospy.Time(0))
-        return position[2]
-
     def position_of_roomba(self):
         """
         Gets the relative position of the current target to the drone
@@ -345,31 +385,6 @@ class Drone:
 
         position, quaternion = self.tf.lookupTransform("map", self.current_target.frame_id, rospy.Time(0))
         return position
-
-    def target_facing_angle(self):
-        """
-        :return: Float: The angle the target is facing from -PI to PI
-        :return: True: if target is rotating, False: otherwise
-        """
-        if self.current_target is None:
-            return None
-
-        position, quaternion = self.tf.lookupTransform("map", self.current_target.frame_id, rospy.Time(0))
-        euler = tf.transformations.euler_from_quaternion(quaternion)
-        is_rotating = euler[-1] != self.prev_target_facing_angle
-        # print euler[-1] / pi * 180
-        self.prev_target_facing_angle = euler[-1]
-        return euler[-1], is_rotating
-
-    def check_back_to_height(self):
-        """
-        Check if our drone is back to normal height
-        :return: True: if already back to normal height, False: otherwise
-        """
-        if self.height() <= self.NORMAL_HEIGHT:
-            return False
-        # print "Back to normal height"
-        return True
 
     def check_push_button(self):
         """
