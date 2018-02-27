@@ -51,7 +51,7 @@ find_package(catkin REQUIRED COMPONENTS
 add_message_files(
   FILES
   RegisterBehavior.msg
-#  Message2.msg
+  VelAlt.msg
 )
 
 ## Generate services in the 'srv' folder

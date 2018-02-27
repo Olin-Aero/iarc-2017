@@ -3,12 +3,15 @@ import numpy as np
 from numpy import sign
 
 import rospy
+
 import tf.transformations
+from tf import TransformListener
+from tf.listener import xyz_to_mat44, xyzw_to_mat44
+
+from iarc_arbiter.msg import VelAlt
 from geometry_msgs.msg import Twist, PoseStamped, Pose, Point, Quaternion
 from nav_msgs.msg import Odometry
 from std_msgs.msg import Header
-from tf import TransformListener
-from tf.listener import xyz_to_mat44, xyzw_to_mat44
 
 
 class Command:
@@ -38,14 +41,68 @@ def cmd_land(msg):
     return Command(Twist(), land=True)
 
 
-class PIDController(object):
-    def __init__(self, tf, ddynrec):
+class PIDAltController(object):
+    def __init__(self, tfl, ddynrec):
         """
-        :type tf: TransformListener
+        :type tfl: TransformListener
         :type ddynrec: DDynamicReconfigure
         """
-        self.tf = tf
+
+        self.tf = tfl
         self.config = ddynrec
+
+        self.config.add_variable("kp_height", "Proportional control for altitude adjustment",
+                                 rospy.get_param('~kp_height', 0.5), 0.0, 2.0)
+
+        self.config.add_variable("max_vertical_vel", "Maximum speed the drone is allowed to ascend or descend",
+                                 rospy.get_param('~max_vertical_vel', 0.5), 0.0, 3.0)
+
+        self.config.add_variable("min_vertical_vel", "Minimum speed the drone is allowed to ascend or descend",
+                                 rospy.get_param('~min_vertical_vel', 0.1), 0.0, 3.0)
+
+    def calculate_z_vel(self, error):
+        if abs(error) <= 0.05:
+            # Good enough! Stop publishing height changing
+            return 0
+
+        vel = error * self.config.kp_height
+
+        if abs(vel) < self.config.min_vertical_vel:
+            vel = sign(vel) * self.config.min_vertical_vel
+
+        if abs(vel) > self.config.max_vertical_vel:
+            vel = sign(vel) * self.config.max_vertical_vel
+
+        return vel
+
+    def get_height(self):
+        return self.tf.lookupTransform('odom', 'base_link', rospy.Time(0))[0][2]
+
+    def cmd_vel_alt(self, msg):
+        """
+        Calculates the commanded velocity given the desired VelAlt message containing a desired altitude and velocity.
+        The z-component of the desired velocity is ignored.
+        :type msg: VelAlt
+        :return: Command
+        """
+
+        err = msg.height - self.get_height()
+
+        vel = msg.velocity
+        vel.linear.z = self.calculate_z_vel(err)
+        return Command(vel)
+
+
+class PIDPosController(object):
+    def __init__(self, tfl, ddynrec, alt_controller):
+        """
+        :type tfl: TransformListener
+        :type ddynrec: DDynamicReconfigure
+        :type alt_controller: PIDAltController
+        """
+        self.tf = tfl
+        self.config = ddynrec
+        self.alt_controller = alt_controller
 
         self.last_time = rospy.Time(0)
 
@@ -64,30 +121,11 @@ class PIDController(object):
         self.config.add_variable("kd", "Derivative",
                                  rospy.get_param('~kd', 0.2), 0.0, 2.0)
 
-        self.config.add_variable("kp_height", "Proportional control for altitude adjustment",
-                                 rospy.get_param('~kp_height', 0.5), 0.0, 2.0)
-
-        self.config.add_variable("max_vertical_vel", "Maximum speed the drone is allowed to ascend or descend",
-                                 rospy.get_param('~max_vertical_vel', 0.5), 0.0, 3.0)
-
-        self.config.add_variable("min_vertical_vel", "Minimum speed the drone is allowed to ascend or descend",
-                                 rospy.get_param('~min_vertical_vel', 0.1), 0.0, 3.0)
-
         self.config.add_variable("angle_offset", "Angle the drone should face relative to commanded",
                                  rospy.get_param('~angle_offset', 0.0), -3.14, 3.14)
 
         self.config.add_variable("use_vel_derivs", "Should  we use the drone's velocity as the derivative terms?",
                                  rospy.get_param('~use_vel_derivs', True))
-
-        # self.maxvelocity = rospy.get_param('~max_velocity', 1.0)  # Max velocity the drone can reach
-        # self.kpturn = rospy.get_param('~kp_turn', 0.0)  # Proportional angular for turning
-        # self.kp = rospy.get_param('~kp', 0.05)  # Proportional linear
-        # self.ki = rospy.get_param('~ki', 0)#0.02)  # Integral linear
-        # self.kd = rospy.get_param('~kd', 0.1)  # Derivative linear
-
-        # self.kp_height = 1.0
-        # self.MAX_VERTICAL_VEL = 1.5
-        # self.MIN_VERTICAL_VEL = 0.2
 
         self.last_odom = Odometry()
         self.odom_sub = rospy.Subscriber('/ardrone/odometry', Odometry, self.on_odom)
@@ -102,21 +140,6 @@ class PIDController(object):
         :param Odometry msg:
         """
         self.last_odom = msg
-
-    def calculate_z_vel(self, error):
-        if abs(error) <= 0.05:
-            # Good enough! Stop publishing height changing
-            return 0
-
-        vel = error * self.config.kp_height
-
-        if abs(vel) < self.config.min_vertical_vel:
-            vel = sign(vel) * self.config.min_vertical_vel
-
-        if abs(vel) > self.config.max_vertical_vel:
-            vel = sign(vel) * self.config.max_vertical_vel
-
-        return vel
 
     def cmd_pos(self, msg):
         """
@@ -184,9 +207,9 @@ class PIDController(object):
             self.integral_y = 0.0
 
         # Preserve the z value of velocity
-        vel.linear.z = self.calculate_z_vel(position.z)
+        vel.linear.z = self.alt_controller.calculate_z_vel(position.z)
 
-        ## Turn drone toward the provided orientation
+        # Turn drone toward the provided orientation
         _, _, angle_err = tf.transformations.euler_from_quaternion(
             [getattr(pose.pose.orientation, s) for s in 'xyzw'])
         angle_err += self.config.angle_offset
@@ -238,11 +261,11 @@ class PIDController(object):
         quat = tuple(tf.transformations.quaternion_from_matrix(tx_pose))
 
         # assemble return value PoseStamped
-        r = PoseStamped()
-        r.header.stamp = ps.header.stamp
-        r.header.frame_id = target_frame
-        r.pose = Pose(Point(*xyz), Quaternion(*quat))
-        return r
+        result = PoseStamped()
+        result.header.stamp = ps.header.stamp
+        result.header.frame_id = target_frame
+        result.pose = Pose(Point(*xyz), Quaternion(*quat))
+        return result
 
 
 if __name__ == '__main__':
@@ -255,7 +278,7 @@ if __name__ == '__main__':
     rospy.init_node('transformer_test')
     r = rospy.Rate(10)
     pub = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
-    controller = PIDController(TransformListener())
+    controller = PIDPosController(TransformListener())
     rospy.sleep(0.5)
     while not rospy.is_shutdown():
         r.sleep()
