@@ -78,7 +78,7 @@ def main():
         k = render(
                 drone._pose,
                 [_t._pose for _t in targets],
-                manager.estimates(),
+                manager.estimates().values(),
                 t,
                 delay=2
                 )

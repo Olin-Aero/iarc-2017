@@ -134,20 +134,17 @@ class UKFManager(object):
         for (i,j) in zip(i_idx, j_idx):
             cnt += 1
             k = i2k[i]
-            if est[k]._pose in obs_ar:
-                if (prob[i,j] > P_MATCH):
-                    #try:
-                    s = ('est', est[k].ukf.x, 'obs', obs[j]._pose)
-                    est[k].update(obs[j]._pose[:3])
-                    est[k]._t0 = t # reset observation time
-                    add_obs[j] = False
-                    #except Exception as e:
-                    #    print e
-                    #    print obs[j]._pose[:3]
-                #print prob[i,j]
-            else:
-                # no updates ...
-                pass
+            if (prob[i,j] > P_MATCH):
+                #try:
+                s = ('est', est[k].ukf.x, 'obs', obs[j]._pose)
+                est[k].update(obs[j]._pose[:3])
+                est[k]._t0 = t # reset observation time
+                add_obs[j] = False
+                print "Successful match 3"
+                #except Exception as e:
+                #    print e
+                #    print obs[j]._pose[:3]
+            #print prob[i,j]
         #print 'cnt', cnt
         #print 'Diff', s
 
@@ -195,7 +192,7 @@ class UKFManager(object):
         # TODO : merge particles that are too similar?
 
     def estimates(self):
-        return self.est.values()
+        return self.est
 
 if __name__ == "__main__":
     dt = 0.01

@@ -36,12 +36,11 @@ class CircularObservation(object):
 
 class ConicObservation(CircularObservation):
     def __init__(self, x, y, h, aov):
-        self.x=x
-        self.y=y
-        self.r=self.h * np.tan(self.aov/2)
+        super(ConicObservation, self).__init__(x, y, h * np.tan(aov/2))
 
 class PolygonObservation(Observation):
     def __init__(self, pts):
+        super(PolygonObservation, self).__init__()
         self._poly = Polygon(pts)
     def __contains__(self, p):
         return self._poly.contains(Point(p))
