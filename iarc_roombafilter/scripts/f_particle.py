@@ -2,6 +2,9 @@ import f_config as cfg
 from f_filter import *
 from scipy.stats import mvn
 
+# TODO : incorporate covariances into matching
+# expose covariance initialization
+
 class Particle(object):
     ID_INVALID = -1
     SIGMAS = cfg.SIGMAS
@@ -10,11 +13,10 @@ class Particle(object):
         Particle.SIGMAS = sigmas
     def __init__(
             self, pose,
-            p0=1.0, t0=0.0,
+            t0=0.0,
             t=cfg.T_NULL):
         """
         pose = np.array(shape=5, dtype=np.float32)
-        p0 = observation probability
         t0 = observation time
         t = type, enum(int)
         """
@@ -24,7 +26,6 @@ class Particle(object):
         else:
             self._pose = np.copy(pose)
 
-        self._p0 = p0 # initial observation probability
         self._t0 = t0 # initial observation time
 
         self._t = t # particle type
@@ -32,7 +33,6 @@ class Particle(object):
     def __repr__(self):
         r = {
                 'pose' : self._pose,
-                'p0' : self._p0,
                 't0' : self._t0,
                 't' : self._t,
                 }
@@ -42,7 +42,7 @@ class Particle(object):
     def clone(self):
         return Particle(
                 self._pose.copy(),
-                self._p0, self._t0,
+                self._t0,
                 self._t, self._c)
     def sense(self, drone, noise=True):
         # this is only to be used with GT particles
@@ -63,16 +63,10 @@ class Particle(object):
         cov = np.diag(self.SIGMAS[:3])
         # assume independent x-y-t
         p, _ = mvn.mvnun(d, [20,20,np.pi], np.zeros_like(d), cov)
-        # TODO : 20 here is based on the knowledge of IARC grid
-        #if 0.5<p:  # this inversion is used for two-sided statistical testing
-        #    p=1-p
 
         return p*(2 ** 3) # account for quartiles
-        #return 1 - 2*p#(1 - p) # outer-probability
     def as_vec(self):
         return np.copy(self._pose[:3])
-    def p(self, t):
-        return self._p0 * P_DECAY ** (t-self._t0)
 
 def check(t0, t1, int0, int1):
     return (t0%int0 > int1) and (t1%int0 < int1)
@@ -80,13 +74,13 @@ def check(t0, t1, int0, int1):
 class Target(Particle):
     def __init__(
             self, pose,
-            p0=1.0, t0=0.0,
+            t0=0.0,
             t=cfg.T_RED):
         """
         Refer to Particle() for parameter definition.
         """
         super(Target, self).__init__(
-            pose, p0, t0, t)
+            pose, t0, t)
         self._state = cfg.S_RUN
 
     def step(self, t, dt):
@@ -125,36 +119,36 @@ class Target(Particle):
 class SimpleParticle(Particle):
     def __init__(
             self, pose,
-            p0=1.0, t0=0.0,
+            t0=0.0,
             t=cfg.T_SIMP):
         """
         Refer to Particle() for parameter definition.
         """
         super(SimpleParticle, self).__init__(
-                pose, p0, t0, t)
+                pose, t0, t)
     def step(self, t, dt):
         self._pose.step(dt)
 
 class Drone(Particle):
     def __init__(
             self, pose,
-            p0=1.0, t0=0.0,
+            t0=0.0,
             t=cfg.T_DRONE):
         """
         Refer to Particle() for parameter definition.
         """
         super(Drone, self).__init__(
-                pose, p0, t0, t)
+                pose, t0, t)
 
 class UKFEstimate(Particle):
     def __init__(
             self, pose,
-            p0=1.0, t0=0.0,
+            t0=0.0,
             t=cfg.T_NULL,
             ukf=None
             ):
         super(UKFEstimate, self).__init__(
-                pose, p0, t0, t)
+                pose, t0, t)
         self.ukf = ukf
     def predict(self, t, dt, obs=False):
         # predict ...
@@ -183,10 +177,10 @@ class UKFEstimate(Particle):
 class ObservationParticle(Particle):
     def __init__(
             self, pose,
-            p0=1.0, t0=0.0,
+            t0=0.0,
             t=cfg.T_NULL
             ):
         super(ObservationParticle, self).__init__(
-                pose, p0, t0, t)
+                pose, t0, t)
     def as_vec(self):
         return np.copy(self._pose[:3])

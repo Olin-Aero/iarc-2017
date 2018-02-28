@@ -7,10 +7,10 @@ Configuration files should be modified under f_config.py
 Takes RoombaObservation and filters them into pose.
 
 TODO(yoonyoungcho) : expose dynamic_reconfigure
-TODO(yoonyoungcho) : convert dt
-TODO(yoonyoungcho) : verify fovcenter ~= Drone Position?
+TODO(yoonyoungcho) : figure out world-time synchronization
+TODO(yoonyoungcho) : dynamic dt
+TODO(yoonyoungcho) : situational covariance updates (unobservable, should-be-observable, add-noise-event, reversal-event, ...)
 TODO(yoonyoungcho) : is model-based predictive simulation necessary?
-TODO(yoonyoungcho) : resolve iterative prediction vs. sparse updates
 """
 
 import rospy
@@ -142,8 +142,6 @@ class UKFManagerROS(object):
                     )
             obs.append(o)
 
-        # TODO(yoonyoungcho) does filterpy support retrodictive updates?
-        # TODO(yoonyoungcho) t = t0+dt or t1-dt?
         #t = msg.header.stamp.to_sec()
         t = rospy.Time.now().to_sec()
         dt = t - self._t
@@ -192,7 +190,6 @@ class UKFManagerROS(object):
 
 def main():
     rospy.init_node('roomba_filter')
-    # TODO : fix dt / sigmas instantiation
     mgr = UKFManagerROS(dt=1e-2)
     mgr.run()
 

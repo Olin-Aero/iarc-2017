@@ -81,9 +81,8 @@ class UKFManager(object):
     def predict(self, t, dt):
         # predict from dt
         for e in est.values():
-            # TODO : Observation flag assignment somewhere
-            e.predict(t, dt, obs=(t < e._t0 + cfg.T_OBS))#True(t > e._t0 + 1.0))
-            # TODO(yoonyoungcho) : arbitrary time threshold
+            # preserves observation flag for T_OBS seconds
+            e.predict(t, dt, obs=(t < e._t0 + cfg.T_OBS))
             # only start simulational iteration
             # if it has been more than a second since observation.
 
@@ -128,9 +127,7 @@ class UKFManager(object):
                     #try:
                     s = ('est', est[k].ukf.x, 'obs', obs[j]._pose)
                     est[k].update(obs[j]._pose[:3])
-                    # TODO : p0-t0 necessary?
-                    est[k]._p0 = prob[i,j]
-                    est[k]._t0 = t
+                    est[k]._t0 = t # reset observation time
                     add_obs[j] = False
                     #except Exception as e:
                     #    print e
