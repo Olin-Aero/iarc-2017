@@ -184,7 +184,7 @@ class UKFManager(object):
                 v = 0.0
                 w = 0.0
             else:
-                v = .33
+                v = 0.0#.33
                 w = 0.0
             p[3:] = (v,w)
 

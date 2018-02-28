@@ -95,7 +95,7 @@ class Strategy(object):
         :rtype: Roomba|None
         """
         if len(targets) > 0:
-            return targets[0]
+            return targets[-1]
         return None
 
     def run(self):
