@@ -1,6 +1,6 @@
 #!/usr/bin/env python2
 import rospy
-from iarc_main.msg import RoombaSighting, Roomba
+from iarc_main.msg import RoombaList, Roomba
 from std_msgs.msg import Bool
 
 from Drone import Drone
@@ -134,7 +134,7 @@ class WorldState(object):
             self.tfl = tfl
 
         self.startSub = rospy.Subscriber('start_round', Bool, self._on_start)
-        self.roombaSub = rospy.Subscriber('visible_roombas', RoombaSighting, self._on_roombas)
+        self.roombaSub = rospy.Subscriber('visible_roombas', RoombaList, self._on_roombas)
 
     def _on_start(self, msg):
         if not self.has_started and msg.data:
@@ -145,7 +145,7 @@ class WorldState(object):
     def _on_roombas(self, msg):
         """
 
-        :type msg: RoombaSighting
+        :type msg: RoombaList
         """
         targets = []
         obstacles = []
