@@ -5,6 +5,8 @@ from scipy.stats import mvn
 # TODO : incorporate covariances into matching
 # expose covariance initialization
 
+# TODO : isolate RoombaModel() and have particles use them instead.
+
 class Particle(object):
     ID_INVALID = -1
     SIGMAS = cfg.SIGMAS
@@ -150,6 +152,7 @@ class UKFEstimate(Particle):
         super(UKFEstimate, self).__init__(
                 pose, t0, t)
         self.ukf = ukf
+        # TODO : add RoombaModel() based on assumed roomba type
     def predict(self, t, dt, obs=False):
         # predict ...
         # obs = observability

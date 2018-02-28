@@ -1,3 +1,4 @@
+#!/usr/bin/env python2
 
 import numpy as np
 from f_utils import *
@@ -37,24 +38,29 @@ class UKFManager(object):
         # TODO : arbitrary covariances
         self.P = np.diag(np.square(sigmas))# initial covariance
         #self.P[3,3] = self.P[4,4] = 100
+
+        # TODO : configure R such that it accepts covariance input.
+        # TODO : when this happens, in case of missing covariance, handle unreasonable input covariance.
         self.R = np.diag(np.square([0.1, 0.1, np.deg2rad(5)])) # measurement noise: 5cm/5deg err.
 
-        # process noise
+        # different developments of process noise model
+        # left here for archival / referral purposes when things go wrong,
+        # or need modifications.
+
         #G = [0.5*dt**2, 0.5*dt**2, 0.5*dt**2, dt, dt] # acceleration-noise model
-        self.Q = np.diag([0.02, 0.02, np.deg2rad(3), 0.01, 0.01])
         #self.Q = np.square(np.diag(G) * 8.8)
         # G = np.reshape(G, [-1,1])
         # print G.T
         # self.Q = np.dot(G, np.transpose(G)) * (8.8**2)
-
         #np.diag([0.05, 0.05, np.deg2rad(5), 0.01, 0.01])
         #self.Q = np.outer(Gt,Gt) * (8.8**2)
         #print self.Q
-
         #G = [0.05, 0.05, np.deg2rad(5), 0.01, 0.01]
         #~5cm / 5 deg. per second
-
         #self.Q = np.diag(np.square(G))
+
+        # process noise
+        self.Q = np.diag([0.02, 0.02, np.deg2rad(3), 0.01, 0.01])
 
         self.p_idx = 0
         self.est = {}
@@ -82,9 +88,16 @@ class UKFManager(object):
         # predict from dt
         for e in est.values():
             # preserves observation flag for T_OBS seconds
-            e.predict(t, dt, obs=(t < e._t0 + cfg.T_OBS))
             # only start simulational iteration
             # if it has been more than a second since observation.
+
+            # TODO(yoonyoungcho) : apply simulation model
+            # if event period (noise/reversal/collision) had been entered,
+            # and try to verify that it is under that state.
+            # might be worthwhile to have a separate matching function
+            # for the "state" of the roomba, as defined by the underlying FSM.
+
+            e.predict(t, dt, obs=(t < e._t0 + cfg.T_OBS))
 
     def step(self, obs, t, dt, obs_ar):
         est = self.est
@@ -101,7 +114,6 @@ class UKFManager(object):
         # predict from dt
         # TODO : deal with expected behavior ( turn at ... ) vs. predicted behavior (difference in position, etc.)
         for e in est.values():
-            #e.predict(t, dt, obs=True)#(e._pose in obs_ar))
             e.predict(t, dt, obs=e._pose in obs_ar)
 
         # assign observations

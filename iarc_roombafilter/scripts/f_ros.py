@@ -129,12 +129,12 @@ class UKFManagerROS(object):
             # note : no velocity information is available.
 
             # roomba type handling
+            # todo : use enums? or leave independent
             r_type = cfg.T_NULL
-            if r.type != Roomba.UNKNOWN:
-                if r.type == Roomba.OBSTACLE:
-                    r_type = cfg.T_OBST
-                else:
-                    r_type = cfg.T_RED if r.type == Roomba.RED else cfg.T_GREEN
+            if r.type == Roomba.OBSTACLE:
+                r_type = cfg.T_OBST
+            else:
+                r_type = cfg.T_RED if r.type == Roomba.RED else cfg.T_GREEN
 
             o = ObservationParticle(
                     pose=pose,
@@ -172,7 +172,8 @@ class UKFManagerROS(object):
                         Pose(p,q),
                         cov
                     ))
-            msg = Roomba(now, "map", Roomba.UNKNOWN, loc)
+            # todo : fill in type information here
+            msg = Roomba(now, "map", Roomba.RED, loc)
             msgs.append(msg)
         msg = RoombaList(Header(stamp=now,frame_id="map"), msgs)
         #print len(msgs)

@@ -1,6 +1,11 @@
 <launch>
+    <!-- if simulated, run simulation observation interface -->
+    <!-- i.e. pretend like visual detection is running. -->
 	<arg name="sim" default="true"/>
+
+    <!-- enable visualization interface, rviz output markers -->
 	<arg name="viz" default="true"/>
+
 	<node if="$(arg sim)" name="gz_int" pkg="iarc_roombafilter" type="f_gz.py"/>
 	<node name="filter" pkg="iarc_roombafilter" type="f_ros.py" output="screen"/>
 	<group if="$(arg viz)">
