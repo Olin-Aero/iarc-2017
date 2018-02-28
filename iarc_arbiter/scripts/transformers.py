@@ -15,6 +15,9 @@ from std_msgs.msg import Header
 
 
 class Command:
+    """
+    This represents the output to the drone
+    """
     def __init__(self, vel, land=False, takeoff=False):
         """
         :param Twist vel: Velocity of the drone in vehicle reference frame

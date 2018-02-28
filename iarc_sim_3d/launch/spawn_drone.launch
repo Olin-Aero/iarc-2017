@@ -9,7 +9,7 @@
     <arg name="P" default="0"/>
     <arg name="Y" default="0"/>
     <!-- send the robot XML to param server -->
-    <param name="$(arg ns)/urdf" command="$(find xacro)/xacro '$(arg model)' --inorder" />
+    <param name="$(arg ns)/urdf" command="$(find xacro)/xacro '$(arg model)' tf_prefix:=$(arg ns) --inorder" />
 
     <!-- push robot_description to factory and spawn robot in gazebo -->
     <node name="spawn_robot" pkg="gazebo_ros" type="spawn_model"
