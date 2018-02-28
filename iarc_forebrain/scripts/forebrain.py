@@ -22,7 +22,7 @@ class Strategy(object):
         rospy.sleep(1)
 
     def test_hover(self):
-        self.world.waitForStart()
+        self.world.wait_for_start()
 
         rospy.loginfo('Taking off')
         self.drone.takeoff(1.5)
@@ -36,7 +36,7 @@ class Strategy(object):
         rospy.loginfo('Done!')
 
     def test_square(self):
-        self.world.waitForStart()
+        self.world.wait_for_start()
 
         rospy.loginfo('Taking off')
         self.drone.takeoff(1.5)
@@ -54,7 +54,7 @@ class Strategy(object):
         self.drone.land()
 
     def test_follow(self):
-        self.world.waitForStart()
+        self.world.wait_for_start()
         r = rospy.Rate(20)
 
         self.drone.takeoff(1.5)
@@ -67,7 +67,7 @@ class Strategy(object):
             r.sleep()
 
     def test_follow_redirect(self):
-        self.world.waitForStart()
+        self.world.wait_for_start()
         r = rospy.Rate(20)
 
         self.drone.takeoff(1.5)
@@ -114,6 +114,12 @@ def angle_diff(a, b):
 
 
 class WorldState(object):
+    """
+    This python object (not a ROS node) helps subscribe to and track
+    various things about the match and world external to the drone.
+    It is, in effect, a collection of helper functions to make writing
+    strategies easier.
+    """
     CORRECT_DIRECTION = pi/2
     def __init__(self, tfl=None):
         self.has_started = False
@@ -127,16 +133,16 @@ class WorldState(object):
         else:
             self.tfl = tfl
 
-        self.startSub = rospy.Subscriber('start_round', Bool, self.onStart)
-        self.roombaSub = rospy.Subscriber('visible_roombas', RoombaSighting, self.onRoombas)
+        self.startSub = rospy.Subscriber('start_round', Bool, self._on_start)
+        self.roombaSub = rospy.Subscriber('visible_roombas', RoombaSighting, self._on_roombas)
 
-    def onStart(self, msg):
+    def _on_start(self, msg):
         if not self.has_started and msg.data:
             self.round_start_time = rospy.Time.now()
 
         self.has_started = msg.data
 
-    def onRoombas(self, msg):
+    def _on_roombas(self, msg):
         """
 
         :type msg: RoombaSighting
@@ -154,10 +160,15 @@ class WorldState(object):
 
         rospy.loginfo_throttle(1, "{} targets and {} obstacles known".format(len(self.targets), len(self.obstacles)))
 
-    def waitForStart(self):
+    def wait_for_start(self):
         r = rospy.Rate(50)
         while not self.has_started:
             r.sleep()
+
+    def round_phase(self):
+        dt = rospy.Time.now() - self.round_start_time
+
+        return (dt.to_sec() / 20) % 1.0
 
     def target_facing_angle(self, roomba):
         """
