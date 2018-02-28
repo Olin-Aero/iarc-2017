@@ -20,7 +20,7 @@ from sensor_msgs.msg import CameraInfo
 from geometry_msgs.msg import Pose, PoseStamped, PoseWithCovariance, PoseWithCovarianceStamped
 from geometry_msgs.msg import Point, Quaternion
 
-from iarc_main.msg import Roomba, RoombaSighting, RoombaList
+from iarc_main.msg import Roomba, RoombaList
 import tf
 
 # Filter-Related ...
@@ -49,7 +49,7 @@ class UKFManagerROS(object):
         # create ROS interfaces
         self._tf = tf.TransformListener(True, cache_time=rospy.Duration(5))
         self._cam_sub = rospy.Subscriber(self._cam_topic, CameraInfo, self.cam_cb, queue_size=1)
-        self._sub = rospy.Subscriber(self._obs_topic, RoombaSighting, self.obs_cb, queue_size=1)
+        self._sub = rospy.Subscriber(self._obs_topic, RoombaList, self.obs_cb, queue_size=1)
         self._pub = rospy.Publisher(self._out_topic, RoombaList, queue_size=10)
         self._mgr = UKFManager(dt, self._sigma)
         self._t = rospy.Time.now()
@@ -173,7 +173,7 @@ class UKFManagerROS(object):
                         cov
                     ))
             # todo : fill in type information here
-            msg = Roomba(now, "map", Roomba.RED, loc)
+            msg = Roomba(last_seen=now, frame_id="map", type=Roomba.RED, visible_location=loc)
             msgs.append(msg)
         msg = RoombaList(Header(stamp=now,frame_id="map"), msgs)
         #print len(msgs)

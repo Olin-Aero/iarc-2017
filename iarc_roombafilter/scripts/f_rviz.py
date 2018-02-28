@@ -15,7 +15,7 @@ from geometry_msgs.msg import Pose, PoseStamped, PoseWithCovariance, PoseWithCov
 from geometry_msgs.msg import Point, Quaternion
 from sensor_msgs.msg import CameraInfo
 from geometry_msgs.msg import Point32, Polygon, PolygonStamped
-from iarc_main.msg import Roomba, RoombaSighting, RoombaList
+from iarc_main.msg import Roomba, RoombaList
 from gazebo_msgs.msg import ModelStates
 from visualization_msgs.msg import Marker, MarkerArray
 
@@ -39,7 +39,7 @@ class RVIZInterface(object):
 
         # subscribe points ...
         self._gz_sub = rospy.Subscriber('/gazebo/model_states', ModelStates, self.gz_cb, queue_size=1)
-        self._obs_sub = rospy.Subscriber("visible_roombas", RoombaSighting, self.obs_cb, queue_size=1)
+        self._obs_sub = rospy.Subscriber("visible_roombas", RoombaList, self.obs_cb, queue_size=1)
         self._est_sub = rospy.Subscriber("filtered_roombas", RoombaList, self.est_cb, queue_size=1)
 
         # publish points ...

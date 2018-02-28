@@ -11,7 +11,7 @@ import tf
 
 from sensor_msgs.msg import CameraInfo
 from gazebo_msgs.msg import ModelStates
-from iarc_main.msg import Roomba, RoombaSighting
+from iarc_main.msg import Roomba, RoombaList
 from std_msgs.msg import Header
 from geometry_msgs.msg import PoseWithCovariance, PoseWithCovarianceStamped, Point, PointStamped, PoseStamped
 
@@ -35,7 +35,7 @@ class GazeboInterface(object):
         self._cam_sub = rospy.Subscriber('/ardrone/bottom/camera_info', CameraInfo, self._cam_cb, queue_size=1)
 
         self._sub = rospy.Subscriber('/gazebo/model_states', ModelStates, self._gz_cb)
-        self._pub = rospy.Publisher('visible_roombas', RoombaSighting, queue_size=1)
+        self._pub = rospy.Publisher('visible_roombas', RoombaList, queue_size=1)
         self._msg = None
 
     def _cam_cb(self, msg):
@@ -109,15 +109,13 @@ class GazeboInterface(object):
 
             if (n.startswith('target')):
                 #TODO(yoonyoungcho) : Green-Red Differentiation somehow?
-                obs.append(Roomba(now, "/drone/base_footprint", Roomba.GREEN, loc))
+                obs.append(Roomba(last_seen=now, frame_id="/drone/base_footprint", type=Roomba.GREEN, visible_location=loc))
             elif (n.startswith('obstacle')):
-                obs.append(Roomba(now, "/drone/base_footprint", Roomba.OBSTACLE, loc))
+                obs.append(Roomba(last_seen=now, frame_id="/drone/base_footprint", type=Roomba.OBSTACLE, visible_location=loc))
 
-        msg = RoombaSighting(
+        msg = RoombaList(
                 header = Header(stamp=now, frame_id="/drone/base_footprint"),
-                data = obs,
-                fov_center = PointStamped(Header(stamp=now, frame_id="/drone/base_footprint"), Point(0,0,0)),
-                fov_radius = R
+                data = obs
                 )
         self._pub.publish(msg)
 
