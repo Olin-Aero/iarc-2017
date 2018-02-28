@@ -1,8 +1,14 @@
 """
-Observation Data.
-Really feels like overkill.
+Generic Observation-Area.
 """
+
 import numpy as np
+from shapely.geometry import Point
+from shapely.geometry.polygon import Polygon
+
+point = Point(0.5, 0.5)
+polygon = Polygon([(0, 0), (0, 1), (1, 1), (1, 0)])
+print(polygon.contains(point))
 
 class Observation(object):
     def __init__(self):
@@ -33,3 +39,9 @@ class ConicObservation(CircularObservation):
         self.x=x
         self.y=y
         self.r=self.h * np.tan(self.aov/2)
+
+class PolygonObservation(Observation):
+    def __init__(self, pts):
+        self._poly = Polygon(pts)
+    def __contains__(self, p):
+        return self._poly.contains(Point(p))

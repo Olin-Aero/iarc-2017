@@ -16,6 +16,7 @@ TODO(yoonyoungcho) : resolve iterative prediction vs. sparse updates
 import rospy
 
 from std_msgs.msg import Header
+from sensor_msgs.msg import CameraInfo
 from geometry_msgs.msg import Pose, PoseStamped, PoseWithCovariance, PoseWithCovarianceStamped
 from geometry_msgs.msg import Point, Quaternion
 
@@ -40,18 +41,33 @@ class UKFManagerROS(object):
         self._p_keep = rospy.get_param('~p_keep', default=cfg.P_KEEP)
         self._p_match = rospy.get_param('~p_match', default=cfg.P_MATCH)
         self._p_clear = rospy.get_param('~p_clear', default=cfg.P_CLEAR)
+        self._cam_topic = rospy.get_param('~cam_topic', default='/ardrone/bottom/camera_info')
         self._obs_topic = rospy.get_param('~obs_topic', default='visible_roombas')
         self._out_topic = rospy.get_param('~out_topic', default='filtered_roombas')
         self._rate = rospy.get_param('~rate', default=50) #50hz
 
         # create ROS interfaces
         self._tf = tf.TransformListener(True, cache_time=rospy.Duration(5))
+        self._cam_sub = rospy.Subscriber(self._cam_topic, CameraInfo, self.cam_cb, queue_size=1)
         self._sub = rospy.Subscriber(self._obs_topic, RoombaSighting, self.obs_cb, queue_size=1)
         self._pub = rospy.Publisher(self._out_topic, RoombaList, queue_size=10)
         self._mgr = UKFManager(dt, self._sigma)
         self._t = rospy.Time.now()
 
         self._obs = None
+        self._cam_frame = None
+
+    def cam_cb(self, msg):
+        """ Get camera info once, and quit """
+        self._K = np.reshape(msg.K, (3,3))
+        self._w = msg.width
+        self._h = msg.height
+        self._cam_frame = msg.header.frame_id
+
+        if self._cam_sub:
+            self._cam_sub.unregister()
+            self._cam_sub = None
+
 
     def obs_cb(self, msg):
         """
@@ -75,13 +91,27 @@ class UKFManagerROS(object):
             msg.fov_center.header.stamp = rospy.Time(0)
             pos = self._tf.transformPoint('map', msg.fov_center)
         except tf.Exception as e:
+            print 'hmm?', e
             return
 
-        obs_ar = CircularObservation(
-                pos.point.x,
-                pos.point.y,
-                msg.fov_radius
-                )
+        try:
+            if self._cam_frame is not None:
+                _, q = self._tf.lookupTransform(self._cam_frame, 'map', rospy.Time(0))
+                t, _ = self._tf.lookupTransform('map', self._cam_frame, rospy.Time(0))
+                q = [q[3], q[0], q[1], q[2]] # reorder xyzw-> wxyz
+                ar = observability(self._K, self._w, self._h, q, t, False)
+                obs_ar = PolygonObservation(ar)
+            else:
+                return
+        except tf.Exception as e:
+            print 'eh?', e
+            return
+
+        #obs_ar = CircularObservation(
+        #        pos.point.x,
+        #        pos.point.y,
+        #        msg.fov_radius
+        #        )
 
         # format observation data ...
         obs = []

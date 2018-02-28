@@ -6,15 +6,20 @@ Should display what all the nodes produces.
 Use for debugging purposes.
 """
 
+import numpy as np
 import rospy
 import tf
 
 from std_msgs.msg import Header
 from geometry_msgs.msg import Pose, PoseStamped, PoseWithCovariance, PoseWithCovarianceStamped
 from geometry_msgs.msg import Point, Quaternion
+from sensor_msgs.msg import CameraInfo
+from geometry_msgs.msg import Point32, Polygon, PolygonStamped
 from iarc_main.msg import Roomba, RoombaSighting, RoombaList
 from gazebo_msgs.msg import ModelStates
 from visualization_msgs.msg import Marker, MarkerArray
+
+from f_utils import observability
 
 class RVIZInterface(object):
     def __init__(self):
@@ -27,12 +32,17 @@ class RVIZInterface(object):
         self._obs = []
         self._est = []
 
-        # subscribe ...
-        self._gz_sub = rospy.Subscriber('/gazebo/model_states', ModelStates, self.gz_cb, queue_size=1)
-        self._obs_sub = rospy.Subscriber("roomba_obs", RoombaSighting, self.obs_cb, queue_size=1)
-        self._est_sub = rospy.Subscriber("roombas", RoombaList, self.est_cb, queue_size=1)
+        self._K = None
+        self._w = None
+        self._h = None
+        self._cam_frame = None
 
-        # publish ...
+        # subscribe points ...
+        self._gz_sub = rospy.Subscriber('/gazebo/model_states', ModelStates, self.gz_cb, queue_size=1)
+        self._obs_sub = rospy.Subscriber("visible_roombas", RoombaSighting, self.obs_cb, queue_size=1)
+        self._est_sub = rospy.Subscriber("filtered_roombas", RoombaList, self.est_cb, queue_size=1)
+
+        # publish points ...
         self._pub = rospy.Publisher("roomba_markers", MarkerArray, queue_size=10)
         self._mks = MarkerArray()
         self._mk_max = 50 # 14 * 3 + 2 + leeway
@@ -45,6 +55,26 @@ class RVIZInterface(object):
             m.color.r = m.color.g = m.color.b = 1.0
             m.color.a = 0.0
             self._mks.markers.append(m)
+
+        # sub/pub, area related
+        self._cam_sub = rospy.Subscriber('/ardrone/bottom/camera_info', CameraInfo, self.cam_cb, queue_size=1)
+        self._ar_pub = rospy.Publisher("obs_ar", PolygonStamped, queue_size=10)
+        self._ar_msg = PolygonStamped()
+
+    def _a2p(self, ar):
+        return Polygon([Point32(*v) for v in ar])
+
+
+    def cam_cb(self, msg):
+        """ Get camera info once, and quit """
+        self._K = np.reshape(msg.K, (3,3))
+        self._w = msg.width
+        self._h = msg.height
+        self._cam_frame = msg.header.frame_id
+
+        if self._cam_sub:
+            self._cam_sub.unregister()
+            self._cam_sub = None
 
     def gz_cb(self, msg):
         self._gz = [p for (n,p) in zip(msg.name, msg.pose) if (n.startswith('target') or n.startswith('obstacle'))]
@@ -67,12 +97,30 @@ class RVIZInterface(object):
         except Exception:
             self._est = []
 
+    def _publish_area(self):
+        try:
+            if self._cam_frame:
+                # looks a bit stupid ... TODO(yoonyoungcho): fix
+                _, q = self._tf.lookupTransform(self._cam_frame, 'map', rospy.Time(0))
+                t, _ = self._tf.lookupTransform('map', self._cam_frame, rospy.Time(0))
+                q = [q[3], q[0], q[1], q[2]]
+                ar = observability(self._K, self._w, self._h, q, t, False)
+                poly = self._a2p(ar)
+                #print np.shape(ar) #
+                self._ar_msg.header.stamp = rospy.Time.now()
+                self._ar_msg.header.frame_id = 'map'
+                self._ar_msg.polygon = poly
+                self._ar_pub.publish(self._ar_msg)
+        except Exception as e:
+            print 'Exception!!!!', e
+
+
     def publish(self):
-        print dir(self._mks)
+        self._publish_area()
         self._mk_idx = 0
         if self._drone:
             self.add_marker(self._drone, [1,1,1, 1.0], 0.2)
-            self.add_marker(self._drone, [1,1,1, 0.1], 2*3.0) #+-3m
+            #self.add_marker(self._drone, [1,1,1, 0.1], 2*3.0) #+-3m
         for p in self._gz:
             self.add_marker(p, [1,0,0, 0.3], 0.2) # red = ground truth
         for p in self._obs:
