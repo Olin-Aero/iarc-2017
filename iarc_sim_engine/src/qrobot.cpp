@@ -7,9 +7,9 @@ QRobot::QRobot(
 }
 
 void QRobot::update(float dt){
-    float x,y,t;
+    float x,y,z,t;
     robot->update(dt);
-    robot->get_pos(x,y,t);
+    robot->get_pos(x,y,z,t);
     QPointF pos(x,y);
     item->set_pos(pos,t);
 }

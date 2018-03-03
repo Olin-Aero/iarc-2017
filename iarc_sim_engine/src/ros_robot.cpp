@@ -16,7 +16,7 @@ ROSRobot::~ROSRobot(){
 void ROSRobot::publish(){
     //broadcast tf
     tf::Transform xform;
-    xform.setOrigin(tf::Vector3(x,y,0.0));
+    xform.setOrigin(tf::Vector3(x,y,z));
     tf::Quaternion q;
     q.setRPY(0,0,t);
     xform.setRotation(q);
@@ -25,12 +25,15 @@ void ROSRobot::publish(){
     //also publish
     pos_msg.x=x;
     pos_msg.y=y;
+    //pos_msg.z=z;
     pos_msg.theta=t;
     pub.publish(pos_msg);
 }
 
 void ROSRobot::cmd_vel_cb(const geometry_msgs::TwistConstPtr& msg){
-    float v = msg->linear.x;
+    float vx = msg->linear.x;
+    float vy = msg->linear.y;
+    float vz = msg->linear.z;
     float w = msg->angular.z;
-    set_vel(v,w);
+    set_vel(vx,vy,vz,w);
 }

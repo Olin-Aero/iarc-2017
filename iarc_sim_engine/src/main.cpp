@@ -60,7 +60,7 @@ class ROSInterface{
 
             // create ...
             auto robot = std::make_shared<ROSRobot>(nh, req.name);
-            robot->set_pos(req.x,req.y,req.t);
+            robot->set_pos(req.x,req.y,req.z,req.t);
             auto item = new RobotItem(dims, QString::fromStdString(req.img));
             w.spawn(item);
 
@@ -106,7 +106,7 @@ class ROSInterface{
                     return (s == req.name);
                     });
             if(it != robots.end()){
-                (*it)->robot->set_pos(req.x, req.y, req.t);
+                (*it)->robot->set_pos(req.x, req.y, req.z, req.t);
                 res.success = true;
                 return true;
             }
@@ -119,8 +119,18 @@ class ROSInterface{
             for(auto& r : robots){
                 r->update(dt);
             }
+
+            std::string s;
             for(auto& r : robots){
                 dynamic_cast<ROSRobot&>(*(r->robot)).publish();
+
+                // TODO : ugly hack to display altitude
+                r->robot->get_name(s);
+                if(s == "drone"){
+                    float x,y,z,t;
+                    r->robot->get_pos(x,y,z,t);
+                    w.show_height(z);
+                }
             }
             clock_msg.clock = ros::Time(w.get_time());
             clock_pub.publish(clock_msg);

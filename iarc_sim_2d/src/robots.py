@@ -1,7 +1,11 @@
 #!/usr/bin/env python
 import numpy as np
+
 import config as cfg
+import rospy
 import tf
+import actionlib
+from std_msgs.msg import String
 from geometry_msgs.msg import Twist
 from random import choice
 '''
@@ -142,7 +146,7 @@ class TargetRoomba(Roomba):
                 # print("Turning counterclockwise")
                 self.z_w = cfg.ROOMBA_ANGULAR_SPEED
                 self.heading += amount
-            
+
             if self.turn_target < 0:
                 # we have completed the turn, reset to forward motion
                 # print("turn completed")
@@ -187,7 +191,7 @@ class ObstacleRoomba(Roomba):
         delta - change in time since last update (seconds)
         elapsed - total time elapsed since start (milliseconds)
         '''
-        # reorient so we tangent to a circle centered at the origin 
+        # reorient so we tangent to a circle centered at the origin
         #ang = np.arctan2(10 - self.pos[1], 10 - self.pos[0])
         #self.heading = ang
         # self.x_vel = cfg.ROOMBA_LINEAR_SPEED
@@ -206,7 +210,7 @@ class ObstacleRoomba(Roomba):
         if self.state == cfg.ROOMBA_STATE_IDLE:
             self.x_vel = 0
             self.z_w = 0
-            
+
         if self.state == cfg.ROOMBA_STATE_FORWARD:
             self.x_vel = cfg.ROOMBA_LINEAR_SPEED
             self.z_w = self.x_vel / cfg.ROOMBA_OBSTACLE_TURN_RADIUS
@@ -242,7 +246,7 @@ class ObstacleRoomba(Roomba):
 
         d = np.sqrt(dx**2 + dy**2)
         if d < self_radius + other_radius and np.dot(u_i, [dx,dy]) > 0:
-            print("Pole height is %f" %(cfg.ROOMBA_HEIGHT+self.pole_height))
+            #print("Pole height is %f" %(cfg.ROOMBA_HEIGHT+self.pole_height))
             self.collisions['front'] = True
 
     def bounds(self, self_pos):
@@ -269,13 +273,39 @@ class Drone(object):
         self.tag = tag
         self.visible_roombas = []
 
+        self.obsticle_bump_count = 0
+
+        # makes it so that drone has to distance itself before it can collide again
+        self.can_collide = True
+        self.collision_center = []
+
+        self.OutOfBounds = False
+        self.TimeOOB = 0
+
     def limitSpeed(self, speedLimit):
         currentSpeed = np.linalg.norm(self.vel3d)
         if currentSpeed > speedLimit:
             self.vel3d = self.vel3d * speedLimit/currentSpeed
 
-    def collision(self, self_pos, self_heading, other_pos, other_heading, self_radius=cfg.DRONE_RADIUS, other_radius=cfg.ROOMBA_RADIUS):
-        pass
+    def collision(self, self_pos, self_heading, other_pos, other_heading, self_radius=cfg.DRONE_RADIUS, other_radius=cfg.OBSTACLE_POLE_RADIUS):
+
+        dy = other_pos[1] - self_pos[1]
+        dx = other_pos[0] - self_pos[0]
+
+        d = np.sqrt(dx**2 + dy**2)
+
+        if self.can_collide == True:
+            if d < self_radius + other_radius:
+                print("Collision with obsticle roomba pole")
+                self.obsticle_bump_count += 1
+
+                self.collision_center = [other_pos[0], other_pos[1]]
+                self.can_collide = False
+
+        if self.can_collide == False:
+            if np.sqrt((self.collision_center[0] - self.pos3d[0]) ** 2 + (self.collision_center[1] - self.pos3d[1]) ** 2) > self_radius + other_radius + 0.35:
+                self.can_collide = True
+                self.collision_center = []
 
     def record_vel(self, data):
         self.vel3d = data
@@ -283,9 +313,13 @@ class Drone(object):
     def update(self, delta, elapsed):
         z_vel = self.vel3d.linear.z
         self.pos3d[2] += z_vel * delta
+        if self.pos3d[2] < 0:
+            self.pos3d[2] = 0
+        self.heightPublisher.publish(self.pos3d[2])
 
     def get_visible_roombas(self, roomba_array, pos_array):
         visible_roombas = []
+        index_list = []
         for i in xrange(0, len(pos_array)):
 
             dy = pos_array[i][1] - self.pos3d[1]
@@ -295,4 +329,6 @@ class Drone(object):
 
             if d < np.sin(cfg.BOTTOM_CAMERA_FOV)*self.pos3d[2]:
                 visible_roombas = np.append(visible_roombas, roomba_array[i])
+                index_list.append(i)
         self.visible_roombas = visible_roombas
+        self.index_list = index_list

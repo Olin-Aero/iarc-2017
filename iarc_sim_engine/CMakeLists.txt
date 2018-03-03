@@ -174,7 +174,7 @@ target_link_libraries(iarc_sim_node
     ${QT_LIBRARIES}
     )
 
-add_dependencies(iarc_sim_node ${catkin_EXPORTED_TARGETS})
+add_dependencies(iarc_sim_node ${catkin_EXPORTED_TARGETS} iarc_sim_engine_generate_messages_cpp)
 
 ## Declare a C++ library
 # add_library(${PROJECT_NAME}
