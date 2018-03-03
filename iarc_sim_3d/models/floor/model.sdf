@@ -1,0 +1,54 @@
+<?xml version="1.0"?>
+<sdf version="1.4">
+    <model name="IARCFloor">
+        <static>true</static>
+        <link name="link">
+            <collision name="collision">
+                <geometry>
+                    <plane>
+                        <normal>0 0 1</normal>
+                        <size>40 40</size>
+                    </plane>
+                </geometry>
+                <surface>
+                    <friction>
+                        <ode>
+                            <mu>100.0</mu>
+                            <mu2>50.0</mu2>
+                            <fdir1>0 0 0</fdir1>
+                            <slip1>0</slip1>
+                            <slip2>0</slip2>
+                        </ode>
+                    </friction>
+                    <bounce/>
+                    <contact>
+                        <ode>
+                            <soft_cfm>0</soft_cfm>
+                            <soft_erp>0.2</soft_erp>
+                            <kp>1e10</kp>
+                            <kd>1</kd>
+                            <max_vel>100.0</max_vel>
+                            <min_depth>0.0001</min_depth>
+                        </ode>
+                    </contact>
+                </surface>
+            </collision>
+
+            <visual name="visual">
+                <cast_shadows>0</cast_shadows>
+                <geometry>
+                    <plane>
+                        <normal>0 0 1</normal>
+                        <size>40 40</size>
+                    </plane>
+                </geometry>
+                <material>
+                    <script>
+                        <uri>file://media/materials/scripts/iarc.material</uri>
+                        <name>IARC/Floor1</name>
+                    </script>
+                </material>
+            </visual>
+        </link>
+    </model>
+</sdf>
