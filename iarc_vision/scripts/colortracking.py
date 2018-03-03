@@ -65,43 +65,35 @@ class ColorTrackerROS(object):
 class ColorTracker(object):
     def __init__(self):
         self.red_lower_bound = 0
-        cv2.namedWindow('video_window')
-        cv2.waitKey(5)
-        cv2.setMouseCallback('video_window', self.process_mouse_event)
     def find_bounding_boxes(self, image):
         """
         Input: OpenCV image (numpy array)
-        Output: List of bounding boxes (topleft, bottomright, isRed)
+        Output: List of bounding boxes (topleft, b;;ottomright, isRed)
         """
         # TODO: Make this function
         self.cv_image = cv2.imread(image)
-        cv2.namedWindow('threshold_image')
-        cv2.createTrackbar('red lower bound', 'threshold_image', 0, 255, self.set_red_lower_bound)
-        while(True):
-	        binary_image = cv2.inRange(self.cv_image, np.array([self.red_lower_bound,128,128],dtype = "uint8"),np.array([255,255,255],dtype = "uint8"))
-	        cv2.namedWindow('threshold_ima')
-	        cv2.imshow("images",binary_image)
-	        if(cv2.waitKey(1) & 0xFF == ord('q')):
-	       		break
-		cv2.destroyAllWindows()
-        print(binary_image)
+        binary_image = cv2.inRange(self.cv_image, np.array([0,0,220],dtype = "uint8"),np.array([255,150,255],dtype = "uint8"))
+        #cv2.imshow("images",binary_image)
+        #cv2.waitKey(0)
+        ret,thresh = cv2.threshold(binary_image,127,255,0)
+        image,contours,hierarchy = cv2.findContours(thresh,1,2)
+        #cnt = countours[0]
+        maxcnt = contours[0]
+        for i in contours:
+        	if(cv2.contourArea(i) > cv2.contourArea(maxcnt)):
+        		maxcnt = i
+        cnt = maxcnt
+        print(cnt)
+        rect = cv2.minAreaRect(cnt)
+    	box = cv2.boxPoints(rect)
+    	box = np.int0(box)
+    	cv2.drawContours(self.cv_image,[box],0,(0,0,255),2)
+    	cv2.imshow("images",self.cv_image)
+        cv2.waitKey(0)
         return [((20,20),(30,40),True)]
     def set_red_lower_bound(self, val):
         """ A callback function to handle the OpenCV slider to select the red lower bound """
         self.red_lower_bound = val
-
-    def process_mouse_event(self, event, x,y,flags,param):
-        """ Process mouse events so that you can see the color values associated
-            with a particular pixel in the camera images """
-        image_info_window = 255*np.ones((500,500,3))
-        cv2.putText(image_info_window,
-                    'Color (b=%d,g=%d,r=%d)' % (self.cv_image[y,x,0], self.cv_image[y,x,1], self.cv_image[y,x,2]),
-                    (5,50),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    1,
-                    (0,0,0))
-        cv2.imshow('image_info', image_info_window)
-        cv2.waitKey(5)
 def testImageFromFile(filename):
     tracker = ColorTracker()
     # TODO: Load image
