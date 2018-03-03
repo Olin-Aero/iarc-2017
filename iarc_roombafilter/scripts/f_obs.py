@@ -6,10 +6,6 @@ import numpy as np
 from shapely.geometry import Point
 from shapely.geometry.polygon import Polygon
 
-point = Point(0.5, 0.5)
-polygon = Polygon([(0, 0), (0, 1), (1, 1), (1, 0)])
-print(polygon.contains(point))
-
 class Observation(object):
     def __init__(self):
         pass
@@ -36,6 +32,10 @@ class CircularObservation(object):
 
 class ConicObservation(CircularObservation):
     def __init__(self, x, y, h, aov):
+        """
+        Conic Observation. Note that this may contain errors,
+        As seen in integration tests between filter2 and predandstrat.
+        """
         super(ConicObservation, self).__init__(x, y, h * np.tan(aov/2))
 
 class PolygonObservation(Observation):
