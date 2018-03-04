@@ -5,7 +5,7 @@ project(docker-sample)
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
-  ros-tutorials
+  roscpp_tutorials
 )
 
 ## System dependencies are found with CMake's conventions
