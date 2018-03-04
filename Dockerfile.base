@@ -25,7 +25,9 @@ RUN bash -c "source ros_entrypoint.sh && \
     cd /catkin_ws/src && \
     catkin_init_workspace && \
     cd .. && catkin_make && \
-    echo 'source /catkin_ws/devel/setup.bash' >> /ros_entrypoint.sh"
+    echo 'source /catkin_ws/devel/setup.bash' >> /ros_entrypoint.sh && \
+    echo 'source /ros_entrypoint.sh' >> /root/.bashrc \
+    echo 'set +e' >> /root/.bashrc"
 
 # Add dependencies
 COPY --from=deplist /package /catkin_ws/src/iarc-2017

@@ -1,0 +1,12 @@
+FROM ros:iarc-2017-base
+
+# install package
+COPY . /catkin_ws/src/iarc-2017
+
+# For now, ignore the 3D simulator becacuse it needs such big dependencies
+RUN rm -rf \
+	/catkin_ws/src/iarc-2017/iarc_sim_3d \
+	/catkin_ws/src/iarc-2017/libraries/irobot_create_description
+
+RUN bash -c "source ros_entrypoint.sh && \
+    cd /catkin_ws && catkin_make"
