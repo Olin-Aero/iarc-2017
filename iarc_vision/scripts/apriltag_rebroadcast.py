@@ -10,13 +10,13 @@ from geometry_msgs.msg import PoseWithCovarianceStamped, PoseWithCovariance, Poi
 from tf import TransformBroadcaster, TransformListener
 from tf.transformations import euler_from_quaternion, quaternion_from_euler
 
-from iarc_main.msg import RoombaSighting, Roomba
+from iarc_main.msg import RoombaList, Roomba
 
 
 class TagTransformer(object):
     """
     A TagTransformer is responsible for transforming detections by the apriltags_ros library
-    into RoombaSighting messages for processing by the rest of the stack.
+    into RoombaList messages for processing by the rest of the stack.
     """
 
     def __init__(self, linear_covariance=0.1, angular_covariance=0.5, tf_frame='odom', camera_fov=1.0):
@@ -27,7 +27,7 @@ class TagTransformer(object):
         :param camera_fov (float): The FOV radius of the camera, in meters.
         """
         self.tf = TransformListener()
-        self.pub = rospy.Publisher('visible_roombas', RoombaSighting, queue_size=0)
+        self.pub = rospy.Publisher('visible_roombas', RoombaList, queue_size=0)
 
         self.tf_pub = TransformBroadcaster()
 
@@ -38,7 +38,6 @@ class TagTransformer(object):
 
         self.fov = camera_fov
 
-        self.camera_frame = tf_frame  # TF frame is unknown until we get a message with a tag in it
         self.map_frame = tf_frame
 
         # Negates x and y coordinates of tag detections
@@ -49,11 +48,11 @@ class TagTransformer(object):
     def on_tags(self, msg):
         """
         Handler for AprilTag detection.
-        Converts AprilTagDetectionArray to a RoombaSighting object, then publishes it.
+        Converts AprilTagDetectionArray to a RoombaList object, then publishes it.
 
         :type msg: AprilTagDetectionArray
         """
-        sighting = RoombaSighting()
+        sighting = RoombaList()
 
         for tag in msg.detections:  # type: AprilTagDetection
 
@@ -68,7 +67,6 @@ class TagTransformer(object):
             pose.pose.position.z = 0
             _, _, z_angle = euler_from_quaternion([getattr(pose.pose.orientation, s) for s in 'xyzw'])
             pose.pose.orientation = Quaternion(*quaternion_from_euler(0, 0, z_angle))
-
 
             roomba = Roomba()
             roomba.visible_location = PoseWithCovarianceStamped(
@@ -86,10 +84,9 @@ class TagTransformer(object):
 
             roomba.frame_id = roomba_frame_id
 
-            sighting.data.append(roomba)
-            sighting.magical_ids.append(tag.id)
+            roomba.magical_id = tag.id+100
 
-            self.camera_frame = tag.pose.header.frame_id
+            sighting.data.append(roomba)
 
             # self.tf_pub.sendTransform(roomba.visible_location.pose.pose.position,
             #                           roomba.visible_location.pose.pose.orientation,
@@ -106,17 +103,6 @@ class TagTransformer(object):
                 )
             )
 
-        # TODO: Use tf to get camera position and altitude at capture time for better FOV estimate
-        # This potentially requires subscribing to tag_detections_poses as well, to get timestamps of empty
-        # detection events.
-        sighting.fov_center = PointStamped(
-            header=Header(
-                stamp=rospy.Time(0),
-                frame_id=self.camera_frame
-            ),
-            point=Point()
-        )
-        sighting.fov_radius = self.fov
 
         self.pub.publish(sighting)
 
