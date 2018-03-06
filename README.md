@@ -1,9 +1,24 @@
 This is the primary repository for the Olin College Aero club's attempt at competing in IARC 2018.
 
 # Running with Docker
+## Installing GPU acceleration
+<!-- http://wiki.ros.org/docker/Tutorials/Hardware%20Acceleration -->
+```
+# https://nvidia.github.io/nvidia-docker/
+curl -s -L https://nvidia.github.io/nvidia-docker/gpgkey | \
+  sudo apt-key add -
+curl -s -L https://nvidia.github.io/nvidia-docker/ubuntu16.04/amd64/nvidia-docker.list | \
+  sudo tee /etc/apt/sources.list.d/nvidia-docker.list
+sudo apt-get update
+
+# https://github.com/NVIDIA/nvidia-docker/wiki/Installation-(version-1.0)
+sudo apt-get install nvidia-docker
+
+```
+
 ## Starting the container and getting a terminal
 ```
-docker run -it --rm \
+nvidia-docker run -it --rm \
 	--net foo \
 	--name devel \
 	--env="DISPLAY" \

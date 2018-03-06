@@ -2,6 +2,7 @@ FROM ros:iarc-2017-base
 
 # install package
 COPY . /catkin_ws/src/iarc-2017
+COPY docker/ui /bin/ui
 
 # For now, ignore the 3D simulator becacuse it needs such big dependencies
 RUN rm -rf \

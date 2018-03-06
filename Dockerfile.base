@@ -7,11 +7,17 @@ RUN cd /package && \
 
 FROM osrf/ros:kinetic-desktop-full-xenial
 
+# nvidia-docker hooks
+LABEL com.nvidia.volumes.needed="nvidia_driver"
+ENV PATH /usr/local/nvidia/bin:${PATH}
+ENV LD_LIBRARY_PATH /usr/local/nvidia/lib:/usr/local/nvidia/lib64:${LD_LIBRARY_PATH}
+
 # Install pip
 RUN apt-get update && \
 	apt-get install -y python-pip sudo && \
-	pip install --upgrade pip && \
-	rm -rf /var/lib/apt/lists/
+	pip install --upgrade pip 
+    #&& \
+	#rm -rf /var/lib/apt/lists/
 
 # setup Catkin workspace
 # RUN apt-get update && apt-get install -y catkin && rm -rf /var/lib/apt/lists/
