@@ -87,13 +87,13 @@ class ColorTracker(object):
         #cnt = countours[0]
         maxcnt = []
         for i in contours:
-        	print(cv2.contourArea(i))
-        	if(cv2.contourArea(i) > 100:
+        	if(cv2.contourArea(i) > 1000):
         		maxcnt.append(i)
-        rect = cv2.minAreaRect(cnt)
-    	box = cv2.boxPoints(rect)
-    	box = np.int0(box)
-    	cv2.drawContours(self.cv_image,[box],0,(0,0,255),2)
+        for i in maxcnt:
+	        rect = cv2.minAreaRect(i)
+	    	box = cv2.boxPoints(rect)
+	    	box = np.int0(box)
+	    	cv2.drawContours(self.cv_image,[box],0,(0,0,255),2)
     	cv2.imshow("HSV image",hsv_image)
         #cv2.waitKey(0)
 
@@ -103,7 +103,7 @@ class ColorTracker(object):
         cv2.imshow("images",self.cv_image)
         cv2.waitKey(0)
         return [((20,20),(30,40),True)]
-    def set_red_lower_bound(self, val):
+def set_red_lower_bound(self, val):
         """ A callback function to handle the OpenCV slider to select the red lower bound """
         self.red_lower_bound = val
 def testImageFromFile(filename):
