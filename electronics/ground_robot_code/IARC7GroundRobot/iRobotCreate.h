@@ -12,6 +12,7 @@
  ******************************************************************************/
  
  #include <SoftwareSerial.h>
+#define Serial1 Serial
 
 void coiSend(int val);
 void coiSetBaud(byte baud);
@@ -89,14 +90,14 @@ void coiInit()
  //Serial1.begin(38400);
  coiSetBaud(COI_BAUD_115200); // Use default Create 2 Baud Rate
  Serial1.begin(115200);
- Serial.println("Serial communications opened successfully!");
+ //Serial.println("Serial communications opened successfully!");
  
   // Print out the Sketch and Version Info
-  Serial.println("IARC Mission 7 Ground Robot Firmware");
-  Serial.print("Release Version: ");
-  Serial.print(VERSION_MAJOR);
-  Serial.print(".");
-  Serial.println(VERSION_MINOR);
+  //Serial.println("IARC Mission 7 Ground Robot Firmware");
+  //Serial.print("Release Version: ");
+  //Serial.print(VERSION_MAJOR);
+  //Serial.print(".");
+  //Serial.println(VERSION_MINOR);
   
   delay(200);
 }
@@ -134,7 +135,7 @@ byte coiCheckBump()
     if(isTimeUp(&sciSerialBegin, &COI_SERIAL_TIMEOUT))
     {
       flag = false;
-      Serial.println("WARN: Serial Read Timeout in coiCheckBump()");
+      //Serial.println("WARN: Serial Read Timeout in coiCheckBump()");
     }
     if(Serial1.available()) flag = false;
     whileCount++;
@@ -143,8 +144,8 @@ byte coiCheckBump()
   if(Serial1.available())
     bump = Serial1.read();
   // In case we need to check what the create is sending back
-  //Serial.print("Bump Sensor Code: "); 
-  //Serial.println(bump, HEX);
+  ////Serial.print("Bump Sensor Code: "); 
+  ////Serial.println(bump, HEX);
   return bump;
 }
 
@@ -201,7 +202,7 @@ static boolean isTimeUp(unsigned long *previous, unsigned int *interval)
 void coiSend(byte val)
 {
   Serial1.write(val);
-   //Serial.println(val); // DEBUG
+   ////Serial.println(val); // DEBUG
 }
 
 // Send the Create 2 Bytes
@@ -209,7 +210,7 @@ void coiSend(int val)
 {
   Serial1.write(val >> 8); // Send the high byte
   Serial1.write(val & 0xFF);  // Send the low byte
-   //Serial.println(val); // DEBUG
+   ////Serial.println(val); // DEBUG
 }
 
 

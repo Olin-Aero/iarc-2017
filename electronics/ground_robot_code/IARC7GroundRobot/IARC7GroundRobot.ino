@@ -83,7 +83,7 @@ FSM fsm = FSM(Start);     // Initialize state machine, set start state
 #include "StateFunctions.h"
 
 void setup() {
-  Serial.begin(115200);
+  //Serial.begin(115200);
   pinMode(redLed, OUTPUT);
   pinMode(greenLed, OUTPUT);
   

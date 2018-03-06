@@ -72,12 +72,12 @@ void chooseType()
 {
   if(digitalRead(targetSwitchPin))
   {
-    Serial.println("Choosing Target Profile");
+    //Serial.println("Choosing Target Profile");
     fsm.transitionTo(TargetWait);
   } 
   else
   {
-    Serial.println("Choosing Obstacle Profile");
+    //Serial.println("Choosing Obstacle Profile");
     fsm.transitionTo(ObstacleWait);
   }
 }

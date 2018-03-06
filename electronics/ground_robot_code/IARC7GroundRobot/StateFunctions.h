@@ -39,7 +39,7 @@ unsigned long beginTopTouch = 0;
 
 void obsWaitStart()
 {
-  Serial.println("State Change: ObstacleWait");
+  //Serial.println("State Change: ObstacleWait");
   coiPassiveMode();
   digitalWrite(redLed, HIGH);
   digitalWrite(greenLed, LOW);
@@ -47,7 +47,7 @@ void obsWaitStart()
 
 void obsRunStart()
 {
-  Serial.println("State Change: ObstacleRun");
+  //Serial.println("State Change: ObstacleRun");
   coiSafeMode();
   digitalWrite(redLed, HIGH);
   digitalWrite(greenLed, HIGH);
@@ -59,7 +59,7 @@ void obsRunStart()
 
 void obsCrashStart()
 {
-  Serial.println("State Change: ObstacleCollision");
+  //Serial.println("State Change: ObstacleCollision");
   coiStopMoving();
   digitalWrite(redLed, HIGH);
   digitalWrite(greenLed, HIGH);
@@ -67,7 +67,7 @@ void obsCrashStart()
 
 void trgtWaitStart()
 {
-  Serial.println("State Change: TargetWait");
+  //Serial.println("State Change: TargetWait");
   digitalWrite(greenLed, HIGH);
   digitalWrite(redLed, LOW);
   coiPassiveMode();
@@ -75,7 +75,7 @@ void trgtWaitStart()
 
 void trgtRunStart()
 {
-  Serial.println("State Change: TargetRun");
+  //Serial.println("State Change: TargetRun");
   coiSafeMode();
   coiDriveDirect(robotSpeed, robotSpeed);
   digitalWrite(greenLed, HIGH);
@@ -86,7 +86,7 @@ void trgtRunStart()
 
 void vNoiseStart()
 {
-  Serial.println("State Change: TrajectoryNoise");
+  //Serial.println("State Change: TrajectoryNoise");
   long rand = random(randomMax);
   int offset = (int) rand - randomMax / 2;
   if(MAX_NOISE_TEST)
@@ -99,33 +99,33 @@ void vNoiseStart()
 
 void trgtKeepAwakeStart()
 {
-  Serial.println("Toggling BRC line to keep robot awake");
+  //Serial.println("Toggling BRC line to keep robot awake");
   digitalWrite(brcPin, LOW);
-  Serial.println("BRC low");
+  //Serial.println("BRC low");
   delay(750);
   coiSafeMode();
   digitalWrite(brcPin, HIGH);
-  Serial.println("BRC high");
+  //Serial.println("BRC high");
   delay (750);
   coiPassiveMode();
 }
 
 void obsKeepAwakeStart()
 {
-  Serial.println("Toggling BRC line to keep robot awake");
+  //Serial.println("Toggling BRC line to keep robot awake");
   digitalWrite(brcPin, LOW);
-  Serial.println("BRC low");
+  //Serial.println("BRC low");
   delay(750);
   coiSafeMode();
   digitalWrite(brcPin, HIGH);
-  Serial.println("BRC high");
+  //Serial.println("BRC high");
   delay (750);
   coiPassiveMode();
 }
 
 void vReverseStart()
 {
-  Serial.println("State Change: Reverse");
+  //Serial.println("State Change: Reverse");
   coiDriveDirect(-robotSpeed/2, robotSpeed/2);
   digitalWrite(greenLed, HIGH);  
   digitalWrite(redLed, LOW);
@@ -134,13 +134,13 @@ void vReverseStart()
 
 void trgtCrashStart()
 {
-  Serial.println("State Change: TargetCollision");
+  //Serial.println("State Change: TargetCollision");
   coiStopMoving();
 }
 
 void touchStart()
 {
-  Serial.println("State Change: TopTouch");
+  //Serial.println("State Change: TopTouch");
   coiDriveDirect(-robotSpeed/2, robotSpeed/2);
   digitalWrite(redLed, HIGH);
   digitalWrite(greenLed, LOW);  
@@ -344,14 +344,14 @@ void touch()
 
 void trgtWaitExit()
 {
-  Serial.println("Resetting Noise and Reverse timers");
+  //Serial.println("Resetting Noise and Reverse timers");
   lastNoise = millis();
   lastReverse = millis();
 }
 
 void KeepAwakeExit()
 {
-  Serial.println("Resetting BRC Keep Awake timer");
+  //Serial.println("Resetting BRC Keep Awake timer");
   lastKeepAwake = millis();
 }
 
