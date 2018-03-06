@@ -120,11 +120,12 @@ class grid_finder:
                     pose = PoseStamped(header=Header(frame_id=self._cam_frame),
                             pose=Pose(position=Point(*tvec), orientation=Quaternion(*q)))
                     try:
-                        pose = self.listener.transformPose('grid', pose)
-                        x0, q0 = self._x0, self._q0 # grid -> odom -> square
+                        # previous grid -> odom
+                        x0, q0 = self._x0, self._q0 
                         h0 = tf.transformations.euler_from_quaternion(q0)[-1]
-                        # get grid -> odom -> base_link -> camera -> square
-                        # to yield error in [grid -> odom]
+
+                        # grid -> odom -> base_link -> camera -> square
+                        pose = self.listener.transformPose('grid', pose)
                         e_x, e_q = pose.pose.position, pose.pose.orientation
 
                         # heading from quaternion, around z axis
@@ -139,6 +140,9 @@ class grid_finder:
                         err_x = e_x - gt_x 
                         err_h = e_h - gt_h
 
+                        # apply soft update on grid->odom tf
+                        # TODO : arbitrary 
+
                         alpha = 0.1
                         x = x0 - alpha*err_x
                         h = h0 - alpha*err_h
@@ -147,8 +151,6 @@ class grid_finder:
                         self._x0 = x
                         self._x0[2] = 0
                         self._q0 = q
-                        #print e_x, '|',  e_q
-                        # x SHOULD be at the center of a grid ...
                     except tf.Exception as e:
                         rospy.logerr_throttle(1.0, 'failed to transform pose and stuff : {}'.format(e))
 
