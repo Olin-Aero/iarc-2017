@@ -72,23 +72,35 @@ class ColorTracker(object):
         """
         # TODO: Make this function
         self.cv_image = cv2.imread(image)
-        binary_image = cv2.inRange(self.cv_image, np.array([0,0,220],dtype = "uint8"),np.array([255,150,255],dtype = "uint8"))
+        hsv_image = cv2.cvtColor(self.cv_image, cv2.COLOR_BGR2HSV)
+        binary_image1 = cv2.inRange(hsv_image, np.array([0,100,0],dtype = "uint8"),np.array([10,255,255],dtype = "uint8"))
+        binary_image2 = cv2.inRange(hsv_image, np.array([170,100,0],dtype = "uint8"),np.array([180,255,255],dtype = "uint8"))
+        binary_image3 = cv2.inRange(self.cv_image, np.array([80,80,250],dtype = "uint8"),np.array([220,230,255],dtype = "uint8"))
+        binary_image4 = cv2.bitwise_or(binary_image1,binary_image2)
+        binary_image5 = cv2.bitwise_or(binary_image3,binary_image4)
+        kernel = np.ones((5,5),np.uint8)
+        binary_image6 = cv2.morphologyEx(binary_image5, cv2.MORPH_OPEN, kernel)
         #cv2.imshow("images",binary_image)
         #cv2.waitKey(0)
-        ret,thresh = cv2.threshold(binary_image,127,255,0)
+        ret,thresh = cv2.threshold(binary_image3,127,255,0)
         image,contours,hierarchy = cv2.findContours(thresh,1,2)
         #cnt = countours[0]
-        maxcnt = contours[0]
+        maxcnt = []
         for i in contours:
-        	if(cv2.contourArea(i) > cv2.contourArea(maxcnt)):
-        		maxcnt = i
-        cnt = maxcnt
-        print(cnt)
+        	print(cv2.contourArea(i))
+        	if(cv2.contourArea(i) > 100:
+        		maxcnt.append(i)
         rect = cv2.minAreaRect(cnt)
     	box = cv2.boxPoints(rect)
     	box = np.int0(box)
     	cv2.drawContours(self.cv_image,[box],0,(0,0,255),2)
-    	cv2.imshow("images",self.cv_image)
+    	cv2.imshow("HSV image",hsv_image)
+        #cv2.waitKey(0)
+
+        cv2.imshow("Binary Image BRG",binary_image3)
+        cv2.imshow("Binary Image HSV",binary_image4)
+        cv2.imshow("Binary Image With Morphology",binary_image6)
+        cv2.imshow("images",self.cv_image)
         cv2.waitKey(0)
         return [((20,20),(30,40),True)]
     def set_red_lower_bound(self, val):
