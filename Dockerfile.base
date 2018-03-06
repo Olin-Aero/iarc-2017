@@ -1,20 +1,15 @@
-FROM ros:kinetic-ros-base AS deplist
+FROM osrf/ros:kinetic-desktop-full-xenial AS deplist
 COPY . /package
 # Delete all files not named "package.xml" or "requirements.txt"
 RUN cd /package && \
     find . -type f ! -name 'package.xml' ! -name 'requirements.txt' -delete
 
 
-
-FROM ros:kinetic-ros-base
-# Upgrade to ros-kinetic-desktop-full
-RUN apt-get update && \
-	apt-get install -y ros-kinetic-desktop-full && \
-	rm -rf /var/lib/apt/lists/
+FROM osrf/ros:kinetic-desktop-full-xenial
 
 # Install pip
 RUN apt-get update && \
-	apt-get install -y python-pip && \
+	apt-get install -y python-pip sudo && \
 	pip install --upgrade pip && \
 	rm -rf /var/lib/apt/lists/
 
@@ -26,7 +21,7 @@ RUN bash -c "source ros_entrypoint.sh && \
     catkin_init_workspace && \
     cd .. && catkin_make && \
     echo 'source /catkin_ws/devel/setup.bash' >> /ros_entrypoint.sh && \
-    echo 'source /ros_entrypoint.sh' >> /root/.bashrc \
+    echo 'source /ros_entrypoint.sh' >> /root/.bashrc && \
     echo 'set +e' >> /root/.bashrc"
 
 # Add dependencies
@@ -43,6 +38,8 @@ RUN bash -c "source ros_entrypoint.sh && \
     rosdep install -y --ignore-src --from-paths /catkin_ws/src && \
     pip install -r catkin_ws/src/**/requirements.txt"
     #   rm -rf ~/.ros/rosdep && rm -rf /var/lib/apt/lists/
+
+COPY docker/ui /bin/ui
 
 # install package
 COPY . /catkin_ws/src/iarc-2017

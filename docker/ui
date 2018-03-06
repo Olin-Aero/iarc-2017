@@ -1,0 +1,4 @@
+#!/bin/bash
+
+chown -R $UIUSER: /root
+sudo -E -u $UIUSER bash -ic "source /ros_entrypoint.sh && $*"

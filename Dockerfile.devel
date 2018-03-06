@@ -8,5 +8,4 @@ RUN rm -rf \
 	/catkin_ws/src/iarc-2017/iarc_sim_3d \
 	/catkin_ws/src/iarc-2017/libraries/irobot_create_description
 
-RUN bash -c "source ros_entrypoint.sh && \
-    cd /catkin_ws && catkin_make"
+RUN bash -ic "cd /catkin_ws && catkin_make"
