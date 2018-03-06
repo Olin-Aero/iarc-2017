@@ -32,6 +32,8 @@ class RVIZInterface(object):
         # Flag : show output filtered estimates
         self._show_est = rospy.get_param('~show_est', default=True)
 
+        self._map_frame = rospy.get_param('~map_frame', default='map')
+
         self._drone = None
         self._tf = tf.TransformListener()
 
@@ -66,7 +68,7 @@ class RVIZInterface(object):
         self._mk_max = 50 # 14 * 3 + 2 + leeway
         for i in range(self._mk_max):
             m = Marker()
-            m.header.frame_id="map"
+            m.header.frame_id=self._map_frame
             m.type = m.SPHERE
             m.action = m.ADD
             m.scale.x = m.scale.y = m.scale.z = 1.0
@@ -99,7 +101,7 @@ class RVIZInterface(object):
         h = Header(frame_id = msg.header.frame_id)
         obs = [r.visible_location.pose.pose for r in msg.data]
         try:
-            self._obs = [self._tf.transformPose('map', PoseStamped(h, r)).pose for r in obs]
+            self._obs = [self._tf.transformPose(self._map_frame, PoseStamped(h, r)).pose for r in obs]
         except Exception as e:
             rospy.logerr_throttle(1.0, 'TF Exception at obs_cb() in f_rviz.py : {}'.format(e))
             self._obs = []
@@ -109,7 +111,7 @@ class RVIZInterface(object):
         h = Header(frame_id = msg.header.frame_id)
         est = [r.visible_location.pose.pose for r in msg.data]
         try:
-            self._est = [self._tf.transformPose('map', PoseStamped(h, r)).pose for r in est]
+            self._est = [self._tf.transformPose(self._map_frame, PoseStamped(h, r)).pose for r in est]
         except Exception:
             self._est = []
 
@@ -117,13 +119,13 @@ class RVIZInterface(object):
         try:
             if self._cam_frame:
                 # looks a bit stupid ... TODO(yoonyoungcho): fix
-                _, q = self._tf.lookupTransform(self._cam_frame, 'map', rospy.Time(0))
-                t, _ = self._tf.lookupTransform('map', self._cam_frame, rospy.Time(0))
+                _, q = self._tf.lookupTransform(self._cam_frame, self._map_frame, rospy.Time(0))
+                t, _ = self._tf.lookupTransform(self._map_frame, self._cam_frame, rospy.Time(0))
                 q = [q[3], q[0], q[1], q[2]]
                 ar = observability(self._K, self._w, self._h, q, t, False)
                 poly = self._a2p(ar)
                 self._ar_msg.header.stamp = rospy.Time.now()
-                self._ar_msg.header.frame_id = 'map'
+                self._ar_msg.header.frame_id = self._map_frame 
                 self._ar_msg.polygon = poly
                 self._ar_pub.publish(self._ar_msg)
         except Exception as e:
