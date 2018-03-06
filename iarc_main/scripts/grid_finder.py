@@ -13,8 +13,9 @@ import numpy as np
 import cv2
 import rospy
 import tf
-from sensor_msgs.msg import Image, CompressedImage
-from geometry_msgs.msg import Pose, PoseStamped, Quaternion, TransformStamped
+from std_msgs.msg import Header
+from sensor_msgs.msg import Image, CompressedImage, CameraInfo
+from geometry_msgs.msg import Point, Pose, PoseStamped, Quaternion, TransformStamped
 from nav_msgs.msg import Odometry
 from cv_bridge import CvBridge, CvBridgeError
 from matplotlib import pyplot as plt
@@ -34,7 +35,7 @@ HOUGH_THRESHOLD = 85#100 # Minimum number of points needed to determine a line
 MIN_DIST = 100#50 # Distance in pixels between 2 lines to be considered different
 MIN_ANGLE = np.pi/12 # Angle in radians between 2 lines to be considered different
 MIN_INTERSECT_ANGLE = np.pi/12 # Minimum angle in radians between 2 intersecting lines
-SIDE_LENGTH = 0.5 # Size of original grid square in meters
+SIDE_LENGTH = 1.0 # Size of original grid square in meters
 CAMERA_RATIO = 4/3*720 #4/3*720 #3264 # Intrinsic property of camera
 TIME_OFFSET = 0 # Amount to project timestamp forward in time
 SAMPLE_PERIOD = 1 # Number of frames between samples
@@ -43,13 +44,48 @@ class grid_finder:
     def __init__(self):
         rospy.init_node('grid_finder')
         self.count = -1
-        self.bridge = CvBridge()
-        self.br = tf.TransformBroadcaster()
+
+        self._odom_frame = rospy.get_param('~odom', default='odom')
+        self._ci_topic = rospy.get_param('~camera_info', default='/ardrone/bottom/camera_info')
+
+        # conversion utilities
+        self._cv = CvBridge()
+        self._tf = tf.TransformBroadcaster()
         self.listener = tf.TransformListener()
+
+        # initialize data
         self.odomGridPose = tf.transformations.euler_matrix(0,0,0)
-        rospy.Subscriber(IMAGE_FEED, CompressedImage, self.image_raw_callback)
         self.camOdomPose = None
         self.msg = None
+        rospy.Subscriber(IMAGE_FEED, CompressedImage, self.image_raw_callback)
+
+        # display annotations - useful for debugging.
+        self._ann_out = rospy.get_param('~ann_out', default='') 
+        if self._ann_out:
+            self._ann_pub = rospy.Publisher(self._ann_out, Image)
+            self._ann_img = None
+
+        # get camera info
+        self._K = None
+        self._w = None
+        self._h = None
+        self._cam_frame = None
+        self._ci_sub = rospy.Subscriber(self._ci_topic, CameraInfo, self._ci_cb)
+
+        # mah
+        self._x0 = [0., 0., 0.]
+        self._q0 = [1., 0., 0., 0.] #wxyz
+
+    def _ci_cb(self, msg):
+        """ Get camera info once, and quit """
+        self._K = np.reshape(msg.K, (3, 3))
+        self._w = msg.width
+        self._h = msg.height
+        self._cam_frame = msg.header.frame_id
+
+        if self._ci_sub:
+            self._ci_sub.unregister()
+            self._ci_sub = None
 
     def image_raw_callback(self, msg):
         self.count+=1
@@ -61,43 +97,118 @@ class grid_finder:
     def process_image(self):
         if self.msg is None:
             return
+        msg = self.msg
+        self.msg = None
         try:
-            frame = self.bridge.compressed_imgmsg_to_cv2(self.msg, "bgr8")
-            frame = cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)
-            pose = findGrid(frame,self.count%SAMPLE_PERIOD==0)
-            #print (pose)
-            if not pose[0] is None:
-                euler = euler_from_matrix(pose)
-                if np.linalg.norm([(euler[0]+2*np.pi)%(2*np.pi)-np.pi, (euler[1]+np.pi)%(2*np.pi)-np.pi]) > np.pi/4:
-                    print(euler)
-                    return
-                camOdomPose = poseFromTransform(self.listener.lookupTransform(self.msg.header.frame_id, "odom", self.msg.header.stamp-rospy.Duration(.1)))
-                # if self.camOdomPose is None:
-                #     self.camOdomPose = camOdomPose
-                # camOdomPose = self.camOdomPose#np.identity(4)
-                lastPose = np.dot(self.odomGridPose, camOdomPose)
-                pose = updateLocation(updateAngle(pose, lastPose), lastPose)
-                print(int(pose[0][3]/SIDE_LENGTH), int(pose[1][3]/SIDE_LENGTH), int(pose[2][3]/SIDE_LENGTH), int(euler_from_matrix(pose)[2]*180/np.pi)%360)
-                self.odomGridPose = np.dot(pose, np.linalg.inv(camOdomPose))
+            frame = self._cv.compressed_imgmsg_to_cv2(msg, "bgr8")
+
+            if self._K is None:
+                # need accurate camera parameters
+                return
+
+            if self._ann_out:
+                pose, self._ann_img = findGrid(frame, annotate=True, K=self._K)
+            else:
+                pose = findGrid(frame, annotate=False, K=self._K)
+            self._posedbg = pose
+
+            if pose is not None:
+                _, rvec, tvec = pose
+                if rvec is not None and tvec is not None:
+                    ang = np.linalg.norm(rvec)
+                    q = tf.transformations.quaternion_about_axis(ang, (rvec/ang).ravel())
+                    pose = PoseStamped(header=Header(frame_id=self._cam_frame),
+                            pose=Pose(position=Point(*tvec), orientation=Quaternion(*q)))
+                    try:
+                        pose = self.listener.transformPose('grid', pose)
+                        x0, q0 = self._x0, self._q0 # grid -> odom -> square
+                        h0 = tf.transformations.euler_from_quaternion(q0)[-1]
+                        # get grid -> odom -> base_link -> camera -> square
+                        # to yield error in [grid -> odom]
+                        e_x, e_q = pose.pose.position, pose.pose.orientation
+
+                        # heading from quaternion, around z axis
+                        e_h = tf.transformations.euler_from_quaternion([e_q.w, e_q.x, e_q.y, e_q.z])[-1]
+                        e_x = np.asarray([e_x.x, e_x.y, e_x.z])
+
+                        # "snap to nearest 0.5"
+                        gt_x = np.round(e_x/0.5)*0.5
+                        # "snap to nearest pi/2"
+                        gt_h = np.round(e_h/(np.pi/2))*(np.pi/2)
+
+                        err_x = e_x - gt_x 
+                        err_h = e_h - gt_h
+
+                        alpha = 0.1
+                        x = x0 - alpha*err_x
+                        h = h0 - alpha*err_h
+                        q = tf.transformations.quaternion_about_axis(h, [0,0,1])
+
+                        self._x0 = x
+                        self._x0[2] = 0
+                        self._q0 = q
+                        #print e_x, '|',  e_q
+                        # x SHOULD be at the center of a grid ...
+                    except tf.Exception as e:
+                        rospy.logerr_throttle(1.0, 'failed to transform pose and stuff : {}'.format(e))
+
+            #if not pose[0] is None:
+            #    euler = euler_from_matrix(pose)
+            #    if np.linalg.norm([(euler[0]+2*np.pi)%(2*np.pi)-np.pi, (euler[1]+np.pi)%(2*np.pi)-np.pi]) > np.pi/4:
+            #        print(euler)
+            #        return
+            #    camOdomPose = poseFromTransform(self.listener.lookupTransform(msg.header.frame_id, self._odom_frame, msg.header.stamp-rospy.Duration(.1)))
+            #    # if self.camOdomPose is None:
+            #    #     self.camOdomPose = camOdomPose
+            #    # camOdomPose = self.camOdomPose#np.identity(4)
+            #    lastPose = np.dot(self.odomGridPose, camOdomPose)
+            #    pose = updateLocation(updateAngle(pose, lastPose), lastPose)
+            #    print(int(pose[0][3]/SIDE_LENGTH), int(pose[1][3]/SIDE_LENGTH), int(pose[2][3]/SIDE_LENGTH), int(euler_from_matrix(pose)[2]*180/np.pi)%360)
+            #    self.odomGridPose = np.dot(pose, np.linalg.inv(camOdomPose))
+
             self.publish()
         except CvBridgeError as e:
             print(e)
-        self.msg = None
 
     def publish(self):
-        pos = translation_from_matrix(self.odomGridPose)
-        quat = quaternion_from_matrix(self.odomGridPose)
-        self.br.sendTransform(pos, quat, rospy.Time.now() + rospy.Duration(TIME_OFFSET), "odom", "grid")    
+        if self._posedbg is not None:
+            _, rvec, tvec = self._posedbg
+            if rvec is not None and tvec is not None:
+                # don't bother with Rodrigues(); straight to tf.
+                h = np.linalg.norm(rvec)
+                rvec /= h
+                q = tf.transformations.quaternion_about_axis(h, rvec.ravel())
+                self._tf.sendTransform(tvec, q, rospy.Time.now(), 'square', self._cam_frame)
+
+        # publish tf ...
+        #print self._x0
+        #if self.odomGridPose is not None:
+        #    pos = translation_from_matrix(self.odomGridPose)
+        #    quat = quaternion_from_matrix(self.odomGridPose)
+        #    self._tf.sendTransform(pos, quat, rospy.Time.now() + rospy.Duration(TIME_OFFSET), self._odom_frame, "grid")    
+        self._tf.sendTransform(self._x0, self._q0, rospy.Time.now(), self._odom_frame, "grid")
+
+        # publish annotation ...
+        if self._ann_img is not None:
+            try:
+                ann_msg = self._cv.cv2_to_imgmsg(self._ann_img, "bgr8")
+                self._ann_pub.publish(ann_msg)
+            except CvBridgeError as e:
+                rospy.logerr_throttle(1.0, 'Failed to publish annotations : {}'.format(e))
     
     def run(self):
-        r = rospy.Rate(50)
+        r = rospy.Rate(100)
         while(not rospy.is_shutdown()):
             self.process_image()
             r.sleep()
         cv2.destroyAllWindows()
 
-def findGrid(frame, display):
+def findGrid(frame, annotate, K):
     '''Determines the location of the camera frame using a grid of tape'''
+
+    # Save initial image
+    orig = np.copy(frame)
+    frame = cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)
 
     # Load image
     shape = frame.shape
@@ -144,31 +255,34 @@ def findGrid(frame, display):
     vertices = orderVertices(getVertices(mid, intersections))
 
     # Compute pose
-    pose = getPose(vertices, SIDE_LENGTH, shape)
+    pose = getPose(vertices, SIDE_LENGTH, shape, K)
     
     # Annotate image
-    if display:
-        color = cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR)
+    if annotate:
+        ann = cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR)
         if lines!=None:
             for line in lines:
                 rho = line[0]
                 theta = line[1]
                 plotline = getLine(rho, theta)
-                cv2.line(color,plotline[0],plotline[1],(255,255,0),5)
+                cv2.line(ann,plotline[0],plotline[1],(255,255,0),5)
         if intersections:
             for p in intersections:
-                cv2.line(color,p[0:2],p[0:2],(0,0,255),50)
+                cv2.line(ann,p[0:2],p[0:2],(0,0,255),50)
         if vertices:
-            cv2.line(color,vertices[1][0:2],vertices[1][0:2],(0,255,0),70)
-            cv2.line(color,vertices[2][0:2],vertices[2][0:2],(0,255,255),60)
-            cv2.line(color,vertices[3][0:2],vertices[3][0:2],(255,0,255),50)
+            cv2.line(ann,vertices[1][0:2],vertices[1][0:2],(0,255,0),70)
+            cv2.line(ann,vertices[2][0:2],vertices[2][0:2],(0,255,255),60)
+            cv2.line(ann,vertices[3][0:2],vertices[3][0:2],(255,0,255),50)
+
+            cv2.line(ann, vertices[0][0:2], vertices[2][0:2], (255,0,0), 40)
+            cv2.line(ann, vertices[1][0:2], vertices[3][0:2], (255,0,0), 40)
         if mid:
-            cv2.line(color,mid[0:2],mid[0:2],(255,255,0),100)
+            cv2.line(ann,mid[0:2],mid[0:2],(255,255,0),100)
 
-        cv2.imshow("Grid Tracking", color)
-        cv2.waitKey(3)
-
-    return pose
+        ann = cv2.addWeighted(orig, 0.5, ann, 0.5, 0.0)
+        return pose, ann
+    else:
+        return pose
 
 def skeleton(img):
     ''' Converts an image into a morphological skeleton '''
@@ -295,35 +409,38 @@ def closestDirection(d1,d2,direction):
     score = [np.dot(v1,v2)/np.linalg.norm(v2) for v2 in v]
     return d[score.index(max(score))]
 
-def getPose(vertices, sideLength, shape):
+def getPose(vertices, sideLength, shape, K):
     '''Determines the pose given the coordinates of the transformed square'''
     if vertices is None or len(vertices) < 4:
-        return None, None
+        return None, None, None
     square1x1 = [[-1, -1, 0],[1,-1, 0],[1, 1, 0],[-1, 1, 0]]
     square = np.float32([[b/2.0*sideLength for b in a] for a in square1x1])
-    cameraMatrix = np.float64([[CAMERA_RATIO,0,shape[1]/2],[0,CAMERA_RATIO,shape[0]/2],[0,0,1]])
+    #cameraMatrix = np.float64([[CAMERA_RATIO,0,shape[1]/2],[0,CAMERA_RATIO,shape[0]/2],[0,0,1]])
+    cameraMatrix = K
     ret, rvec, tvec = cv2.solvePnP(square, np.float32(vertices), cameraMatrix, np.zeros(4))
 
-    rmat = cv2.Rodrigues(rvec)[0] # grid in camera frame
-    rmat = np.transpose(rmat) # camera in grid frame
-    rot = [[1,0,0],[0,-1,0],[0,0,-1]] # camera to baselink
-    rmat = np.dot(rot,rmat) # baselink in grid frame
-    print(tvec)
-    
-    # x, y are flipped, but z correct
-    tvec = np.dot(rmat,-tvec) # change of basis vectors, tvec switched frames
-    # tvec = np.multiply(tvec, [1, 1, -1]) # baselink in grid frame
-    # Right way
-    # tvec = grid in cam frame in cam vectors
-    # -tvec = cam in grid frame in cam vectors
-    # tvec[2] *= -1 converts to cam in grid frame in baselink vectors = baselink/grid in baselink vectors
-    # rmat*tvec = baselink/grid in grid vectors
+    return ret, rvec, tvec
 
-    # pos = [-tvec[0][0],-tvec[1][0],tvec[2][0]]
-    pos = [tvec[0][0],tvec[1][0],tvec[2][0]]
-    pose = [np.append(rmat[0],pos[0]), np.append(rmat[1],pos[1]), np.append(rmat[2],pos[2]), [0,0,0,1]]
+    #rmat = cv2.Rodrigues(rvec)[0] # grid in camera frame
+    #rmat = np.transpose(rmat) # camera in grid frame
+    #rot = [[1,0,0],[0,-1,0],[0,0,-1]] # camera to baselink
+    #rmat = np.dot(rot,rmat) # baselink in grid frame
+    #print(tvec)
+    #
+    ## x, y are flipped, but z correct
+    #tvec = np.dot(rmat,-tvec) # change of basis vectors, tvec switched frames
+    ## tvec = np.multiply(tvec, [1, 1, -1]) # baselink in grid frame
+    ## Right way
+    ## tvec = grid in cam frame in cam vectors
+    ## -tvec = cam in grid frame in cam vectors
+    ## tvec[2] *= -1 converts to cam in grid frame in baselink vectors = baselink/grid in baselink vectors
+    ## rmat*tvec = baselink/grid in grid vectors
 
-    return pose
+    ## pos = [-tvec[0][0],-tvec[1][0],tvec[2][0]]
+    #pos = [tvec[0][0],tvec[1][0],tvec[2][0]]
+    #pose = [np.append(rmat[0],pos[0]), np.append(rmat[1],pos[1]), np.append(rmat[2],pos[2]), [0,0,0,1]]
+
+    #return pose
 
 def orderVertices(vertices):
     '''Returns the given vertices in counterclockwise order (relative to right-handed xy axes)'''
