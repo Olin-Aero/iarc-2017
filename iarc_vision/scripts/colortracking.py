@@ -14,6 +14,8 @@ Owner:
 import rospy
 import sys
 from sensor_msgs.msg import Image, CameraInfo
+from geometry_msgs.msg import Vector3, Vector3Stamped, PoseWithCovarianceStamped, PoseWithCovariance, Pose
+from std_msgs.msg import Header
 from cv_bridge import CvBridge, CvBridgeError
 import numpy as np
 import cv2
@@ -35,6 +37,8 @@ class ColorTrackerROS(object):
         cv2.namedWindow('preview_window')
         cv2.namedWindow('binary')
 
+        self.debug_pub = rospy.Publisher("tracker/debug", PoseWithCovarianceStamped, queue_size=10)
+
     def process_image(self, msg):
         """
         Process image messages from ROS and stash them in an attribute
@@ -49,6 +53,35 @@ class ColorTrackerROS(object):
             for box in self.boxes:
                 center = np.mean(box,axis = 0)
                 print(center)
+                ray = self.cameraModel.projectPixelTo3dRay(center)
+                print(ray)
+                camera_ray = Vector3Stamped(header=msg.header,
+                    vector=Vector3(*ray))
+                world_ray = self.tf.transformVector3('map',camera_ray)
+                # print(camera_ray, world_ray)
+                pos,quat = self.tf.lookupTransform('map',msg.header.frame_id,msg.header.stamp)
+                multiplier = -pos[2] / world_ray.vector.z
+                drone_to_roomba = np.array([world_ray.vector.x, world_ray.vector.y, world_ray.vector.z])*multiplier
+                
+                map_to_roomba = pos + drone_to_roomba
+                print(map_to_roomba)
+
+                pose = Pose(position=Vector3(*map_to_roomba))
+
+                pwcs = PoseWithCovarianceStamped(header=Header(frame_id='map', stamp=msg.header.stamp),
+                    pose=PoseWithCovariance(
+                            pose=pose,
+                            covariance=np.diag([.2, .2, 0, 0, 0, 99999]).flatten()
+                        )) 
+
+                print(pwcs)
+
+                self.debug_pub.publish(pwcs)
+
+
+
+                
+
             # TODO: Do something with the boxes
             # TODO: make sure it doesn't get too far behind
 
