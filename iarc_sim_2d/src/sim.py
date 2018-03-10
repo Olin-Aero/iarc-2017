@@ -27,8 +27,7 @@ class Simulator(object):
         print("Start time is: \n" )
         print(self.startTime)
         self.seqNum = 1
-        self.Vis_Roombas = rospy.Publisher('Vis_Roombas', Roombas, queue_size=10)
-        self.Vis_Roombas_Main = rospy.Publisher('/seen_roombas', RoombaList, queue_size=10)
+        self.vis_roombas = rospy.Publisher('/visible_roombas', RoombaList, queue_size=10)
 
         # failure publishers and messages
         self.FailureAltitude = FailureAltitude()
@@ -235,7 +234,7 @@ class Simulator(object):
         # Uncomment below lines if function is dependent on old roomba list. Try to phase use out.
         # self.Vis_Roombas.publish(roombaArray)
 
-        self.Vis_Roombas_Main.publish(roombaArrayMain)
+        self.vis_roombas.publish(roombaArrayMain)
 
 
         try:

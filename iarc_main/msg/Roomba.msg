@@ -11,3 +11,7 @@ uint8 OBSTACLE=2
 time last_turn
 
 geometry_msgs/PoseWithCovarianceStamped visible_location
+
+# "magical" ID associated with the Roombas, if AR tag tracking is being used.
+# 0 if unavailable
+int32 magical_id
