@@ -115,11 +115,11 @@ class ColorTracker(object):
         Input: OpenCV image (numpy array)
         Output: List of bounding boxes (topleft, b;;ottomright, isRed)
         """
-        # TODO: Make this function
         # Get bounding boxes around red and green rectangles
         hsv_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
         red_image = self.get_red_bounding_boxes(hsv_image, image)
         green_image = self.get_green_bounding_boxes(hsv_image, image)
+        # TODO: Differentiate red vs green boxes
         binary_image = cv2.bitwise_or(green_image, green_image)
 
         # Remove noise
