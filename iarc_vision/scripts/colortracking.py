@@ -168,22 +168,23 @@ def set_red_lower_bound(self, val):
     self.red_lower_bound = val
 
 
-def getHeading(box):
-    distanceFirstSide = distance(box[0], box[1])
-    distanceSecondSide = distance(box[1], box[2])
-    if (distanceFirstSide > distanceSecondSide):
-        headingPossible = math.atan(float(box[1][1] - box[0][1]) / (box[1][0] - box[0][0]))
+def get_heading(box):
+    distance_first_side = distance(box[0], box[1])
+    distance_second_side = distance(box[1], box[2])
+    if (distance_first_side > distance_second_side):
+        heading_possible = math.atan(float(box[1][1] - box[0][1]) / (box[1][0] - box[0][0]))
     else:
-        headingPossible = math.atan(float(box[2][1] - box[1][1]) / (box[2][0] - box[1][0]))
+        heading_possible = math.atan(float(box[2][1] - box[1][1]) / (box[2][0] - box[1][0]))
     # print math.degrees(headingPossible)
-    return headingPossible
+    return heading_possible
 
 
-def testImageFromFile(filename):
+def test_image_from_file(filename):
     tracker = ColorTracker()
     # TODO: Load image
     boxes, b = tracker.find_bounding_boxes(filename, True)
     for box in boxes:
+        heading = get_heading(box)
         center = np.mean(box, axis=0)
         print(center)
         print(cv2.moments(b))
@@ -197,4 +198,4 @@ def distance(p0, p1):
 if __name__ == '__main__':
     # colortracker = ColorTrackerROS()
     # colortracker.run()
-    testImageFromFile(cv2.imread(sys.argv[1]))
+    test_image_from_file(cv2.imread(sys.argv[1]))
