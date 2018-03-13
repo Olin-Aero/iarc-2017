@@ -8,6 +8,8 @@ Global coordinate system: x is forward, y is left, z is up.
 rosparam set use_sim_time true
 rosbag play --clock --rate 0.2 --start 10 filename.something
 '''
+# TODO : fix possible time-stamp issues
+# associated with rospy.Time() / rospy.Time.now() ...
 
 import numpy as np
 import cv2
@@ -21,7 +23,7 @@ from cv_bridge import CvBridge, CvBridgeError
 from matplotlib import pyplot as plt
 from tf.transformations import *
 
-IMAGE_FEED = "/ardrone/bottom/image_raw/compressed" # ROS topic publishing grid images
+IMAGE_FEED = "/ardrone/bottom/image_rect_color/compressed" # ROS topic publishing grid images
 SENSOR_FEED = "/odometry/filtered" # ROS topic publishing sensor data
 LOWER_COLOR_THRESHOLD = 130#150 # Darkest color of a line out of 255
 UPPER_COLOR_THRESHOLD = 255 # Lightest color of a line out of 255
@@ -126,24 +128,26 @@ class grid_finder:
 
                         # grid -> odom -> base_link -> camera -> square
                         pose = self.listener.transformPose('grid', pose)
+                        #print 'pose', pose
                         e_x, e_q = pose.pose.position, pose.pose.orientation
 
                         # heading from quaternion, around z axis
-                        e_h = tf.transformations.euler_from_quaternion([e_q.w, e_q.x, e_q.y, e_q.z])[-1]
+                        e_h = tf.transformations.euler_from_quaternion([e_q.x, e_q.y, e_q.z, e_q.w])[-1]
                         e_x = np.asarray([e_x.x, e_x.y, e_x.z])
 
-                        # "snap to nearest 0.5"
-                        gt_x = np.round(e_x/0.5)*0.5
+                        # "snap to nearest 0.5, 1.5, ..."
+                        gt_x = np.round((e_x+0.5)) - 0.5
                         # "snap to nearest pi/2"
                         gt_h = np.round(e_h/(np.pi/2))*(np.pi/2)
 
                         err_x = e_x - gt_x 
-                        err_h = e_h - gt_h
+                        err_h = e_h - gt_h# + 0.1
+                        print 'err_h', err_h
 
                         # apply soft update on grid->odom tf
                         # TODO : arbitrary 
 
-                        alpha = 0.1
+                        alpha = 1.0
                         x = x0 - alpha*err_x
                         h = h0 - alpha*err_h
                         q = tf.transformations.quaternion_about_axis(h, [0,0,1])
@@ -417,7 +421,6 @@ def getPose(vertices, sideLength, shape, K):
         return None, None, None
     square1x1 = [[-1, -1, 0],[1,-1, 0],[1, 1, 0],[-1, 1, 0]]
     square = np.float32([[b/2.0*sideLength for b in a] for a in square1x1])
-    #cameraMatrix = np.float64([[CAMERA_RATIO,0,shape[1]/2],[0,CAMERA_RATIO,shape[0]/2],[0,0,1]])
     cameraMatrix = K
     ret, rvec, tvec = cv2.solvePnP(square, np.float32(vertices), cameraMatrix, np.zeros(4))
 
