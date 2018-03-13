@@ -6,7 +6,7 @@ How to Use:
 2. Start webcam (roslaunch usb_cam usb_camera.launch)
 3. Run this script (rosrun iarc_vision colortracking)
 
-Owner: 
+Owner:
 
 """
 
@@ -18,6 +18,7 @@ from std_msgs.msg import Header
 from cv_bridge import CvBridge, CvBridgeError
 import numpy as np
 import cv2
+import math
 from image_geometry import PinholeCameraModel
 from tf import TransformListener
 
@@ -43,18 +44,19 @@ class ColorTrackerROS(object):
         """
         Process image messages from ROS and stash them in an attribute
         called cv_image for subsequent processing
-        
+
         """
         try:
             self.cv_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding="bgr8")
             # do image processing here
             self.boxes, self.processed_image = self.tracker.find_bounding_boxes(self.cv_image, display=False)
+
             print(self.boxes)
             for box in self.boxes:
                 center = np.mean(box,axis = 0)
                 print(center)
+                print(cv2.moment(self.processed_image))
                 ray = self.cameraModel.projectPixelTo3dRay(center)
-                print(ray)
                 camera_ray = Vector3Stamped(header=msg.header,
                     vector=Vector3(*ray))
                 world_ray = self.tf.transformVector3('map',camera_ray)
@@ -62,9 +64,8 @@ class ColorTrackerROS(object):
                 pos,quat = self.tf.lookupTransform('map',msg.header.frame_id,msg.header.stamp)
                 multiplier = -pos[2] / world_ray.vector.z
                 drone_to_roomba = np.array([world_ray.vector.x, world_ray.vector.y, world_ray.vector.z])*multiplier
-                
+
                 map_to_roomba = pos + drone_to_roomba
-                print(map_to_roomba)
 
                 pose = Pose(position=Vector3(*map_to_roomba))
 
@@ -72,15 +73,14 @@ class ColorTrackerROS(object):
                     pose=PoseWithCovariance(
                             pose=pose,
                             covariance=np.diag([.2, .2, 0, 0, 0, 99999]).flatten()
-                        )) 
+                        ))
 
-                print(pwcs)
 
                 self.debug_pub.publish(pwcs)
 
 
 
-                
+
 
             # TODO: Do something with the boxes
             # TODO: make sure it doesn't get too far behind
@@ -120,7 +120,7 @@ class ColorTracker(object):
         red_image = self.get_red_bounding_boxes(hsv_image, image)
         green_image = self.get_green_bounding_boxes(hsv_image, image)
         # TODO: Differentiate red vs green boxes
-        binary_image = cv2.bitwise_or(green_image, green_image)
+        binary_image = cv2.bitwise_or(red_image, green_image)
 
         # Remove noise
         kernel = np.ones((5, 5), np.uint8)
@@ -146,7 +146,7 @@ class ColorTracker(object):
             cv2.drawContours(image, [box], 0, (0, 0, 255), 2)
 
         #print contours
-
+        print(boxes[0])
         if display:
             cv2.imshow("Original images", image)
             cv2.imshow("HSV image", hsv_image)
@@ -174,15 +174,31 @@ def set_red_lower_bound(self, val):
     """ A callback function to handle the OpenCV slider to select the red lower bound """
     self.red_lower_bound = val
 
-
+def getHeading(box):
+    #print float(box[1][1]-box[0][1])/(box[1][0]-box[0][0])
+    #print float(box[2][1]-box[1][1])/(box[2][0]-box[1][0])
+    distanceFirstSide = distance(box[0],box[1])
+    distanceSecondSide = distance(box[1],box[2])
+    if (distanceFirstSide > distanceSecondSide):
+        headingPossible = math.atan(float(box[1][1]-box[0][1])/(box[1][0]-box[0][0]))
+        #print math.degrees(headingPossible)
+    else:
+        headingPossible = math.atan(float(box[2][1]-box[1][1])/(box[2][0]-box[1][0]))
+        #print math.degrees(headingPossible)
+    return headingPossible
 def testImageFromFile(filename):
     tracker = ColorTracker()
     # TODO: Load image
-    tracker.find_bounding_boxes(filename, True)
+    boxes, b = tracker.find_bounding_boxes(filename, True)
+    for box in boxes:
+        center = np.mean(box,axis = 0)
+        print(center)
+        print(cv2.moments(b))
     # TODO: Display result
-
+def distance(p0, p1):
+    return np.sqrt((p0[0] - p1[0])**2 + (p0[1] - p1[1])**2)
 
 if __name__ == '__main__':
-    colortracker = ColorTrackerROS()
-    colortracker.run()
-    # testImageFromFile(cv2.imread(sys.argv[1]))
+    # colortracker = ColorTrackerROS()
+    # colortracker.run()
+    testImageFromFile(cv2.imread(sys.argv[1]))
