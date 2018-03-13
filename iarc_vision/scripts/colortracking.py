@@ -17,6 +17,7 @@ from geometry_msgs.msg import Vector3, Vector3Stamped, PoseWithCovarianceStamped
 from std_msgs.msg import Header
 from cv_bridge import CvBridge, CvBridgeError
 import numpy as np
+import numpy.linalg as la
 import cv2
 import math
 from image_geometry import PinholeCameraModel
@@ -51,7 +52,6 @@ class ColorTrackerROS(object):
             # do image processing here
             self.boxes, self.processed_image = self.tracker.find_bounding_boxes(self.cv_image, display=False)
 
-            print(self.boxes)
             for box in self.boxes:
                 center = np.mean(box, axis=0)
                 ray = self.cameraModel.projectPixelTo3dRay(center)
@@ -106,7 +106,7 @@ class ColorTracker(object):
     def find_bounding_boxes(self, image, display=True):
         """
         Input: OpenCV image (numpy array)
-        Output: List of bounding boxes (topleft, b;;ottomright, isRed)
+        Output: List of bounding boxes (topleft, bottomright, isRed)
         """
         # Get bounding boxes around red and green rectangles
         hsv_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
@@ -138,12 +138,11 @@ class ColorTracker(object):
             boxes.append(box)
             cv2.drawContours(image, [box], 0, (0, 0, 255), 2)
 
-        # print contours
         print(boxes[0])
         if display:
+            cv2.imshow("Binary Image With Morphology", binary_image)
             cv2.imshow("Original images", image)
             cv2.imshow("HSV image", hsv_image)
-            cv2.imshow("Binary Image With Morphology", binary_image)
             cv2.waitKey(0)
         return boxes, binary_image
 
@@ -163,35 +162,134 @@ class ColorTracker(object):
         return cv2.bitwise_or(binary_image3, binary_image4)
 
 
-def set_red_lower_bound(self, val):
-    """ A callback function to handle the OpenCV slider to select the red lower bound """
-    self.red_lower_bound = val
+def get_heading(box, center, binary_image):
+    """
+    0y in the normal coordinate system would be 0 degrees
+    then rotate clockwise to 0x results in 90 degrees
+    :param box:
+    :param center:
+    :param binary_image:
+    :return: orientation in radian
+    """
+    # TODO: Check extreme case when 3 corners are black (due to glaring effect)
 
+    # Bounding box always returns rectangle points in clockwise direction
+    darkness_corners = get_darkness_corners(box, center, binary_image)
 
-def get_heading(box):
-    distance_first_side = distance(box[0], box[1])
-    distance_second_side = distance(box[1], box[2])
-    if (distance_first_side > distance_second_side):
-        heading_possible = math.atan(float(box[1][1] - box[0][1]) / (box[1][0] - box[0][0]))
+    # Get shorter side's orientation
+    if distance(box[0], box[1]) < distance(box[1], box[2]):
+        if darkness_corners[0] is True:
+            # heading from box[1] -> box[0]
+            heading = get_vector_heading(box[1], box[0])
+        else:
+            # heading from box[0] -> box[1]
+            heading = get_vector_heading(box[0], box[1])
     else:
-        heading_possible = math.atan(float(box[2][1] - box[1][1]) / (box[2][0] - box[1][0]))
-    # print math.degrees(headingPossible)
-    return heading_possible
+        if darkness_corners[1] is True:
+            # heading from box[2] -> box[1]
+            heading = get_vector_heading(box[2], box[1])
+        else:
+            # heading from box[1] -> box[2]
+            heading = get_vector_heading(box[2], box[1])
+
+    print "Heading angle", math.degrees(heading)
+    return heading
+
+
+def get_vector_heading(tail, head):
+    """
+    Find orientation of a vector defined by tail and head
+    :param tail:
+    :param head:
+    :return: orientation of the vector.
+    """
+    # Define a base vector in x direction
+    i_hat = [0, 1]
+
+    # The input vector
+    u = head - tail
+
+    # Find angle between vector i and vector u
+    cosang = np.dot(i_hat, u)
+    sinang = la.norm(np.cross(i_hat, u))
+    return np.arctan2(sinang, cosang)
+
+
+def get_darkness_corners(box, center, binary_image):
+    """
+    Evaluate 4 corners and check which two of these are potentially black
+    Does not check extreme case where more than two corners are black (glaring effect)
+    :param box: bounding box of the roomba
+    :param center: center of the boundbing box
+    :param binary_image: image containing roombas
+    :return: a list indicating whether a corner is black or white.
+    """
+    corner1_darkness = get_average_darkness(box[0], center, binary_image)
+    corner2_darkness = get_average_darkness(box[1], center, binary_image)
+    corner3_darkness = get_average_darkness(box[2], center, binary_image)
+    corner4_darkness = get_average_darkness(box[3], center, binary_image)
+    list = [corner1_darkness, corner2_darkness, corner3_darkness, corner4_darkness]
+    list = sorted(list)
+    return [corner1_darkness <= list[1], corner2_darkness <= list[1], corner3_darkness <= list[1], corner4_darkness <= list[1]]
+
+
+def get_average_darkness(point_a, point_b, binary_image):
+    """
+    Return the average pixel of the diagonal connecting A and B
+    :param point_a: first point define the tail of vector AB
+    :param point_b: second point define the head of vector AB
+    :param binary_image: image of 0s and 1s
+    :return: from 0 (dark) to 1 (light)
+    :rtype: float
+    """
+    mid = (point_a + point_b) / 2
+    quarter = (point_a + mid) / 2
+    if point_a[0] > quarter[0]:
+        y0 = quarter[0]
+        y1 = point_a[0]
+    else:
+        y0 = point_a[0]
+        y1 = quarter[0]
+    if point_a[1] > quarter[1]:
+        x0 = quarter[1]
+        x1 = point_a[1]
+    else:
+        x0 = point_a[1]
+        x1 = quarter[1]
+
+    intensity = 0
+    count = 0
+    for i in range(int(x0), int(x1)):
+        for j in range(int(y0), int(y1)):
+            # TODO: 100 here is an arbitrary choice, need a better way to get pixels lying on the diagonal
+            if abs((i - x0) * (point_a[0] - quarter[0]) - (j - y0) * (point_a[1] - quarter[1])) <= 100:
+                if binary_image[i][j] > 0:
+                    intensity += 1
+                count += 1
+    if count == 0:
+        return 0
+
+    return float(intensity) / count
 
 
 def test_image_from_file(filename):
     tracker = ColorTracker()
     # TODO: Load image
-    boxes, b = tracker.find_bounding_boxes(filename, True)
+    boxes, binary_image = tracker.find_bounding_boxes(filename, True)
     for box in boxes:
-        heading = get_heading(box)
         center = np.mean(box, axis=0)
-        print(center)
-        print(cv2.moments(b))
+        heading = get_heading(box, center, binary_image)
     # TODO: Display result
 
 
 def distance(p0, p1):
+    """
+    Find distance between two 2D points
+    :param p0: point 1
+    :param p1: point 2
+    :return: distance
+    :rtype: float
+    """
     return np.sqrt((p0[0] - p1[0]) ** 2 + (p0[1] - p1[1]) ** 2)
 
 
