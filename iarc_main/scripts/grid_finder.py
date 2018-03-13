@@ -23,7 +23,7 @@ from cv_bridge import CvBridge, CvBridgeError
 from matplotlib import pyplot as plt
 from tf.transformations import *
 
-IMAGE_FEED = "/ardrone/bottom/image_rect_color/compressed" # ROS topic publishing grid images
+IMAGE_FEED = "/ardrone/bottom/image_raw/compressed"#rect_color/compressed" # ROS topic publishing grid images
 SENSOR_FEED = "/odometry/filtered" # ROS topic publishing sensor data
 LOWER_COLOR_THRESHOLD = 130#150 # Darkest color of a line out of 255
 UPPER_COLOR_THRESHOLD = 255 # Lightest color of a line out of 255
@@ -37,10 +37,13 @@ HOUGH_THRESHOLD = 85#100 # Minimum number of points needed to determine a line
 MIN_DIST = 100#50 # Distance in pixels between 2 lines to be considered different
 MIN_ANGLE = np.pi/12 # Angle in radians between 2 lines to be considered different
 MIN_INTERSECT_ANGLE = np.pi/12 # Minimum angle in radians between 2 intersecting lines
-SIDE_LENGTH = 1.0 # Size of original grid square in meters
+SIDE_LENGTH = 0.5 # Size of original grid square in meters
 CAMERA_RATIO = 4/3*720 #4/3*720 #3264 # Intrinsic property of camera
 TIME_OFFSET = 0 # Amount to project timestamp forward in time
 SAMPLE_PERIOD = 1 # Number of frames between samples
+
+def snap(x, m, t=0.0):
+    return np.round((x-t)/float(m))*m + t
 
 class grid_finder:
     def __init__(self):
@@ -136,9 +139,11 @@ class grid_finder:
                         e_x = np.asarray([e_x.x, e_x.y, e_x.z])
 
                         # "snap to nearest 0.5, 1.5, ..."
-                        gt_x = np.round((e_x+0.5)) - 0.5
+                        #gt_x = np.round((e_x+SIDE_LENGTH/2), SIDE_LENGTH) - SIDE_LENGTH
+                        gt_x = snap(e_x, SIDE_LENGTH, SIDE_LENGTH/2.0)
+                        gt_h = snap(e_h, np.pi/2)
                         # "snap to nearest pi/2"
-                        gt_h = np.round(e_h/(np.pi/2))*(np.pi/2)
+                        #gt_h = np.round(e_h/(np.pi/2))*(np.pi/2)
 
                         err_x = e_x - gt_x 
                         err_h = e_h - gt_h# + 0.1
