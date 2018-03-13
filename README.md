@@ -53,8 +53,8 @@ This repository includes a dependency on gstreamer, a program for low-latency ne
   
 All other dependencies can be installed using `rosdep` and `pip`:
 
-	rosdep install --ignore-src --from-paths $(rospack find iarc_main)/..
-	pip install -r $(rospack find iarc_main)/../requirements.txt
+    rosdep install --ignore-src --from-paths $(rospack find iarc_main)/.. -y
+    pip install -r $(rospack find iarc_main)/../requirements.txt
 
 Finally, `catkin_make` can be used to build the code
 
