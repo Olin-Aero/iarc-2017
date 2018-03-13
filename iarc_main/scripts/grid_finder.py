@@ -10,6 +10,8 @@ rosbag play --clock --rate 0.2 --start 10 filename.something
 '''
 # TODO : fix possible time-stamp issues
 # associated with rospy.Time() / rospy.Time.now() ...
+# TODO : fix grid thickness configuration based on drone altitude
+# TODO : drone-pose based line/feature matching for even better continuous grid-based pose correction?
 
 import numpy as np
 import cv2
@@ -23,7 +25,6 @@ from cv_bridge import CvBridge, CvBridgeError
 from matplotlib import pyplot as plt
 from tf.transformations import *
 
-IMAGE_FEED = "/ardrone/bottom/image_raw/compressed"#rect_color/compressed" # ROS topic publishing grid images
 SENSOR_FEED = "/odometry/filtered" # ROS topic publishing sensor data
 LOWER_COLOR_THRESHOLD = 130#150 # Darkest color of a line out of 255
 UPPER_COLOR_THRESHOLD = 255 # Lightest color of a line out of 255
@@ -43,13 +44,15 @@ TIME_OFFSET = 0 # Amount to project timestamp forward in time
 SAMPLE_PERIOD = 1 # Number of frames between samples
 
 def snap(x, m, t=0.0):
+    """ snap to discrete m's with offset t """
     return np.round((x-t)/float(m))*m + t
 
-class grid_finder:
+class GridFinder:
     def __init__(self):
         rospy.init_node('grid_finder')
-        self.count = -1
 
+        # TODO : subscribe to rectified image?
+        self._image_topic = rospy.get_param('~image_feed', default='/ardrone/bottom/image_raw/compressed')
         self._odom_frame = rospy.get_param('~odom', default='odom')
         self._ci_topic = rospy.get_param('~camera_info', default='/ardrone/bottom/camera_info')
 
@@ -62,7 +65,9 @@ class grid_finder:
         self.odomGridPose = tf.transformations.euler_matrix(0,0,0)
         self.camOdomPose = None
         self.msg = None
-        rospy.Subscriber(IMAGE_FEED, CompressedImage, self.image_raw_callback)
+
+        # TODO : handle non-compressed scenarios?
+        rospy.Subscriber(self._image_topic, CompressedImage, self.image_raw_callback)
 
         # display annotations - useful for debugging.
         self._ann_out = rospy.get_param('~ann_out', default='') 
@@ -75,13 +80,14 @@ class grid_finder:
         self._w = None
         self._h = None
         self._cam_frame = None
-        self._ci_sub = rospy.Subscriber(self._ci_topic, CameraInfo, self._ci_cb)
+        self._ci_sub = rospy.Subscriber(self._ci_topic, CameraInfo, self.camera_info_callback)
 
-        # mah
+        # persistent internal pose information
         self._x0 = [0., 0., 0.]
         self._q0 = [1., 0., 0., 0.] #wxyz
+        self._square = None # pose of found square
 
-    def _ci_cb(self, msg):
+    def camera_info_callback(self, msg):
         """ Get camera info once, and quit """
         self._K = np.reshape(msg.K, (3, 3))
         self._w = msg.width
@@ -93,29 +99,39 @@ class grid_finder:
             self._ci_sub = None
 
     def image_raw_callback(self, msg):
-        self.count+=1
+        """
+        Save message and return immediately.
+        This prevents processing old messages by any chance!
+        """
         try:
             self.msg = msg
         except CvBridgeError as e:
             print(e)
 
     def process_image(self):
+        """ Image -> tf{Grid->Odom} """
         if self.msg is None:
+            # nothing to do
             return
+
+        # pop message from processing queue
         msg = self.msg
         self.msg = None
+
         try:
             frame = self._cv.compressed_imgmsg_to_cv2(msg, "bgr8")
 
             if self._K is None:
-                # need accurate camera parameters
+                # need accurate camera parameters!
                 return
 
             if self._ann_out:
+                # annotate
                 pose, self._ann_img = findGrid(frame, annotate=True, K=self._K)
             else:
                 pose = findGrid(frame, annotate=False, K=self._K)
-            self._posedbg = pose
+
+            self._square = pose
 
             if pose is not None:
                 _, rvec, tvec = pose
@@ -139,7 +155,6 @@ class grid_finder:
                         e_x = np.asarray([e_x.x, e_x.y, e_x.z])
 
                         # "snap to nearest 0.5, 1.5, ..."
-                        #gt_x = np.round((e_x+SIDE_LENGTH/2), SIDE_LENGTH) - SIDE_LENGTH
                         gt_x = snap(e_x, SIDE_LENGTH, SIDE_LENGTH/2.0)
                         gt_h = snap(e_h, np.pi/2)
                         # "snap to nearest pi/2"
@@ -150,7 +165,8 @@ class grid_finder:
                         print 'err_h', err_h
 
                         # apply soft update on grid->odom tf
-                        # TODO : arbitrary 
+                        # TODO : arbitrary alpha? currently set as hard update.
+                        # might be worth experimenting
 
                         alpha = 1.0
                         x = x0 - alpha*err_x
@@ -158,32 +174,19 @@ class grid_finder:
                         q = tf.transformations.quaternion_about_axis(h, [0,0,1])
 
                         self._x0 = x
-                        self._x0[2] = 0
+                        self._x0[2] = 0 # remove z position, as it should be zero
                         self._q0 = q
                     except tf.Exception as e:
                         rospy.logerr_throttle(1.0, 'failed to transform pose and stuff : {}'.format(e))
-
-            #if not pose[0] is None:
-            #    euler = euler_from_matrix(pose)
-            #    if np.linalg.norm([(euler[0]+2*np.pi)%(2*np.pi)-np.pi, (euler[1]+np.pi)%(2*np.pi)-np.pi]) > np.pi/4:
-            #        print(euler)
-            #        return
-            #    camOdomPose = poseFromTransform(self.listener.lookupTransform(msg.header.frame_id, self._odom_frame, msg.header.stamp-rospy.Duration(.1)))
-            #    # if self.camOdomPose is None:
-            #    #     self.camOdomPose = camOdomPose
-            #    # camOdomPose = self.camOdomPose#np.identity(4)
-            #    lastPose = np.dot(self.odomGridPose, camOdomPose)
-            #    pose = updateLocation(updateAngle(pose, lastPose), lastPose)
-            #    print(int(pose[0][3]/SIDE_LENGTH), int(pose[1][3]/SIDE_LENGTH), int(pose[2][3]/SIDE_LENGTH), int(euler_from_matrix(pose)[2]*180/np.pi)%360)
-            #    self.odomGridPose = np.dot(pose, np.linalg.inv(camOdomPose))
 
             self.publish()
         except CvBridgeError as e:
             print(e)
 
     def publish(self):
-        if self._posedbg is not None:
-            _, rvec, tvec = self._posedbg
+        if self._square is not None:
+            _, rvec, tvec = self._square
+            self._square = None # clear data
             if rvec is not None and tvec is not None:
                 # don't bother with Rodrigues(); straight to tf.
                 h = np.linalg.norm(rvec)
@@ -192,11 +195,6 @@ class grid_finder:
                 self._tf.sendTransform(tvec, q, rospy.Time.now(), 'square', self._cam_frame)
 
         # publish tf ...
-        #print self._x0
-        #if self.odomGridPose is not None:
-        #    pos = translation_from_matrix(self.odomGridPose)
-        #    quat = quaternion_from_matrix(self.odomGridPose)
-        #    self._tf.sendTransform(pos, quat, rospy.Time.now() + rospy.Duration(TIME_OFFSET), self._odom_frame, "grid")    
         self._tf.sendTransform(self._x0, self._q0, rospy.Time.now(), self._odom_frame, "grid")
 
         # publish annotation ...
@@ -294,19 +292,6 @@ def findGrid(frame, annotate, K):
         return pose, ann
     else:
         return pose
-
-def skeleton(img):
-    ''' Converts an image into a morphological skeleton '''
-    skeleton = cv2.bitwise_and(img, cv2.bitwise_not(img))
-    for i in range(10):
-        kernel = np.ones((DILATION_KERNEL_SIZE, DILATION_KERNEL_SIZE), np.uint8)
-        temp = cv2.erode(img, kernel, iterations=1)
-        temp = cv2.dilate(img, kernel, iterations=1)
-        skeleton = cv2.bitwise_or(skeleton, cv2.bitwise_and(img, cv2.bitwise_not(temp)))
-        img = cv2.erode(img, kernel, iterations=1)
-        if not cv2.countNonZero(img):
-            break
-    return skeleton
 
 def getLine(rho, theta):
     '''Convert (rho, theta) defined line to endpoints'''
@@ -502,5 +487,5 @@ def poseFromTransform(transform):
     return pose
 
 if __name__ == '__main__':
-    finder = grid_finder()
+    finder = GridFinder()
     finder.run()
