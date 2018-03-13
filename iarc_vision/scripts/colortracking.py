@@ -126,7 +126,7 @@ class ColorTracker(object):
         # Get bounding box from contours
         maxcnt = []
         for i in contours:
-            if cv2.contourArea(i) > 1000:
+            if cv2.contourArea(i) > 6000:
                 maxcnt.append(i)
 
         # Draw coutours on the image
@@ -141,8 +141,8 @@ class ColorTracker(object):
         print(boxes[0])
         if display:
             cv2.imshow("Binary Image With Morphology", binary_image)
-            cv2.imshow("Original images", image)
-            cv2.imshow("HSV image", hsv_image)
+            # cv2.imshow("Original images", image)
+            # cv2.imshow("HSV image", hsv_image)
             cv2.waitKey(0)
         return boxes, binary_image
 
@@ -164,14 +164,15 @@ class ColorTracker(object):
 
 def get_heading(box, center, binary_image):
     """
-    0y in the normal coordinate system would be 0 degrees
-    then rotate clockwise to 0x results in 90 degrees
-    :param box:
-    :param center:
-    :param binary_image:
+    Ox is 0 degrees, rotate clockwise from Ox results in positive angles
+    rotate counter-clockwise results in negative angles
+    :param box: bounding box of the roomba
+    :param center: center of the boundbing box
+    :param binary_image: image containing roombas
     :return: orientation in radian
     """
     # TODO: Check extreme case when 3 corners are black (due to glaring effect)
+    # TODO: bounding box returns negative values and causes crash when trying to get binary_image[i][j]
 
     # Bounding box always returns rectangle points in clockwise direction
     darkness_corners = get_darkness_corners(box, center, binary_image)
@@ -181,18 +182,22 @@ def get_heading(box, center, binary_image):
         if darkness_corners[0] is True:
             # heading from box[1] -> box[0]
             heading = get_vector_heading(box[1], box[0])
+            print "box 1 to 0"
         else:
             # heading from box[0] -> box[1]
             heading = get_vector_heading(box[0], box[1])
+            print "box 0 to 1"
     else:
         if darkness_corners[1] is True:
             # heading from box[2] -> box[1]
             heading = get_vector_heading(box[2], box[1])
+            print "box 2 to 1"
         else:
             # heading from box[1] -> box[2]
-            heading = get_vector_heading(box[2], box[1])
+            heading = get_vector_heading(box[1], box[2])
+            print "box 1 to 2"
 
-    print "Heading angle", math.degrees(heading)
+    print "Heading angle", math.degrees(heading), heading
     return heading
 
 
@@ -203,16 +208,9 @@ def get_vector_heading(tail, head):
     :param head:
     :return: orientation of the vector.
     """
-    # Define a base vector in x direction
-    i_hat = [0, 1]
-
     # The input vector
     u = head - tail
-
-    # Find angle between vector i and vector u
-    cosang = np.dot(i_hat, u)
-    sinang = la.norm(np.cross(i_hat, u))
-    return np.arctan2(sinang, cosang)
+    return np.arctan2(float(u[1]), float(u[0] + 0.1))
 
 
 def get_darkness_corners(box, center, binary_image):
@@ -230,7 +228,8 @@ def get_darkness_corners(box, center, binary_image):
     corner4_darkness = get_average_darkness(box[3], center, binary_image)
     list = [corner1_darkness, corner2_darkness, corner3_darkness, corner4_darkness]
     list = sorted(list)
-    return [corner1_darkness <= list[1], corner2_darkness <= list[1], corner3_darkness <= list[1], corner4_darkness <= list[1]]
+    return [corner1_darkness <= list[1], corner2_darkness <= list[1], corner3_darkness <= list[1],
+            corner4_darkness <= list[1]]
 
 
 def get_average_darkness(point_a, point_b, binary_image):
