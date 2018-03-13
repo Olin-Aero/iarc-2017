@@ -27,9 +27,9 @@ class ColorTrackerROS(object):
     def __init__(self):
         rospy.init_node('color_tracker')
         self.tracker = ColorTracker()
-        self.cv_image = self.processed_image = None     # the latest image from the camera
+        self.cv_image = self.processed_image = None  # the latest image from the camera
         self.boxes = []
-        self.bridge = CvBridge() # used to convert ROS messages to OpenCV
+        self.bridge = CvBridge()  # used to convert ROS messages to OpenCV
         self.cameraModel = PinholeCameraModel()
         self.tf = TransformListener()
         rospy.Subscriber("/ardrone/bottom/image_raw", Image, self.process_image)
@@ -53,34 +53,27 @@ class ColorTrackerROS(object):
 
             print(self.boxes)
             for box in self.boxes:
-                center = np.mean(box,axis = 0)
-                print(center)
-                print(cv2.moment(self.processed_image))
+                center = np.mean(box, axis=0)
                 ray = self.cameraModel.projectPixelTo3dRay(center)
                 camera_ray = Vector3Stamped(header=msg.header,
-                    vector=Vector3(*ray))
-                world_ray = self.tf.transformVector3('map',camera_ray)
+                                            vector=Vector3(*ray))
+                world_ray = self.tf.transformVector3('map', camera_ray)
                 # print(camera_ray, world_ray)
-                pos,quat = self.tf.lookupTransform('map',msg.header.frame_id,msg.header.stamp)
+                pos, quat = self.tf.lookupTransform('map', msg.header.frame_id, msg.header.stamp)
                 multiplier = -pos[2] / world_ray.vector.z
-                drone_to_roomba = np.array([world_ray.vector.x, world_ray.vector.y, world_ray.vector.z])*multiplier
+                drone_to_roomba = np.array([world_ray.vector.x, world_ray.vector.y, world_ray.vector.z]) * multiplier
 
                 map_to_roomba = pos + drone_to_roomba
 
                 pose = Pose(position=Vector3(*map_to_roomba))
 
                 pwcs = PoseWithCovarianceStamped(header=Header(frame_id='map', stamp=msg.header.stamp),
-                    pose=PoseWithCovariance(
-                            pose=pose,
-                            covariance=np.diag([.2, .2, 0, 0, 0, 99999]).flatten()
-                        ))
-
+                                                 pose=PoseWithCovariance(
+                                                     pose=pose,
+                                                     covariance=np.diag([.2, .2, 0, 0, 0, 99999]).flatten()
+                                                 ))
 
                 self.debug_pub.publish(pwcs)
-
-
-
-
 
             # TODO: Do something with the boxes
             # TODO: make sure it doesn't get too far behind
@@ -91,7 +84,7 @@ class ColorTrackerROS(object):
             print "Error loading image"
             print(e)
 
-    def on_camera_info(self,msg):
+    def on_camera_info(self, msg):
         self.cameraModel.fromCameraInfo(msg)
 
     def run(self):
@@ -145,7 +138,7 @@ class ColorTracker(object):
             boxes.append(box)
             cv2.drawContours(image, [box], 0, (0, 0, 255), 2)
 
-        #print contours
+        # print contours
         print(boxes[0])
         if display:
             cv2.imshow("Original images", image)
@@ -174,29 +167,32 @@ def set_red_lower_bound(self, val):
     """ A callback function to handle the OpenCV slider to select the red lower bound """
     self.red_lower_bound = val
 
+
 def getHeading(box):
-    #print float(box[1][1]-box[0][1])/(box[1][0]-box[0][0])
-    #print float(box[2][1]-box[1][1])/(box[2][0]-box[1][0])
-    distanceFirstSide = distance(box[0],box[1])
-    distanceSecondSide = distance(box[1],box[2])
+    distanceFirstSide = distance(box[0], box[1])
+    distanceSecondSide = distance(box[1], box[2])
     if (distanceFirstSide > distanceSecondSide):
-        headingPossible = math.atan(float(box[1][1]-box[0][1])/(box[1][0]-box[0][0]))
-        #print math.degrees(headingPossible)
+        headingPossible = math.atan(float(box[1][1] - box[0][1]) / (box[1][0] - box[0][0]))
     else:
-        headingPossible = math.atan(float(box[2][1]-box[1][1])/(box[2][0]-box[1][0]))
-        #print math.degrees(headingPossible)
+        headingPossible = math.atan(float(box[2][1] - box[1][1]) / (box[2][0] - box[1][0]))
+    # print math.degrees(headingPossible)
     return headingPossible
+
+
 def testImageFromFile(filename):
     tracker = ColorTracker()
     # TODO: Load image
     boxes, b = tracker.find_bounding_boxes(filename, True)
     for box in boxes:
-        center = np.mean(box,axis = 0)
+        center = np.mean(box, axis=0)
         print(center)
         print(cv2.moments(b))
     # TODO: Display result
+
+
 def distance(p0, p1):
-    return np.sqrt((p0[0] - p1[0])**2 + (p0[1] - p1[1])**2)
+    return np.sqrt((p0[0] - p1[0]) ** 2 + (p0[1] - p1[1]) ** 2)
+
 
 if __name__ == '__main__':
     # colortracker = ColorTrackerROS()
