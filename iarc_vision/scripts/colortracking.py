@@ -210,7 +210,7 @@ def get_vector_heading(tail, head):
     """
     # The input vector
     u = head - tail
-    return np.arctan2(float(u[1]), float(u[0] + 0.1))
+    return np.arctan2(u[1], u[0])
 
 
 def get_darkness_corners(box, center, binary_image):
