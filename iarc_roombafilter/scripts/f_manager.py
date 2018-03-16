@@ -140,7 +140,6 @@ class UKFManager(object):
                 est[k].update(obs[j]._pose[:3])
                 est[k]._t0 = t # reset observation time
                 add_obs[j] = False
-                print "Successful match 3"
                 #except Exception as e:
                 #    print e
                 #    print obs[j]._pose[:3]
@@ -184,7 +183,7 @@ class UKFManager(object):
                 v = 0.0
                 w = 0.0
             else:
-                v = 0.0#.33
+                v = 0.33#0.0#.33
                 w = 0.0
             p[3:] = (v,w)
 
