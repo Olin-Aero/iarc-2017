@@ -38,7 +38,7 @@ HOUGH_THRESHOLD = 85#100 # Minimum number of points needed to determine a line
 MIN_DIST = 100#50 # Distance in pixels between 2 lines to be considered different
 MIN_ANGLE = np.pi/12 # Angle in radians between 2 lines to be considered different
 MIN_INTERSECT_ANGLE = np.pi/12 # Minimum angle in radians between 2 intersecting lines
-SIDE_LENGTH = 0.5 # Size of original grid square in meters
+SIDE_LENGTH = 1.0 # Size of original grid square in meters
 CAMERA_RATIO = 4/3*720 #4/3*720 #3264 # Intrinsic property of camera
 TIME_OFFSET = 0 # Amount to project timestamp forward in time
 SAMPLE_PERIOD = 1 # Number of frames between samples
@@ -70,10 +70,11 @@ class GridFinder:
         rospy.Subscriber(self._image_topic, CompressedImage, self.image_raw_callback)
 
         # display annotations - useful for debugging.
+        self._ann_img = None
         self._ann_out = rospy.get_param('~ann_out', default='') 
+        print 'ao', self._ann_out
         if self._ann_out:
             self._ann_pub = rospy.Publisher(self._ann_out, Image)
-            self._ann_img = None
 
         # get camera info
         self._K = None
@@ -238,12 +239,18 @@ def findGrid(frame, annotate, K):
     # Fill in gaps
     kernel = np.ones((DILATION_KERNEL_SIZE, DILATION_KERNEL_SIZE), np.uint8)
     frame = cv2.erode(frame, kernel, iterations=1)
+    # TODO(superduperpacman42) : The actual operation here is erosion.
+    # clarify what the intended operation was, and make them consistent.
 
     # Find edges
     edges = cv2.Canny(frame,0,255)
 
     # Crop out the borders
-    edges = edges[BORDER_SIZE:-BORDER_SIZE][BORDER_SIZE:-BORDER_SIZE]
+    # TODO(superduperpacman42) : Why crop the borders?
+    # if the borders are going to be cropped, then
+    # the intersections must be translated thenceforth
+    # to match where they are actuallly found.
+    #edges = edges[BORDER_SIZE:-BORDER_SIZE, BORDER_SIZE:-BORDER_SIZE]
 
     # Find and merge lines
     lines = cv2.HoughLines(edges,HOUGH_DIST_RES,HOUGH_ANGLE_RES,HOUGH_THRESHOLD)
@@ -268,7 +275,9 @@ def findGrid(frame, annotate, K):
     
     # Annotate image
     if annotate:
+        #ann1 = cv2.cvtColor(edges, cv2.COLOR_GRAY2BGR)
         ann = cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR)
+
         if lines!=None:
             for line in lines:
                 rho = line[0]
@@ -289,6 +298,7 @@ def findGrid(frame, annotate, K):
             cv2.line(ann,mid[0:2],mid[0:2],(255,255,0),100)
 
         ann = cv2.addWeighted(orig, 0.5, ann, 0.5, 0.0)
+        #ann = np.concatenate((ann1, ann), axis=0)
         return pose, ann
     else:
         return pose
@@ -325,21 +335,29 @@ def mergeLines(lines):
     '''Average nearby lines in (rho, theta) coordinates'''
     if lines is None:
         return None
-    lines = lines.tolist()
+
+    lines = [e[0] for e in lines.tolist()]
     lines2 = []
+
     while len(lines)>0:
         n = 1
-        rTotal = lines[0][0][0]
-        tTotal = lines[0][0][1]
-        for line in lines[1:]:
-            if abs(line[0][0]-lines[0][0][0]) < MIN_DIST:
-                if abs(np.sin(line[0][1]-lines[0][0][1]))<MIN_ANGLE:
+
+        # reference
+        l0 = lines.pop(0)
+        r0, t0 = l0
+        rTotal = l0[0]
+        tTotal = l0[1]
+
+        # compare + filter
+        for line in lines:
+            r, t = line
+            if abs(r-r0) < MIN_DIST:
+                if abs(np.sin(t-t0))<MIN_ANGLE:
                     n+=1
-                    rTotal+=line[0][0]
-                    tTotal+=line[0][1]
+                    rTotal+=r
+                    tTotal+=t
                     lines.remove(line)
-        del(lines[0])
-        lines2+=[(rTotal/n, tTotal/n)]
+        lines2+=[(rTotal/float(n), tTotal/float(n))]
     return lines2
 
 def midpoint(points, w, h):
