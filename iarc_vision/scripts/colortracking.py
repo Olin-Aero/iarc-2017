@@ -54,6 +54,7 @@ class ColorTrackerROS(object):
 
             for box in self.boxes:
                 center = np.mean(box, axis=0)
+                heading = get_heading(box, center, binary_image)
                 ray = self.cameraModel.projectPixelTo3dRay(center)
                 camera_ray = Vector3Stamped(header=msg.header,
                                             vector=Vector3(*ray))
@@ -275,9 +276,7 @@ def test_image_from_file(filename):
     tracker = ColorTracker()
     # TODO: Load image
     boxes, binary_image = tracker.find_bounding_boxes(filename, True)
-    for box in boxes:
-        center = np.mean(box, axis=0)
-        heading = get_heading(box, center, binary_image)
+
     # TODO: Display result
 
 
