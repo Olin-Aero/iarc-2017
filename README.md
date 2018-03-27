@@ -10,7 +10,7 @@ All other dependencies can be installed using `rosdep` and `pip`:
 
     rosdep install --ignore-src --from-paths $(rospack find iarc_main)/..
     pip install -r $(rospack find iarc_main)/../requirements.txt
-    
+
 Finally, `catkin_make` can be used to build the code
 
     cd ~/catkin_ws && catkin_make
