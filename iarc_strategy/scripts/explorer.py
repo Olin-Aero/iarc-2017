@@ -1,3 +1,5 @@
+#!/usr/bin/env python2
+
 import numpy as np
 import rospy
 import tf
@@ -10,6 +12,7 @@ from nav_msgs.msg import OccupancyGrid
 from geometry_msgs.msg import Point, Quaternion, Transform, TransformStamped
 from geometry_msgs.msg import Pose, PoseStamped, PoseWithCovariance, PoseWithCovarianceStamped
 from iarc_main.msg import Roomba, RoombaList
+from iarc_strategy.srv import ExplorationTarget, ExplorationTargetResponse
 
 class Explorer(object):
     """ Simple Information-Search Explorer """
@@ -56,7 +59,12 @@ class ExplorerROS(object):
         self._map_size = rospy.get_param('~map_size', default=256)
         self._resolution = rospy.get_param('~resolution', default=0.078125) #256px->20.0m
         self._rate = rospy.get_param('~rate', default=50.0)
-        self._ex = Explorer(self._map_size, self._decay_rate, 3.0)
+        self._map_frame = rospy.get_param('~map_frame', default='map')
+        self._drone_frame = rospy.get_param('~drone_frame', default='base_link')
+        self._viz = rospy.get_param('~viz', default=False) # enable visualization
+        # TODO : publish visualization info?
+        # radius = 1.5m / self._resolution, observes +-1.5m around drone
+        self._ex = Explorer(self._map_size, self._decay_rate, self.m2px(1.5, center=False))
 
         # for self-motion
         self._tf = tf.TransformListener(True, cache_time=rospy.Duration(5))
@@ -64,20 +72,75 @@ class ExplorerROS(object):
         # for roombas
         self._rsub = rospy.Subscriber(self._roomba_topic,
                 RoombaList, self.roomba_cb)
+        self._srv = rospy.Service('~explore', ExplorationTarget, self.target_cb)
+
+    def m2px(self, x, center=False):
+        """ meters -> pixels """
+        res = np.divide(x, self._resolution)
+        if center:
+            res += self._map_size/2.0
+        return res.astype(np.int32)
+
+    def px2m(self, x, center=False):
+        """ pixels -> meters """
+        if center:
+            x = np.subtract(x, self._map_size / 2.0)
+        res = np.multiply(x, self._resolution)
+        return res
+
+    def target_cb(self, req):
+        """ Fulfills ExplorationTarget Request """
+        target = self._ex.target()
+        target = self.px2m(target, center=True)
+        res = ExplorationTargetResponse()
+        res.target.x = target[0]
+        res.target.y = target[1]
+        res.target.z = 2.5 # TODO : arbitrary-ish height
+        res.success = True
+        return res
 
     def roomba_cb(self, msg):
-        pass
+        """ Update Map based on Roomba Information"""
+        if not msg.header.frame_id == self._map_frame:
+            rospy.logerr_throttle(0.5, "Incoming RoombaList() must be in ExplorerRos.map_frame !!")
+            return
+
+        # extract x,y position
+        pts = [r.pose.pose.position for r in msg.data.visible_location]
+        pts = [(pt.x, pt.y) for pt in pts]
+        pts = self.m2px(pts, center=True)
+        self._ex.update(pts, 0.0)
 
     def run(self):
+        """ Run Explorer Sensing + Service """
         rate = rospy.Rate(self._rate)
+        t0 = rospy.Time.now().to_sec()
         while not rospy.is_shutdown():
-            self
+            # get time ...
+            t1 = rospy.Time.now().to_sec()
+            dt = t1-t0
+            t0 = t1
+
+            # update map ...
+            pts = []
+            try:
+                pos, _ = self._tf.lookupTransform(self._map_frame, self._drone_frame, rospy.Time(0))
+                print pos
+                pts.append(pos[:2])
+            except tf.Exception as e:
+                rospy.loginfo_throttle(1.0, "TF Lookup Failed: {}".format(e))
+            pts = self.m2px(pts, center=True)
+            self._ex.update(pts, dt)
+            if self._viz:
+                cv2.imshow('viz', self._ex._map)
+                cv2.waitKey(10)
             rate.sleep()
 
 def main():
+    """ Test Explorer() without ROS Binding"""
     n=256
     decay=1e-2
-    radius=5
+    radius=20
     dt=0.1
     pos=np.float32([n/2, n/2])
     goal=None
@@ -124,9 +187,10 @@ def main():
     #plt.show()
 
 def rosmain():
+    """ Explorer Service """
     rospy.init_node('explorer')
     explorer = ExplorerROS()
     explorer.run()
 
 if __name__ == "__main__":
-    main()
+    rosmain()
