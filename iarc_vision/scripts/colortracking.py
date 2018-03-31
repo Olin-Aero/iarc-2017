@@ -54,7 +54,7 @@ class ColorTrackerROS(object):
 
             for box in self.boxes:
                 center = np.mean(box, axis=0)
-                heading = get_heading(box, center, binary_image)
+                heading = get_heading(box, center, self.processed_image)
                 ray = self.cameraModel.projectPixelTo3dRay(center)
                 camera_ray = Vector3Stamped(header=msg.header,
                                             vector=Vector3(*ray))
@@ -66,12 +66,12 @@ class ColorTrackerROS(object):
 
                 map_to_roomba = pos + drone_to_roomba
 
-                pose = Pose(position=Vector3(*map_to_roomba))
+                pose = Pose(position=Vector3(*map_to_roomba), orientation = heading)
 
                 pwcs = PoseWithCovarianceStamped(header=Header(frame_id='map', stamp=msg.header.stamp),
                                                  pose=PoseWithCovariance(
                                                      pose=pose,
-                                                     covariance=np.diag([.2, .2, 0, 0, 0, 99999]).flatten()
+                                                     covariance=np.diag([.2, .2, 0, 0, 0, 0.2]).flatten()
                                                  ))
 
                 self.debug_pub.publish(pwcs)
@@ -292,6 +292,6 @@ def distance(p0, p1):
 
 
 if __name__ == '__main__':
-    # colortracker = ColorTrackerROS()
-    # colortracker.run()
-    test_image_from_file(cv2.imread(sys.argv[1]))
+    colortracker = ColorTrackerROS()
+    colortracker.run()
+    # test_image_from_file(cv2.imread(sys.argv[1]))
