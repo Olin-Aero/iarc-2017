@@ -90,7 +90,7 @@ class Simulator(object):
                 'obstacle' : os.path.join(rospack.get_path('iarc_sim_engine'),'data','roomba.png'),
                 'target' : os.path.join(rospack.get_path('iarc_sim_engine'),'data','roomba.png')
                 }
-        print 'img', img
+        #print 'img', img
         drone = None
         targets = []
         obstacles = []

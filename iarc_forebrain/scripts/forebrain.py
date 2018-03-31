@@ -15,9 +15,9 @@ class Strategy(object):
     def __init__(self):
         rospy.init_node('forebrain')
 
-        tfl = TransformListener()
-        self.drone = Drone(tfl=tfl)
-        self.world = WorldState(tfl=tfl)
+        self.tfl = TransformListener()
+        self.drone = Drone(tfl=self.tfl)
+        self.world = WorldState(tfl=self.tfl)
 
         rospy.sleep(1)
 
@@ -54,7 +54,7 @@ class Strategy(object):
         self.drone.land()
 
     def test_follow(self):
-        self.world.wait_for_start()
+        #self.world.wait_for_start()
         r = rospy.Rate(20)
 
         self.drone.takeoff(1.5)
@@ -94,9 +94,16 @@ class Strategy(object):
         :param List[Roomba] targets:
         :rtype: Roomba|None
         """
-        if len(targets) > 0:
-            return targets[-1]
-        return None
+        closestRoomba = None
+        minimumCloseness = pi
+        for i in targets:
+            position, quaternion = self.tfl.lookupTransform("map", i.frame_id, rospy.Time(0))
+            heading = tf.transformations.euler_from_quaternion(quaternion)
+            closeToPiOver2 = abs(heading[2] % pi - pi / 2)
+            if(closeToPiOver2 < minimumCloseness):
+                minimumCloseness = closeToPiOver2
+                closestRoomba = i
+        return closestRoomba
 
     def run(self):
         self.test_follow()
