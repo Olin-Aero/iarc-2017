@@ -1,5 +1,8 @@
 #!/usr/bin/env python2
-
+"""
+Implements a simple exploration server,
+based on past visited areas and TODO@(yoonyoungcho): roomba information.
+"""
 import numpy as np
 import rospy
 import tf
