@@ -92,7 +92,7 @@ class Drone:
 
     def land(self, block=True):
         """
-        Commands the drone to takeoff from ground level. Directly commands the low-level controls,
+        Commands the drone to land on the ground. Directly commands the low-level controls,
         and might need changes as hardware gets upgraded.
         :param (bool) block: Wait until vehicle reaches ground?
         :return: None
@@ -221,6 +221,37 @@ class Drone:
 
         self.takeoff(height)
         self.hover(0, height)
+
+    def redirect_45(self, roomba, hover_height = 1.0, land_height = 0.3, height = None):
+        """
+        Redirects the target roomba 45 degrees by landing on it.
+        :param Roomba roomba: The target to redirect
+        :param float hover_height: How high to fly to see the roomba and prepare for / debrief from the redirect
+        :param float land_height: How high to be when we tell the drone to land
+        :param float height: How high to fly after taking off again
+        :return bool: Success?
+        """
+
+        if height is None:
+            height = self.last_height
+        else:
+            self.last_height = height
+
+        # First, move to above the roomba, to get positioned well and get a feel for how it's moving.
+        self.move_to(0, 0, roomba.frame_id, height = hover_height)
+
+        # Next, lower down to just above the roomba, in preparation for landing.
+        # Note that this relies on move_to updating itself to move towards a moving reference frame.  TODO: check / test that.
+        self.move_to(0, 0, roomba.frame_id, height = land_height, tol = 0.1)
+
+        self.land()
+
+        self.takeoff(height = hover_height) # Get back up to a safe height, so we can see where the roomba is again.
+
+        #TODO: see if the roomba actually got redirected, change return value based off that.
+
+        return True 
+        
 
     def get_pos(self, frame='map'):
         """
