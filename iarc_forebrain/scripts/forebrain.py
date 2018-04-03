@@ -63,12 +63,14 @@ class Strategy(object):
         while not rospy.is_shutdown():
             target = self.choose_target(self.world.targets)
             if target is not None:
+                rospy.loginfo('Current Target : {}'.format(target))
                 self.drone.move_towards(0, 0, target.frame_id)
             else:
                 rospy.loginfo('explore')
                 resp = self._explore_srv()
                 if resp.success:
                     target = resp.target
+                    rospy.loginfo('Exploration Target : {}'.format(target))
                     self.drone.move_to(des_x=target.x, des_y=target.y, frame='map', height=target.z)
                 else:
                     # fallback
@@ -96,11 +98,23 @@ class Strategy(object):
                 resp = self._explore_srv()
                 if resp.success:
                     target = resp.target
+                    rospy.loginfo('Exploration Target : {}'.format(target))
                     self.drone.move_to(des_x=target.x, des_y=target.y, frame='map', height=target.z)
                 else:
                     # fallback
                     self.drone.hover(0, 1.5)
             r.sleep()
+
+    def test_explore(self):
+        while not rospy.is_shutdown():
+            resp = self._explore_srv()
+            if resp.success:
+                target = resp.target
+                rospy.loginfo('Exploration Target : {}'.format(target))
+                self.drone.move_to(des_x=target.x, des_y=target.y, frame='map', height=target.z)
+            else:
+                # fallback
+                self.drone.hover(0, 1.5)
 
     def choose_target(self, targets):
         """
@@ -114,6 +128,7 @@ class Strategy(object):
         return None
 
     def run(self):
+        #self.test_explore()
         self.test_follow()
 
 
@@ -149,7 +164,7 @@ class WorldState(object):
             self.tfl = tfl
 
         self.startSub = rospy.Subscriber('start_round', Bool, self._on_start)
-        self.roombaSub = rospy.Subscriber('visible_roombas', RoombaList, self._on_roombas)
+        self.roombaSub = rospy.Subscriber('seen_roombas', RoombaList, self._on_roombas)
 
     def _on_start(self, msg):
         if not self.has_started and msg.data:

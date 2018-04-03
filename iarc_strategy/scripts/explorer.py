@@ -58,7 +58,7 @@ class Explorer(object):
 class ExplorerROS(object):
     def __init__(self):
         self._roomba_topic = rospy.get_param('~roomba_topic', default='seen_roombas')
-        self._decay_rate = rospy.get_param('~decay_rate', default=1e-2)
+        self._decay_rate = rospy.get_param('~decay_rate', default=1e-1) #0.1 in ~20 sec.
         self._map_size = rospy.get_param('~map_size', default=256)
         self._resolution = rospy.get_param('~resolution', default=0.078125) #256px->20.0m
         self._rate = rospy.get_param('~rate', default=50.0)
@@ -109,7 +109,7 @@ class ExplorerROS(object):
             return
 
         # extract x,y position
-        pts = [r.pose.pose.position for r in msg.data.visible_location]
+        pts = [r.visible_location.pose.pose.position for r in msg.data]
         pts = [(pt.x, pt.y) for pt in pts]
         pts = self.m2px(pts, center=True)
         self._ex.update(pts, 0.0)
@@ -128,7 +128,7 @@ class ExplorerROS(object):
             pts = []
             try:
                 pos, _ = self._tf.lookupTransform(self._map_frame, self._drone_frame, rospy.Time(0))
-                print pos
+                #print pos
                 pts.append(pos[:2])
             except tf.Exception as e:
                 rospy.loginfo_throttle(1.0, "TF Lookup Failed: {}".format(e))

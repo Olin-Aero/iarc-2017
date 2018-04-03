@@ -81,8 +81,9 @@ class RVIZInterface(object):
         self._drone = msg.pose[msg.name.index("quadrotor")]
 
     def obs_cb(self, msg):
-        h = Header(frame_id = msg.header.frame_id)
         obs = [r.visible_location.pose.pose for r in msg.data]
+        #h = Header(frame_id = msg.header.frame_id)
+        h = Header(frame_id = "map")
         try:
             self._obs = [self._tf.transformPose('map', PoseStamped(h, r)).pose for r in obs]
         except Exception as e:
@@ -90,8 +91,9 @@ class RVIZInterface(object):
             self._obs = []
 
     def est_cb(self, msg):
-        h = Header(frame_id = msg.header.frame_id)
         est = [r.visible_location.pose.pose for r in msg.data]
+        #h = Header(frame_id = msg.header.frame_id)
+        h = Header(frame_id = "map")
         try:
             self._est = [self._tf.transformPose('map', PoseStamped(h, r)).pose for r in est]
         except Exception:
