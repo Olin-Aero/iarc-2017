@@ -7,11 +7,13 @@ As for the ROS Node, refer to f_ros.py.
 
 from f_utils import *
 from f_config import *
+import f_config as cfg
 
 import numpy as np
 import cv2
 
 from f_manager import UKFManager 
+from f_model import TargetRoombaModel, ObstacleRoombaModel
 
 def random_pose():
     x = np.random.uniform(-10.0, 10.0)
@@ -28,6 +30,25 @@ def main():
     dt = 0.01
     steps = (100.0 / dt)
     sigmas = np.asarray([S_X, S_Y, S_T, S_V, S_W])
+
+    # configure models by params
+    TargetRoombaModel.configure({
+        # speed configurations
+        'v'    : 0.33,
+        'w'    : 1.375,
+        # intervals
+        't_n'  : cfg.INT_NOISE, # noise interval
+        't_r'  : cfg.INT_REVERSE, # reversal interval
+        # durations
+        'd_180': cfg.T_180,
+        'd_45' : cfg.T_45,
+        'd_n'  : cfg.T_NOISE
+        })
+
+    ObstacleRoombaModel.configure({
+        'v'    : 0.33,
+        'w'    : 0.066
+        })
 
     # initialization
     drone = Drone(np.zeros(shape=5, dtype=np.float32))
@@ -80,7 +101,7 @@ def main():
                 [_t._pose for _t in targets],
                 manager.estimates().values(),
                 t,
-                delay=2
+                delay=1
                 )
 
         # filter

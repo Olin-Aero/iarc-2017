@@ -195,6 +195,25 @@ class UKFManagerROS(object):
 
 def main():
     rospy.init_node('roomba_filter')
+
+    # configure models by params
+    TargetRoombaModel.configure({
+        # speed configurations
+        'v'    : 0.33,
+        'w'    : 1.375,
+        # intervals
+        't_n'  : cfg.INT_NOISE, # noise interval
+        't_r'  : cfg.INT_REVERSE, # reversal interval
+        # durations
+        'd_180': cfg.T_180,
+        'd_45' : cfg.T_45,
+        'd_n'  : cfg.T_NOISE
+        })
+    ObstacleRoombaModel.configure({
+        'v'    : 0.33,
+        'w'    : 0.066
+        })
+
     mgr = UKFManagerROS(dt=1e-2)
     mgr.run()
 
