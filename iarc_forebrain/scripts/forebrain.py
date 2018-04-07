@@ -128,8 +128,8 @@ class Strategy(object):
         return None
 
     def run(self):
-        #self.test_explore()
-        self.test_follow()
+        self.test_explore()
+        #self.test_follow()
 
 
 def angle_diff(a, b):

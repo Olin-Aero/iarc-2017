@@ -142,7 +142,7 @@ class ExplorerROS(object):
 def main():
     """ Test Explorer() without ROS Binding"""
     n=256
-    decay=1e-2
+    decay=5e-3
     radius=20
     dt=0.1
     pos=np.float32([n/2, n/2])
