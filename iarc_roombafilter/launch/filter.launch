@@ -2,16 +2,21 @@
     <!-- if simulated, run simulation observation interface -->
     <!-- i.e. pretend like visual detection is running. -->
 	<arg name="sim" default="true"/>
+    <arg name="sim2d" default="false"/>
 
     <!-- enable visualization interface, rviz output markers -->
 	<arg name="viz" default="true"/>
 
 	<node if="$(arg sim)" name="gz_int" pkg="iarc_roombafilter" type="f_gz.py"/>
-	<node name="filter" pkg="iarc_roombafilter" type="f_ros.py" output="screen"/>
+	<node name="filter" pkg="iarc_roombafilter" type="f_ros.py" output="screen">
+        <param name="sim2d" value="$(arg sim2d)"/>
+    </node>
 	<group if="$(arg viz)">
 		<node name="rviz_int" pkg="iarc_roombafilter" type="f_rviz.py" output="screen">
 			<param name="show_gz" value="$(arg sim)"/>
 		</node>
-		<node name="rviz" pkg="rviz" type="rviz" args="-d $(find iarc_roombafilter)/config/filter_status.rviz"/>
+		<node name="rviz" pkg="rviz" type="rviz" args="-d $(find iarc_roombafilter)/config/filter_status.rviz">
+            <param name="sim2d" value="$(arg sim2d)"/>
+        </node>
 	</group>
 </launch>

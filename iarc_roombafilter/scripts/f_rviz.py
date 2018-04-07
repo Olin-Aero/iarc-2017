@@ -31,6 +31,8 @@ class RVIZInterface(object):
         self._show_obs = rospy.get_param('~show_obs', default=True)
         # Flag : show output filtered estimates
         self._show_est = rospy.get_param('~show_est', default=True)
+        # Flag : 2D Sim, fake observation area
+        self._sim2d = rospy.get_param('~sim2d', default=True)
 
         self._drone = None
         self._tf = tf.TransformListener()
@@ -101,7 +103,7 @@ class RVIZInterface(object):
         try:
             self._obs = [self._tf.transformPose('map', PoseStamped(h, r)).pose for r in obs]
         except Exception as e:
-            rospy.logerr_throttle(1.0, 'TF Exception at obs_cb() in f_rviz.py : {}'.format(e))
+            rospy.logerr_throttle(1.0, 'TF Exception at obs_cb() in f_rviz.py : {}/{}'.format(e, msg))
             self._obs = []
 
     def est_cb(self, msg):
@@ -115,7 +117,20 @@ class RVIZInterface(object):
 
     def _publish_area(self):
         try:
-            if self._cam_frame:
+            if self._sim2d:
+                t, _ = self._tf.lookupTransform('map', 'base_link', rospy.Time(0))
+                x,y,z = t
+                r = z * np.tan(np.pi/3)
+                th = np.linspace(-np.pi, np.pi)
+                ar_x = x + r*np.cos(th)
+                ar_y = y + r*np.sin(th)
+                ar = np.stack([ar_x, ar_y, 0*ar_y], axis=-1)
+                poly = self._a2p(ar)
+                self._ar_msg.header.stamp = rospy.Time.now()
+                self._ar_msg.header.frame_id = 'map'
+                self._ar_msg.polygon = poly
+                self._ar_pub.publish(self._ar_msg)
+            elif self._cam_frame:
                 # looks a bit stupid ... TODO(yoonyoungcho): fix
                 _, q = self._tf.lookupTransform(self._cam_frame, 'map', rospy.Time(0))
                 t, _ = self._tf.lookupTransform('map', self._cam_frame, rospy.Time(0))
@@ -126,6 +141,7 @@ class RVIZInterface(object):
                 self._ar_msg.header.frame_id = 'map'
                 self._ar_msg.polygon = poly
                 self._ar_pub.publish(self._ar_msg)
+
         except Exception as e:
             rospy.logerr_throttle(1.0, 'Exception at _publish_area() in f_rviz.py : {}'.format(e))
 
