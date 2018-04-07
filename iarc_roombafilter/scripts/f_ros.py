@@ -26,6 +26,7 @@ import f_config as cfg
 from f_manager import UKFManager
 # Filter-Related ...
 from f_utils import *
+from f_model import TargetRoombaModel, ObstacleRoombaModel
 
 
 class UKFManagerROS(object):
