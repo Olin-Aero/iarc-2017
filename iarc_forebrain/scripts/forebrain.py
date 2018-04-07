@@ -2,7 +2,7 @@
 import rospy
 from iarc_main.msg import RoombaList, Roomba
 from std_msgs.msg import Bool
-
+from ChooseTarget import goodnessScore, targetSelect
 from Drone import Drone
 
 from tf import TransformListener
@@ -94,16 +94,17 @@ class Strategy(object):
         :param List[Roomba] targets:
         :rtype: Roomba|None
         """
-        closestRoomba = None
-        minimumCloseness = pi
-        for i in targets:
-            position, quaternion = self.tfl.lookupTransform("map", i.frame_id, rospy.Time(0))
-            heading = tf.transformations.euler_from_quaternion(quaternion)
-            closeToPiOver2 = abs(heading[2] % pi - pi / 2)
-            if(closeToPiOver2 < minimumCloseness):
-                minimumCloseness = closeToPiOver2
-                closestRoomba = i
-        return closestRoomba
+        return targetSelect(goodnessScore(targets))[0]
+        # closestRoomba = None
+        # minimumCloseness = pi
+        # for i in targets:
+        #     position, quaternion = self.tfl.lookupTransform("map", i.frame_id, rospy.Time(0))
+        #     heading = tf.transformations.euler_from_quaternion(quaternion)
+        #     closeToPiOver2 = abs(heading[2] % pi - pi / 2)
+        #     if(closeToPiOver2 < minimumCloseness):
+        #         minimumCloseness = closeToPiOver2
+        #         closestRoomba = i
+        # return closestRoomba
 
     def run(self):
         self.test_follow()
