@@ -228,6 +228,7 @@ class Simulator(object):
             roombaArrayMain.data.append(Vis_Roomba_main)
 
         roombaArrayMain.header.stamp = rospy.Time.now()
+        roombaArrayMain.header.frame_id = 'map'#rospy.Time.now()
         roombaArrayMain.header.seq = self.seqNum
         self.seqNum += 1
 
