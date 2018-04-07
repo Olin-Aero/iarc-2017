@@ -26,6 +26,7 @@ import f_config as cfg
 from f_manager import UKFManager
 # Filter-Related ...
 from f_utils import *
+from f_model import TargetRoombaModel, ObstacleRoombaModel
 
 
 class UKFManagerROS(object):
@@ -86,11 +87,12 @@ class UKFManagerROS(object):
         if self._sim2d:
             try:
                 pos, _ = self._tf.lookupTransform('map', 'base_link', rospy.Time(0))
-                obs_ar = CircularObservation(
-                    pos[0],
-                    pos[1],
-                    3.0
-                    )
+                obs_ar = ConicObservation(
+                        pos[0],
+                        pos[1],
+                        pos[2],
+                        aov=np.pi*2/3
+                        )
             except tf.Exception as e:
                 rospy.loginfo_throttle(1.0, 'Sim2D TF Failed : {}'.format(e))
                 return
@@ -202,6 +204,25 @@ class UKFManagerROS(object):
 
 def main():
     rospy.init_node('roomba_filter')
+
+    # configure models by params
+    TargetRoombaModel.configure({
+        # speed configurations
+        'v'    : 0.33,
+        'w'    : 1.375,
+        # intervals
+        't_n'  : cfg.INT_NOISE, # noise interval
+        't_r'  : cfg.INT_REVERSE, # reversal interval
+        # durations
+        'd_180': cfg.T_180,
+        'd_45' : cfg.T_45,
+        'd_n'  : cfg.T_NOISE
+        })
+    ObstacleRoombaModel.configure({
+        'v'    : 0.33,
+        'w'    : 0.066
+        })
+
     mgr = UKFManagerROS(dt=1e-2)
     mgr.run()
 
