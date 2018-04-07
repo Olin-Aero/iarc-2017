@@ -5,26 +5,32 @@ Roomba Motion Models for the filter to apply.
 from abc import ABCMeta, abstractmethod
 import numpy as np
 
+class abstractstatic(staticmethod):
+    __slots__ = ()
+    def __init__(self, function):
+        super(abstractstatic, self).__init__(function)
+        function.__isabstractmethod__ = True
+    __isabstractmethod__ = True
+
 class BaseRoombaModel(object):
     __metaclass__ = ABCMeta
-    def __init__(self):
+    @staticmethod
+    def configure():
         pass
-    @abstractmethod
-    def __call__(self, s, t, dt):
+    @abstractstatic
+    def apply(s, t, dt):
         return NotImplementedError("BaseRoombaModel cannot be applied!")
 
 class StaticRoombaModel(BaseRoombaModel):
     """ Stays in place """
-    def __init__(self):
-        super(StaticRoombaModel, self).__init__()
-    def __call__(self, s, t, dt):
+    @staticmethod
+    def apply(s, t, dt):
         return s
 
 class SimpleRoombaModel(BaseRoombaModel):
     """ Preserves velocity information """
-    def __init__(self):
-        super(SimpleRoombaModel,self).__init__()
-    def __call__(self, s, t, dt):
+    @staticmethod
+    def apply(s, t, dt):
         x,y,h,v,w = s
         x += v * np.cos(h) * dt
         y += v * np.sin(h) * dt
@@ -33,11 +39,13 @@ class SimpleRoombaModel(BaseRoombaModel):
 
 class TargetRoombaModel(SimpleRoombaModel):
     """ Target Roomba """
-    def __init__(self, opts):
-        self._opts = opts
-        super(TargetRoombaModel, self).__init__()
-    def __call__(self, s, t, dt):
-        opts = self._opts
+    opts = None
+    @staticmethod
+    def configure(opts):
+        TargetRoombaModel.opts = opts
+    @staticmethod
+    def apply(s, t, dt):
+        opts = TargetRoombaModel.opts
         if t % opts['t_r'] < opts['d_180']:
             v = 0.0
             w = np.pi / opts['d_180']
@@ -49,18 +57,19 @@ class TargetRoombaModel(SimpleRoombaModel):
             v = opts['v']
             w = 0.0
         s = [s[0], s[1], s[2], v, w]
-        return SimpleRoombaModel.__call__(self, s,t,dt)
+        return SimpleRoombaModel.apply(s,t,dt)
 
 class ObstacleRoombaModel(SimpleRoombaModel):
     """ Obstacle Roomba """
-    def __init__(self, opts):
-        self._opts = opts
-        super(ObstacleRoombaModel, self).__init__()
-    def __call__(self, s, t, dt):
-        s = [s[0], s[1], s[2], self._opts['v'], self._opts['w']]
-        return SimpleRoombaModel.__call__(self, s,t,dt)
-
-
+    opts = None
+    @staticmethod
+    def configure(opts):
+        ObstacleRoombaModel.opts = opts
+    @staticmethod
+    def apply(s, t, dt):
+        opts=  ObstacleRoombaModel.opts
+        s = [s[0], s[1], s[2], opts['v'], opts['w']]
+        return SimpleRoombaModel.apply(s,t,dt)
 
 def main():
     from matplotlib import pyplot as plt
@@ -126,12 +135,12 @@ def main():
             pass
 
     # create roomba models
-    r1 = StaticRoombaModel()
-    r2 = SimpleRoombaModel()
-    r3 = TargetRoombaModel({
+    StaticRoombaModel.configure()
+    SimpleRoombaModel.configure()
+    TargetRoombaModel.configure({
         # speed configurations
         'v'    : 0.33,
-        'w'    : 0.066,
+        'w'    : 1.375,
         # intervals
         't_n'  : 5.0, # noise interval
         't_r'  : 20.0, # reversal interval
@@ -141,7 +150,7 @@ def main():
         'd_n'  : 0.85
         })
 
-    r4 = ObstacleRoombaModel({
+    ObstacleRoombaModel.configure({
         'v'    : 0.33,
         'w'    : 0.066
         })
@@ -183,10 +192,10 @@ def main():
         s2s.append(np.copy(s2))
         s3s.append(np.copy(s3))
         s4s.append(np.copy(s4))
-        s1 = r1(s1, t, dt)
-        s2 = r2(s2, t, dt)
-        s3 = r3(s3, t, dt)
-        s4 = r4(s4, t, dt)
+        s1 = StaticRoombaModel.apply(s1, t, dt)
+        s2 = SimpleRoombaModel.apply(s2, t, dt)
+        s3 = TargetRoombaModel.apply(s3, t, dt)
+        s4 = ObstacleRoombaModel.apply(s4, t, dt)
         t += dt
 
     s1s = np.asarray(s1s)

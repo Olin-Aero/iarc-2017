@@ -3,6 +3,7 @@
 import numpy as np
 from f_utils import *
 from f_config import *
+from f_model import TargetRoombaModel, ObstacleRoombaModel, SimpleRoombaModel
 
 from scipy.linalg import sqrtm
 from scipy.optimize import linear_sum_assignment
@@ -43,25 +44,8 @@ class UKFManager(object):
         # TODO : when this happens, in case of missing covariance, handle unreasonable input covariance.
         self.R = np.diag(np.square([0.1, 0.1, np.deg2rad(5)])) # measurement noise: 5cm/5deg err.
 
-        # different developments of process noise model
-        # left here for archival / referral purposes when things go wrong,
-        # or need modifications.
-
-        #G = [0.5*dt**2, 0.5*dt**2, 0.5*dt**2, dt, dt] # acceleration-noise model
-        #self.Q = np.square(np.diag(G) * 8.8)
-        # G = np.reshape(G, [-1,1])
-        # print G.T
-        # self.Q = np.dot(G, np.transpose(G)) * (8.8**2)
-        #np.diag([0.05, 0.05, np.deg2rad(5), 0.01, 0.01])
-        #self.Q = np.outer(Gt,Gt) * (8.8**2)
-        #print self.Q
-        #G = [0.05, 0.05, np.deg2rad(5), 0.01, 0.01]
-        #~5cm / 5 deg. per second
-        #self.Q = np.diag(np.square(G))
-
         # process noise
         self.Q = np.diag([0.02, 0.02, np.deg2rad(3), 0.01, 0.01])
-
         self.p_idx = 0
         self.est = {}
 
@@ -121,7 +105,7 @@ class UKFManager(object):
             for j, o in enumerate(obs):
                 prob[k2i[k],j] = est[k].match(o)
 
-        i_idx, j_idx = linear_sum_assignment(1.0 - prob)
+        est_idx, obs_idx = linear_sum_assignment(1.0 - prob)
 
         # update
         # collect "new" particles
@@ -131,7 +115,7 @@ class UKFManager(object):
         s = None
         cnt=0
 
-        for (i,j) in zip(i_idx, j_idx):
+        for (i,j) in zip(est_idx, obs_idx):
             cnt += 1
             k = i2k[i]
             if (prob[i,j] > P_MATCH):
@@ -143,20 +127,17 @@ class UKFManager(object):
                 #except Exception as e:
                 #    print e
                 #    print obs[j]._pose[:3]
-            #print prob[i,j]
-        #print 'cnt', cnt
-        #print 'Diff', s
 
         # clear invalid (unobserved) estimates
         if m > 0:
-            for k,e in est.iteritems():
+            for k, e in est.iteritems():
                 i = k2i[k]
-                if (i in i_idx): # index check
+                if (i in est_idx): # index check - ignore observed
                     continue
-                if (e._pose not in obs_ar): # area check
+                if (e._pose not in obs_ar): # area check - ignore unobservable
                     continue
                 j = np.argmax(prob[i])
-                if (j not in j_idx) and (np.max(prob[i]) > P_CLEAR):
+                if (j not in obs_idx) and (np.max(prob[i]) > P_CLEAR):
                     # this was best match
                     continue
                 k_clear.append(k)
@@ -174,21 +155,16 @@ class UKFManager(object):
             p = np.copy(o._pose)
             v,w = 0,0
 
-            # make initial guess ...
-            # WARNING : only applicable for TARGET roombas
-            if t % cfg.INT_REVERSE < cfg.T_180:
-                v = 0.0
-                w = np.pi / T_180
-            elif t % cfg.INT_NOISE < cfg.T_NOISE:
-                v = 0.0
-                w = 0.0
+            if o._t == cfg.T_OBS:
+                p = ObstacleRoombaModel.apply(o._pose, t, 0.0)
+            elif o._t == cfg.T_RED or o._t == cfg.T_GREEN:
+                p = TargetRoombaModel.apply(o._pose, t, 0.0)
             else:
-                v = 0.33#0.0#.33
-                w = 0.0
-            p[3:] = (v,w)
+                # default to simple model
+                p = SimpleRoombaModel.apply(o._pose, t, 0.0)
 
             self.create(p)
-        # TODO : merge particles that are too similar?
+        # TODO : merge particles that are too similar
 
     def estimates(self):
         return self.est
