@@ -14,7 +14,7 @@ def orientationToHeading(orientation):
     res[2] = orientation.z
     res[3] = orientation.w
     return tf.transformations.euler_from_quaternion(res)[2]
-def goodnessScore(roombas, C1=1, C2=1, C3=1, C4=1, C5=1):
+def goodnessScore(roombas, C1=3, C2=1, C3=1, C4=1, C5=1):
     """
     Determines which Roomba we pick to lead to the goal.
     Higher score is better.
@@ -31,9 +31,13 @@ def goodnessScore(roombas, C1=1, C2=1, C3=1, C4=1, C5=1):
 
     def positionScore(roomba):
         # the closer to the center, the lower the xScore, from 0 to 1
-        xScore = abs(roomba.visible_location.pose.pose.position.x) / 10
+        posX = roomba.visible_location.pose.pose.position.x
+        posY = roomba.visible_location.pose.pose.position.y
+        if(abs(posX) > 9.95 or abs(posY) > 9.95):
+            return -10000
+        xScore = abs(posX) / 10
         # the closer to the green zone, the higher the yScore, from 0 to 1
-        yScore = roomba.visible_location.pose.pose.position.y / 20 + 0.5
+        yScore = posY / 20 + 0.5
         return (xScore + yScore)/2
 
     def distanceFromObstaclesScore(roomba, obstacles):

@@ -61,30 +61,33 @@ class Strategy(object):
         while not rospy.is_shutdown():
             target = self.choose_target(self.world.targets)
             if target is not None:
+                #print(target.frame_id)
                 self.drone.move_towards(0, 0, target.frame_id)
             else:
-                self.drone.hover(0)
+                self.drone.move_to(0.0,0.0,'map',2.5)
             r.sleep()
 
     def test_follow_redirect(self):
-        self.world.wait_for_start()
+        #self.world.wait_for_start()
         r = rospy.Rate(20)
-
         self.drone.takeoff(1.5)
         while not rospy.is_shutdown():
             target = self.choose_target(self.world.targets)
             if target is not None:
-                if abs(angle_diff(self.world.target_facing_angle(target), self.world.CORRECT_DIRECTION)) > pi/2:
+                angleDiff = abs(angle_diff(self.world.target_facing_angle(target), self.world.CORRECT_DIRECTION))
+                if angleDiff > pi/2:
                     success = self.drone.redirect_180(target)
                     if success:
                         rospy.loginfo('Redirected roomba: Success!')
                     else:
                         rospy.loginfo('Redirected roomba: Failure :(')
+                # elif angleDiff <= 3*pi/4 and angleDiff >= pi/4:
+                #     self.drone.redirect_45(target)
                 else:
                     # Follow the roomba
-                    self.drone.move_towards(0, 0, target.frame_id, 1.5)
+                    self.drone.move_towards(0, 0, target.frame_id, 2.5)
             else:
-                self.drone.hover(0, 1.5)
+                self.drone.move_to(0.0,0.0,'map',2.5)
             r.sleep()
 
     def choose_target(self, targets):
@@ -94,7 +97,10 @@ class Strategy(object):
         :param List[Roomba] targets:
         :rtype: Roomba|None
         """
-        return targetSelect(goodnessScore(targets))[0]
+        s = targetSelect(goodnessScore(targets))
+        if(s[1] < -100):
+            return None
+        return s[0]
         # closestRoomba = None
         # minimumCloseness = pi
         # for i in targets:
@@ -107,7 +113,7 @@ class Strategy(object):
         # return closestRoomba
 
     def run(self):
-        self.test_follow()
+        self.test_follow_redirect()
 
 
 def angle_diff(a, b):
