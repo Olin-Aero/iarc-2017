@@ -55,6 +55,7 @@ class ColorTrackerROS(object):
             for box in self.boxes:
                 center = np.mean(box, axis=0)
                 heading = get_heading(box, center, self.processed_image)
+                quat = self.tf.quaternion_from_euler(heading)
                 ray = self.cameraModel.projectPixelTo3dRay(center)
                 camera_ray = Vector3Stamped(header=msg.header,
                                             vector=Vector3(*ray))
@@ -66,7 +67,7 @@ class ColorTrackerROS(object):
 
                 map_to_roomba = pos + drone_to_roomba
 
-                pose = Pose(position=Vector3(*map_to_roomba), orientation = heading)
+                pose = Pose(position=Vector3(*map_to_roomba), orientation = quat)
 
                 pwcs = PoseWithCovarianceStamped(header=Header(frame_id='map', stamp=msg.header.stamp),
                                                  pose=PoseWithCovariance(
