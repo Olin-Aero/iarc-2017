@@ -1,6 +1,8 @@
 #!/usr/bin/env python2
 import rospy
 from iarc_main.msg import RoombaList, Roomba
+from iarc_strategy.srv import ExplorationTarget, ExplorationTargetRequest, ExplorationTargetResponse
+
 from std_msgs.msg import Bool
 from ChooseTarget import goodnessScore, targetSelect
 from Drone import Drone
@@ -15,12 +17,13 @@ class Strategy(object):
     def __init__(self):
         rospy.init_node('forebrain')
 
-        self.tfl = TransformListener()
-        self.drone = Drone(tfl=self.tfl)
-        self.world = WorldState(tfl=self.tfl)
+        tfl = TransformListener()
+        self.drone = Drone(tfl=tfl)
+        self.world = WorldState(tfl=tfl)
+        self._explore_srv = rospy.ServiceProxy('/explorer/explore', ExplorationTarget)
 
         rospy.sleep(1)
-
+        
     def test_hover(self):
         self.world.wait_for_start()
 
@@ -56,15 +59,22 @@ class Strategy(object):
     def test_follow(self):
         #self.world.wait_for_start()
         r = rospy.Rate(20)
-
         self.drone.takeoff(1.5)
         while not rospy.is_shutdown():
             target = self.choose_target(self.world.targets)
             if target is not None:
-                #print(target.frame_id)
+                rospy.loginfo('Current Target : {}'.format(target))
                 self.drone.move_towards(0, 0, target.frame_id)
             else:
-                self.drone.move_to(0.0,0.0,'map',2.5)
+                rospy.loginfo('explore')
+                resp = self._explore_srv()
+                if resp.success:
+                    target = resp.target
+                    rospy.loginfo('Exploration Target : {}'.format(target))
+                    self.drone.move_to(des_x=target.x, des_y=target.y, frame='map', height=target.z)
+                else:
+                    # fallback
+                    self.drone.hover(0)
             r.sleep()
 
     def test_follow_redirect(self):
@@ -87,8 +97,26 @@ class Strategy(object):
                     # Follow the roomba
                     self.drone.move_towards(0, 0, target.frame_id, 2.5)
             else:
-                self.drone.move_to(0.0,0.0,'map',2.5)
+                resp = self._explore_srv()
+                if resp.success:
+                    target = resp.target
+                    rospy.loginfo('Exploration Target : {}'.format(target))
+                    self.drone.move_to(des_x=target.x, des_y=target.y, frame='map', height=target.z)
+                else:
+                    # fallback
+                    self.drone.hover(0, 1.5)
             r.sleep()
+
+    def test_explore(self):
+        while not rospy.is_shutdown():
+            resp = self._explore_srv()
+            if resp.success:
+                target = resp.target
+                rospy.loginfo('Exploration Target : {}'.format(target))
+                self.drone.move_to(des_x=target.x, des_y=target.y, frame='map', height=target.z)
+            else:
+                # fallback
+                self.drone.hover(0, 1.5)
 
     def choose_target(self, targets):
         """
@@ -113,7 +141,8 @@ class Strategy(object):
         # return closestRoomba
 
     def run(self):
-        self.test_follow_redirect()
+        self.test_explore()
+        #self.test_follow()
 
 
 def angle_diff(a, b):
@@ -148,7 +177,7 @@ class WorldState(object):
             self.tfl = tfl
 
         self.startSub = rospy.Subscriber('start_round', Bool, self._on_start)
-        self.roombaSub = rospy.Subscriber('visible_roombas', RoombaList, self._on_roombas)
+        self.roombaSub = rospy.Subscriber('seen_roombas', RoombaList, self._on_roombas)
 
     def _on_start(self, msg):
         if not self.has_started and msg.data:

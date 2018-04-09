@@ -26,6 +26,7 @@ import f_config as cfg
 from f_manager import UKFManager
 # Filter-Related ...
 from f_utils import *
+from f_model import TargetRoombaModel, ObstacleRoombaModel
 
 
 class UKFManagerROS(object):
@@ -41,6 +42,7 @@ class UKFManagerROS(object):
         self._cam_topic = rospy.get_param('~cam_topic', default='/ardrone/bottom/camera_info')
         self._obs_topic = rospy.get_param('~obs_topic', default='visible_roombas')
         self._out_topic = rospy.get_param('~out_topic', default='seen_roombas')
+        self._sim2d = rospy.get_param('~sim2d', default=False)
         self._rate = rospy.get_param('~rate', default=50)  # 50hz
 
         # create ROS interfaces
@@ -82,26 +84,33 @@ class UKFManagerROS(object):
         if msg == None:
             return
 
-        try:
-            _, q = self._tf.lookupTransform(self._cam_frame, 'map', rospy.Time(0))
-            t, _ = self._tf.lookupTransform('map', self._cam_frame, rospy.Time(0))
-            q = [q[3], q[0], q[1], q[2]]  # reorder xyzw-> wxyz
-            ar = observability(self._K, self._w, self._h, q, t, False)
-            obs_ar = PolygonObservation(ar)
-        except tf.Exception as e:
-            rospy.loginfo_throttle(5, 'Falling back to conic observation {}'.format(e))
+        if self._sim2d:
             try:
-                t, _ = self._tf.lookupTransform('base_link', 'map', msg.header.stamp)
-                obs_ar = ConicObservation(t[0], t[1], t[2], 2)
+                pos, _ = self._tf.lookupTransform('map', 'base_link', rospy.Time(0))
+                obs_ar = ConicObservation(
+                        pos[0],
+                        pos[1],
+                        pos[2],
+                        aov=np.pi*2/3
+                        )
             except tf.Exception as e:
-                print "That didn't work...", e
+                rospy.loginfo_throttle(1.0, 'Sim2D TF Failed : {}'.format(e))
                 return
-
-        # obs_ar = CircularObservation(
-        #        pos.point.x,
-        #        pos.point.y,
-        #        msg.fov_radius
-        #        )
+        else:
+            try:
+                _, q = self._tf.lookupTransform(self._cam_frame, 'map', rospy.Time(0))
+                t, _ = self._tf.lookupTransform('map', self._cam_frame, rospy.Time(0))
+                q = [q[3], q[0], q[1], q[2]]  # reorder xyzw-> wxyz
+                ar = observability(self._K, self._w, self._h, q, t, False)
+                obs_ar = PolygonObservation(ar)
+            except tf.Exception as e:
+                rospy.loginfo_throttle(5, 'Falling back to conic observation {}'.format(e))
+                try:
+                    t, _ = self._tf.lookupTransform('base_link', 'map', msg.header.stamp)
+                    obs_ar = ConicObservation(t[0], t[1], t[2], 2)
+                except tf.Exception as e:
+                    print "That didn't work...", e
+                    return
 
         # format observation data ...
         obs = []
@@ -195,6 +204,25 @@ class UKFManagerROS(object):
 
 def main():
     rospy.init_node('roomba_filter')
+
+    # configure models by params
+    TargetRoombaModel.configure({
+        # speed configurations
+        'v'    : 0.33,
+        'w'    : 1.375,
+        # intervals
+        't_n'  : cfg.INT_NOISE, # noise interval
+        't_r'  : cfg.INT_REVERSE, # reversal interval
+        # durations
+        'd_180': cfg.T_180,
+        'd_45' : cfg.T_45,
+        'd_n'  : cfg.T_NOISE
+        })
+    ObstacleRoombaModel.configure({
+        'v'    : 0.33,
+        'w'    : 0.066
+        })
+
     mgr = UKFManagerROS(dt=1e-2)
     mgr.run()
 

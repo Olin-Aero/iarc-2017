@@ -106,7 +106,7 @@ ROOMBA_HEIGHT = .1
 
 
 #Angle of bottom camera field of view, in radians
-BOTTOM_CAMERA_FOV = PI/3
+BOTTOM_CAMERA_FOV = 2*PI/3
 
 BOUND = 20.0
 

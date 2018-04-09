@@ -24,7 +24,7 @@ c = []
 for pose in poses:
     p = Particle(pose)
     #c.append(p0.match(p))
-    c.append(p0.cost(p))
+    c.append(p0.match(p))
 print np.max(c)
 
 names = ['x','y','h','v','w']
@@ -36,6 +36,7 @@ sc=plt.scatter(poses[:,ax_xidx], poses[:,ax_yidx], c=c, cmap=cmap)
 plt.colorbar(sc)
 plt.xlabel(names[ax_xidx])
 plt.ylabel(names[ax_yidx])
+plt.title('Illustration of Match Probabilities')
 #plt.colorbar('plasma')
 plt.grid()
 plt.show()
