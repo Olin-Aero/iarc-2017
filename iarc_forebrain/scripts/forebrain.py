@@ -23,7 +23,7 @@ class Strategy(object):
         self._explore_srv = rospy.ServiceProxy('/explorer/explore', ExplorationTarget)
 
         rospy.sleep(1)
-        
+
     def test_hover(self):
         self.world.wait_for_start()
 
@@ -141,8 +141,8 @@ class Strategy(object):
         # return closestRoomba
 
     def run(self):
-        self.test_explore()
-        #self.test_follow()
+        #self.test_explore()
+        self.test_follow()
 
 
 def angle_diff(a, b):
