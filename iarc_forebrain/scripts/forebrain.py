@@ -82,7 +82,7 @@ class Strategy(object):
         r = rospy.Rate(20)
         self.drone.takeoff(1.5)
         while not rospy.is_shutdown():
-            target = self.choose_target(self.world.targets)
+            target = self.choose_target(self.world.targets,self.world.obstacles)
             if target is not None:
                 angleDiff = abs(angle_diff(self.world.target_facing_angle(target), self.world.CORRECT_DIRECTION))
                 if angleDiff > pi/2:
@@ -91,8 +91,6 @@ class Strategy(object):
                         rospy.loginfo('Redirected roomba: Success!')
                     else:
                         rospy.loginfo('Redirected roomba: Failure :(')
-                # elif angleDiff <= 3*pi/4 and angleDiff >= pi/4:
-                #     self.drone.redirect_45(target)
                 else:
                     # Follow the roomba
                     self.drone.move_towards(0, 0, target.frame_id, 2.5)
@@ -103,11 +101,12 @@ class Strategy(object):
                     rospy.loginfo('Exploration Target : {}'.format(target))
                     self.drone.move_to(des_x=target.x, des_y=target.y, frame='map', height=target.z)
                 else:
-                    # fallback
-                    self.drone.hover(0, 1.5)
+                    fallback
+                self.drone.hover(0, 1.5)
             r.sleep()
 
     def test_explore(self):
+        #rosrun iarc_strategy explorer.py _map_frame:=odom
         while not rospy.is_shutdown():
             resp = self._explore_srv()
             if resp.success:
@@ -118,14 +117,14 @@ class Strategy(object):
                 # fallback
                 self.drone.hover(0, 1.5)
 
-    def choose_target(self, targets):
+    def choose_target(self, targets, obstacles):
         """
         Selects the most important target
         TODO: Use something more sophisticated
         :param List[Roomba] targets:
         :rtype: Roomba|None
         """
-        s = targetSelect(goodnessScore(targets))
+        s = targetSelect(goodnessScore(targets, obstacles))
         if(s[1] < -100):
             return None
         return s[0]
@@ -142,7 +141,7 @@ class Strategy(object):
 
     def run(self):
         #self.test_explore()
-        self.test_follow()
+        self.test_follow_redirect()
 
 
 def angle_diff(a, b):
@@ -177,7 +176,7 @@ class WorldState(object):
             self.tfl = tfl
 
         self.startSub = rospy.Subscriber('start_round', Bool, self._on_start)
-        self.roombaSub = rospy.Subscriber('seen_roombas', RoombaList, self._on_roombas)
+        self.roombaSub = rospy.Subscriber('visible_roombas', RoombaList, self._on_roombas)
 
     def _on_start(self, msg):
         if not self.has_started and msg.data:

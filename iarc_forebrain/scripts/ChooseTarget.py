@@ -1,6 +1,7 @@
 import tf
 import tf.transformations
 import numpy as np
+import math
 
 def orientationToHeading(orientation):
     """
@@ -14,7 +15,7 @@ def orientationToHeading(orientation):
     res[2] = orientation.z
     res[3] = orientation.w
     return tf.transformations.euler_from_quaternion(res)[2]
-def goodnessScore(roombas, C1=3, C2=1, C3=1, C4=1, C5=1):
+def goodnessScore(roombas, obstacles,C1=3, C2=1, C3=1, C4=1, C5=1):
     """
     Determines which Roomba we pick to lead to the goal.
     Higher score is better.
@@ -41,23 +42,23 @@ def goodnessScore(roombas, C1=3, C2=1, C3=1, C4=1, C5=1):
         return (xScore + yScore)/2
 
     def distanceFromObstaclesScore(roomba, obstacles):
-        return 0
-    #     """
-    #     (-infinity, 0)
-    #     """
-    #
-    #     score = 0
-    #     for obstacle in obstacles:
-    #         x = roomba.x - obstacle.x
-    #         y = roomba.y - obstacle.y
-    #         dist = np.sqrt(x ** 2 + y ** 2)
-    #
-    #         if dist < MIN_OBSTACLE_DISTANCE:
-    #             return -math.inf
-    #
-    #         score -= 1 / dist ** 2
-    #
-    #     return score
+        """
+        (-infinity, 0)
+        """
+
+        score = 0
+        MIN_OBSTACLE_DISTANCE = 0.5
+        for obstacle in obstacles:
+            x = roomba.visible_location.pose.pose.position.x - obstacle.visible_location.pose.pose.position.x
+            y = roomba.visible_location.pose.pose.position.y - obstacle.visible_location.pose.pose.position.y
+            dist = np.sqrt(x ** 2 + y ** 2)
+
+            if dist < MIN_OBSTACLE_DISTANCE:
+                return -10000
+
+            score -= 1 / dist ** 2
+
+        return score
 
     def stateQualtityScore(roomba):
         """
@@ -77,7 +78,7 @@ def goodnessScore(roombas, C1=3, C2=1, C3=1, C4=1, C5=1):
 
         score = C1 * headingScore(roomba) + \
                 C2 * positionScore(roomba) + \
-                C3 * distanceFromObstaclesScore(roomba, []) + \
+                C3 * distanceFromObstaclesScore(roomba, obstacles) + \
                 C4 * stateQualtityScore(roomba) + \
                 C5 * futureGoodnessScore(roomba)
         result.append((roomba, score))

@@ -222,16 +222,17 @@ class Drone:
         self.hover(0, height)
         return True
     def redirect_45(self,roomba,height=1.5):
+        ## TODO:
         if height is None:
             height = self.last_height
         else:
             self.last_height = height
 
-        self.move_to(0, 0, roomba.frame_id, height=0.5)
+        self.move_towards(0, 0, roomba.frame_id, height=0.2)
 
         #rospy.sleep(0.5)
 
-        self.land()
+        #self.land()
 
         #rospy.sleep(rest_time)
 
