@@ -21,7 +21,7 @@ class Strategy(object):
         self.drone = Drone(tfl=tfl)
         self.world = WorldState(tfl=tfl)
         self._explore_srv = rospy.ServiceProxy('/explorer/explore', ExplorationTarget)
-
+        self.targeting = None
         rospy.sleep(1)
 
     def test_hover(self):
@@ -84,8 +84,10 @@ class Strategy(object):
         while not rospy.is_shutdown():
             target = self.choose_target(self.world.targets,self.world.obstacles)
             if target is not None:
-                angleDiff = abs(angle_diff(self.world.target_facing_angle(target), self.world.CORRECT_DIRECTION))
-                if angleDiff > pi/2:
+                angleDiff = angle_diff(self.world.target_facing_angle(target), self.world.CORRECT_DIRECTION)
+                if(angleDiff < 3 * pi / 4 and angleDiff > pi / 4):
+                    success = self.drone.redirect_45(target)
+                elif abs(angleDiff) > pi/2:
                     success = self.drone.redirect_180(target)
                     if success:
                         rospy.loginfo('Redirected roomba: Success!')
@@ -124,9 +126,10 @@ class Strategy(object):
         :param List[Roomba] targets:
         :rtype: Roomba|None
         """
-        s = targetSelect(goodnessScore(targets, obstacles))
+        s = targetSelect(goodnessScore(targets, obstacles, self.targeting))
         if(s[1] < -100):
             return None
+        self.targeting = s[0]
         return s[0]
         # closestRoomba = None
         # minimumCloseness = pi

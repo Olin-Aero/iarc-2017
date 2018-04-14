@@ -223,21 +223,21 @@ class Drone:
         return True
     def redirect_45(self,roomba,height=1.5):
         ## TODO:
-        if height is None:
-            height = self.last_height
-        else:
-            self.last_height = height
-
-        self.move_towards(0, 0, roomba.frame_id, height=0.2)
-
+        # if height is None:
+        #     height = self.last_height
+        # else:
+        #     self.last_height = height
+        #
+        # self.move_towards(0, 0, roomba.frame_id, height=0.1)
+        return self.redirect_180(roomba,front_dist = 1.0)
         #rospy.sleep(0.5)
 
         #self.land()
 
         #rospy.sleep(rest_time)
 
-        self.takeoff(height)
-        self.hover(0, height)
+        #self.takeoff(height)
+        #self.hover(0, height)
         return True
     def get_pos(self, frame='map'):
         """

@@ -15,7 +15,7 @@ def orientationToHeading(orientation):
     res[2] = orientation.z
     res[3] = orientation.w
     return tf.transformations.euler_from_quaternion(res)[2]
-def goodnessScore(roombas, obstacles,C1=3, C2=1, C3=1, C4=1, C5=1):
+def goodnessScore(roombas, obstacles, targeting, C1=3, C2=1, C3=1, C4=1, C5=2):
     """
     Determines which Roomba we pick to lead to the goal.
     Higher score is better.
@@ -68,8 +68,11 @@ def goodnessScore(roombas, obstacles,C1=3, C2=1, C3=1, C4=1, C5=1):
         """
         return 0
 
-    def futureGoodnessScore(roomba):
-        return 0
+    def sameRoomba(roomba, targeting):
+        if(targeting != None and roomba.frame_id == targeting.frame_id):
+            return 1
+        else:
+            return 0
 
     result = []
 
@@ -80,7 +83,7 @@ def goodnessScore(roombas, obstacles,C1=3, C2=1, C3=1, C4=1, C5=1):
                 C2 * positionScore(roomba) + \
                 C3 * distanceFromObstaclesScore(roomba, obstacles) + \
                 C4 * stateQualtityScore(roomba) + \
-                C5 * futureGoodnessScore(roomba)
+                C5 * sameRoomba(roomba, targeting)
         result.append((roomba, score))
 
     return result
