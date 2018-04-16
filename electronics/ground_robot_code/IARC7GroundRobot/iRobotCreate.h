@@ -15,6 +15,7 @@
 
 void coiSend(int val);
 void coiSetBaud(byte baud);
+void coiSafeMode();
 static boolean isTimeUp(unsigned long *previous, unsigned int *interval);
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -67,12 +68,13 @@ const byte COI_BAUD_57600  = 10;
 const byte COI_BAUD_115200 = 11;
 
 // Timing constants
-unsigned int COI_SERIAL_TIMEOUT = 50; // milliseconds
+unsigned int COI_SERIAL_TIMEOUT = 500; // milliseconds
 const int COI_START_MESSAGE = 4000; // millisec
 
 // Global Variables
 //const long int defaultBaud = 57600;
-const long int defaultBaud = 115200;
+//const long int defaultBaud = 115200;
+const long int defaultBaud = 19200;
 unsigned long sciSerialBegin = 0;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -87,9 +89,11 @@ void coiInit()
   coiSend(COI_OP_GS_START); // Announce our intent to send commands
  //coiSetBaud(COI_BAUD_38400); // Back down the baud rate for reliability
  //Serial1.begin(38400);
- coiSetBaud(COI_BAUD_115200); // Use default Create 2 Baud Rate
- Serial1.begin(115200);
+ //coiSetBaud(COI_BAUD_115200); // Use default Create 2 Baud Rate
+ //Serial1.begin(115200);
  Serial.println("Serial communications opened successfully!");
+ coiSafeMode();
+ Serial.println("Set to safe mode.  Remember to turn off!");
  
   // Print out the Sketch and Version Info
   Serial.println("IARC Mission 7 Ground Robot Firmware");
@@ -123,9 +127,11 @@ byte coiCheckBump()
   byte bumpCode = 7;
   int whileCount = 0;
   Serial1.flush();
-  coiSend(COI_OP_IN_SENSORS);
+  //coiSend(142);
   // This magic number represents the desired sensor packet number
-  coiSend(bumpCode);
+  //coiSend(7);
+  Serial1.write(142); //Hard-coding these for simplicity
+  Serial1.write(7);
   sciSerialBegin = millis();
 
   // Wait for the create to send the byte
@@ -140,8 +146,11 @@ byte coiCheckBump()
     whileCount++;
   }
 
-  if(Serial1.available())
+  if(Serial1.available()) {
     bump = Serial1.read();
+    Serial.print("Bump: ");
+    Serial.println(bump);
+  }
   // In case we need to check what the create is sending back
   //Serial.print("Bump Sensor Code: "); 
   //Serial.println(bump, HEX);
@@ -207,8 +216,9 @@ void coiSend(byte val)
 // Send the Create 2 Bytes
 void coiSend(int val)
 {
-  Serial1.write(val >> 8); // Send the high byte
-  Serial1.write(val & 0xFF);  // Send the low byte
+  //Serial1.write(val >> 8); // Send the high byte
+  //Serial1.write(val & 0xFF);  // Send the low byte
+  Serial1.write(val);
    //Serial.println(val); // DEBUG
 }
 

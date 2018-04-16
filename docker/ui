@@ -1,0 +1,8 @@
+#!/bin/bash
+
+mkdir -p /home/$UIUSER
+ln /root /home/$UIUSER
+chown $UIUSER: /home/$UIUSER
+
+chown -R $UIUSER: /root
+su -p -c "bash -ic \"source /ros_entrypoint.sh && $* \" " $UIUSER 
