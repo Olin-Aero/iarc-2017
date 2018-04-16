@@ -54,29 +54,11 @@ def qxq2(quaternion1, quaternion0):
 
 def qxq(q1, q2):
     """ quaternion format : wxyz """
-#    q1,q2 = map(np.asarray, (q1,q2))
-    #alt = [
-    #        -q2[1]*q1[1] - q2[2]*q1[2] - q2[3]*q1[3] + q2[0]*q1[0],
-    #        q2[1]*q1[0] + q2[2]*q1[3] - q2[3]*q1[2] + q2[0]*q1[1],
-    #        -q2[1]*q1[3] + q2[2]*q1[0] + q2[3]*q1[1] + q2[0]*q1[2],
-    #        q2[1]*q1[2] - q2[2]*q1[1] + q2[3]*q1[0] + q2[0]*q1[3],
-    #        ]
-    #alt_v2 = qxq2(q1[np.array([1,2,3,0])], q2[np.array([1,2,3,0])])
-    #alt_v2 = alt_v2[np.array([3,0,1,2])]
     res = [q2[0]*q1[0]-q2[1]*q1[1]-q2[2]*q1[2]-q2[3]*q1[3],
             q2[0]*q1[1]+q2[1]*q1[0]-q2[2]*q1[3]+q2[3]*q1[2],
             q2[0]*q1[2]+q2[1]*q1[3]+q2[2]*q1[0]-q2[3]*q1[1],
             q2[0]*q1[3]-q2[1]*q1[2]+q2[2]*q1[1]+q2[3]*q1[0]]
-#
-#    print 'comparison start'
-#    print alt
-#    print alt_v2
-#    print res
-#    print 'comparison end'
-
     return res
-    #print np.subtract(alt, res)
-    #return res
 
 def qxv(q, v, norm=True):
     """
@@ -108,7 +90,6 @@ def observability(K, w, h, q, t, inv=False, ray=False):
     if not inv:
         K = np.linalg.inv(K)
     vs = np.transpose([(0,0,1), (w,0,1), (w,h,1), (0,h,1)])
-    #print vs.T - [w/2., h/2., 0]
     vs = K.dot(vs) # rays in camera coordinates
 
     # rotate to camera coordinates
@@ -116,10 +97,7 @@ def observability(K, w, h, q, t, inv=False, ray=False):
     vs = [v/np.linalg.norm(v) for v in vs]
     vs0 = np.copy(vs)
 
-    #print '=='
     #l = [vqv(v0,v1) for (v0,v1) in zip(vs, vsp)]
-    #print [e/np.linalg.norm(e) for e in l]
-    #print '=='
 
     ps = [-t[2] / v[2] for v in vs]
     vs = [np.add(t, np.multiply(p, v)) for (p,v) in zip(ps,vs)]
@@ -197,7 +175,6 @@ if __name__ == "__main__":
 
     ar = np.asarray(ar)
     rays = np.asarray(rays)
-    #print np.subtract(ar, t)
 
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
@@ -214,10 +191,7 @@ if __name__ == "__main__":
     ax.plot(rays2[:,0], rays2[:,1], rays2[:,2], 'b')
     ax.plot(rays3[:,0], rays3[:,1], rays3[:,2], 'b')
 
-    print np.shape(rays)
-
     # show projections ...
-    print np.shape(ar)
     p_ar = Polygon([ar])
     ax.add_collection3d(p_ar)
     ax.plot(ar[:,0], ar[:,1], ar[:,2], 'k')

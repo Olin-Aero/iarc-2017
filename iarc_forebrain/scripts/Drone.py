@@ -148,7 +148,7 @@ class Drone:
                 r.sleep()
                 self.posPub.publish(start_pos)
 
-    def move_to(self, des_x=0.0, des_y=0.0, frame='map', height=None, tol=0.2):
+    def move_to(self, des_x=0.0, des_y=0.0, frame='map', height=0.0, tol=0.8):
         """
         Tells the drone to move to a specific position on the field, and blocks until the drone is
         within tol of the target, counting vertical and horizontal distance
@@ -167,7 +167,6 @@ class Drone:
                 (rel_pos.x - des_x) ** 2 +
                 (rel_pos.y - des_y) ** 2 +
                 (rel_pos.z - height) ** 2)
-
             if dist <= tol:
                 break
 
@@ -197,7 +196,7 @@ class Drone:
 
         self.posPub.publish(pose_stamped)
 
-    def redirect_180(self, roomba, front_dist=1.0, rest_time=5.0, height=None):
+    def redirect_180(self, roomba, front_dist=1.5, rest_time=1.0, height=1.5):
         """
         Redirects the target rooba 180 degrees by landing in front of it.
         :param Roomba roomba: The target to redirect
@@ -221,7 +220,25 @@ class Drone:
 
         self.takeoff(height)
         self.hover(0, height)
+        return True
+    def redirect_45(self,roomba,height=1.5):
+        ## TODO:
+        # if height is None:
+        #     height = self.last_height
+        # else:
+        #     self.last_height = height
+        #
+        # self.move_towards(0, 0, roomba.frame_id, height=0.1)
+        return self.redirect_180(roomba,front_dist = 1.0)
+        #rospy.sleep(0.5)
 
+        #self.land()
+
+        #rospy.sleep(rest_time)
+
+        #self.takeoff(height)
+        #self.hover(0, height)
+        return True
     def get_pos(self, frame='map'):
         """
         Gets the position of the drone in the map (or relative to some other coordinate frame)

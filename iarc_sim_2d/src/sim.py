@@ -90,7 +90,7 @@ class Simulator(object):
                 'obstacle' : os.path.join(rospack.get_path('iarc_sim_engine'),'data','roomba.png'),
                 'target' : os.path.join(rospack.get_path('iarc_sim_engine'),'data','roomba.png')
                 }
-        print 'img', img
+        #print 'img', img
         drone = None
         targets = []
         obstacles = []
@@ -228,6 +228,7 @@ class Simulator(object):
             roombaArrayMain.data.append(Vis_Roomba_main)
 
         roombaArrayMain.header.stamp = rospy.Time.now()
+        roombaArrayMain.header.frame_id = 'map'#rospy.Time.now()
         roombaArrayMain.header.seq = self.seqNum
         self.seqNum += 1
 

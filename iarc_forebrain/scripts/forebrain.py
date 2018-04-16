@@ -1,8 +1,10 @@
 #!/usr/bin/env python2
 import rospy
 from iarc_main.msg import RoombaList, Roomba
-from std_msgs.msg import Bool
+from iarc_strategy.srv import ExplorationTarget, ExplorationTargetRequest, ExplorationTargetResponse
 
+from std_msgs.msg import Bool
+from ChooseTarget import goodnessScore, targetSelect
 from Drone import Drone
 
 from tf import TransformListener
@@ -18,7 +20,8 @@ class Strategy(object):
         tfl = TransformListener()
         self.drone = Drone(tfl=tfl)
         self.world = WorldState(tfl=tfl)
-
+        self._explore_srv = rospy.ServiceProxy('/explorer/explore', ExplorationTarget)
+        self.targeting = None
         rospy.sleep(1)
 
     def test_hover(self):
@@ -54,27 +57,37 @@ class Strategy(object):
         self.drone.land()
 
     def test_follow(self):
-        self.world.wait_for_start()
+        #self.world.wait_for_start()
         r = rospy.Rate(20)
-
         self.drone.takeoff(1.5)
         while not rospy.is_shutdown():
             target = self.choose_target(self.world.targets)
             if target is not None:
+                rospy.loginfo('Current Target : {}'.format(target))
                 self.drone.move_towards(0, 0, target.frame_id)
             else:
-                self.drone.hover(0)
+                rospy.loginfo('explore')
+                resp = self._explore_srv()
+                if resp.success:
+                    target = resp.target
+                    rospy.loginfo('Exploration Target : {}'.format(target))
+                    self.drone.move_to(des_x=target.x, des_y=target.y, frame='map', height=target.z)
+                else:
+                    # fallback
+                    self.drone.hover(0)
             r.sleep()
 
     def test_follow_redirect(self):
-        self.world.wait_for_start()
+        #self.world.wait_for_start()
         r = rospy.Rate(20)
-
         self.drone.takeoff(1.5)
         while not rospy.is_shutdown():
-            target = self.choose_target(self.world.targets)
+            target = self.choose_target(self.world.targets,self.world.obstacles)
             if target is not None:
-                if abs(angle_diff(self.world.target_facing_angle(target), self.world.CORRECT_DIRECTION)) > pi/2:
+                angleDiff = angle_diff(self.world.target_facing_angle(target), self.world.CORRECT_DIRECTION)
+                if(angleDiff < 3 * pi / 4 and angleDiff > pi / 4):
+                    success = self.drone.redirect_45(target)
+                elif abs(angleDiff) > pi/2:
                     success = self.drone.redirect_180(target)
                     if success:
                         rospy.loginfo('Redirected roomba: Success!')
@@ -82,24 +95,56 @@ class Strategy(object):
                         rospy.loginfo('Redirected roomba: Failure :(')
                 else:
                     # Follow the roomba
-                    self.drone.move_towards(0, 0, target.frame_id, 1.5)
+                    self.drone.move_towards(0, 0, target.frame_id, 2.5)
             else:
+                resp = self._explore_srv()
+                if resp.success:
+                    target = resp.target
+                    rospy.loginfo('Exploration Target : {}'.format(target))
+                    self.drone.move_to(des_x=target.x, des_y=target.y, frame='map', height=target.z)
+                else:
+                    fallback
                 self.drone.hover(0, 1.5)
             r.sleep()
 
-    def choose_target(self, targets):
+    def test_explore(self):
+        #rosrun iarc_strategy explorer.py _map_frame:=odom
+        while not rospy.is_shutdown():
+            resp = self._explore_srv()
+            if resp.success:
+                target = resp.target
+                rospy.loginfo('Exploration Target : {}'.format(target))
+                self.drone.move_to(des_x=target.x, des_y=target.y, frame='map', height=target.z)
+            else:
+                # fallback
+                self.drone.hover(0, 1.5)
+
+    def choose_target(self, targets, obstacles):
         """
         Selects the most important target
         TODO: Use something more sophisticated
         :param List[Roomba] targets:
         :rtype: Roomba|None
         """
-        if len(targets) > 0:
-            return targets[-1]
-        return None
+        s = targetSelect(goodnessScore(targets, obstacles, self.targeting))
+        if(s[1] < -100):
+            return None
+        self.targeting = s[0]
+        return s[0]
+        # closestRoomba = None
+        # minimumCloseness = pi
+        # for i in targets:
+        #     position, quaternion = self.tfl.lookupTransform("map", i.frame_id, rospy.Time(0))
+        #     heading = tf.transformations.euler_from_quaternion(quaternion)
+        #     closeToPiOver2 = abs(heading[2] % pi - pi / 2)
+        #     if(closeToPiOver2 < minimumCloseness):
+        #         minimumCloseness = closeToPiOver2
+        #         closestRoomba = i
+        # return closestRoomba
 
     def run(self):
-        self.test_follow()
+        #self.test_explore()
+        self.test_follow_redirect()
 
 
 def angle_diff(a, b):

@@ -11,6 +11,7 @@ find_package(catkin REQUIRED COMPONENTS
   geometry_msgs
   rospy
   message_generation
+  iarc_main
 )
 
 find_package(message_generation)
