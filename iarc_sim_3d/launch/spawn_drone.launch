@@ -35,7 +35,7 @@
 
     <node name="gt_tf" pkg="message_to_tf" type="message_to_tf" output="screen">
         <param name="odometry_topic" value="ground_truth/state" />
-        <param name="frame_id" value="map" /> <!-- maybe? -->
+        <param name="frame_id" value="odom" /> <!-- maybe? -->
         <param name="tf_prefix" type="string" value="$(arg ns)" />
         <remap from="tf" to="tf_drone"/> <!-- No support for tf_prefix, quite terrible. -->
     </node>

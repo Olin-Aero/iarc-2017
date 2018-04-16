@@ -1,0 +1,11 @@
+digraph G {
+"odom" -> "ardrone_base_link"[label="Broadcaster: /play_1517680477760952700\nAverage rate: 198.997 Hz\nMost recent transform: 1512609993.245 ( 5070520.114 sec old)\nBuffer length: 4.945 sec\n"];
+"grid" -> "odom"[label="Broadcaster: /grid_finder\nAverage rate: 1.029 Hz\nMost recent transform: 1517680513.315 ( 0.045 sec old)\nBuffer length: 4.861 sec\n"];
+"ardrone_base_link" -> "ardrone_base_frontcam"[label="Broadcaster: /play_1517680477760952700\nAverage rate: 10.203 Hz\nMost recent transform: 1512609993.216 ( 5070520.144 sec old)\nBuffer length: 4.900 sec\n"];
+"ardrone_base_link" -> "ardrone_base_bottomcam"[label="Broadcaster: /play_1517680477760952700\nAverage rate: 10.203 Hz\nMost recent transform: 1512609993.216 ( 5070520.144 sec old)\nBuffer length: 4.900 sec\n"];
+"ardrone_base_link" -> "base_link"[label="Broadcaster: /play_1517680477760952700\nAverage rate: 5.184 Hz\nMost recent transform: 1512609993.341 ( 5070520.019 sec old)\nBuffer length: 4.823 sec\n"];
+edge [style=invis];
+ subgraph cluster_legend { style=bold; color=black; label ="view_frames Result";
+"Recorded at time: 1517680513.360"[ shape=plaintext ] ;
+ }->"grid";
+}
