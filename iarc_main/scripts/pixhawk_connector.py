@@ -14,10 +14,11 @@ class PixhawkConnector(object):
         self.takeoff_sub = rospy.Subscriber('/takeoff', Empty, self.on_takeoff)
         self.land_sub = rospy.Subscriber('/land', Empty, self.on_land)
 
-        self.attitude_pub = rospy.Publisher('setpoint_attitude/attitude', PoseStamped, queue_size=0)
+        self.vel_pub = rospy.Publisher('/mavros/setpoint_velocity/cmd_vel_unstamped', Twist, queue_size=0)
 
-        rospy.wait_for_service('set_mode')
-        self.set_mode = rospy.ServiceProxy('set_mode', SetMode)
+        rospy.wait_for_service('/mavros/set_mode')
+        rospy.loginfo('set_mode service connected')
+        self.set_mode = rospy.ServiceProxy('/mavros/set_mode', SetMode)
 
     def setup_pixhawk(self):
         ok = self.set_mode(custom_mode='GUIDED')
@@ -36,6 +37,7 @@ class PixhawkConnector(object):
         :return: None
         """
         self.vel = msg
+        self.vel_pub.publish(self.vel)
 
     def run(self):
         r = rospy.Rate(100)
