@@ -64,8 +64,8 @@ class Arbiter:
         self.secondaries = []
 
         self.vel_pub = rospy.Publisher('/cmd_vel', Twist, queue_size=0)
-        self.takeoff_pub = rospy.Publisher('/ardrone/takeoff', Empty, queue_size=0)
-        self.land_pub = rospy.Publisher('/ardrone/land', Empty, queue_size=0)
+        self.takeoff_pub = rospy.Publisher('/takeoff', Empty, queue_size=0)
+        self.land_pub = rospy.Publisher('/land', Empty, queue_size=0)
 
         self.debug_pub = rospy.Publisher('/arbiter/debug', String, queue_size=10)
         self.active_pub = rospy.Publisher('/arbiter/active_behavior', String, queue_size=10)
