@@ -2,7 +2,7 @@
 
 import rospy
 from geometry_msgs.msg import Twist, PoseStamped, Vector3Stamped
-from mavros_msgs.srv import SetMode, CommandTOL
+from mavros_msgs.srv import SetMode, CommandTOL, StreamRate
 from nav_msgs.msg import Odometry
 from std_msgs.msg import Empty
 
@@ -19,6 +19,7 @@ class PixhawkConnector(object):
         rospy.wait_for_service('/mavros/set_mode')
         rospy.sleep(0.2)
         self.set_mode = rospy.ServiceProxy('/mavros/set_mode', SetMode)
+        self.set_rate = rospy.ServiceProxy('/mavros/set_stream_rate', StreamRate)
         self.land = rospy.ServiceProxy('/mavros/cmd/land', CommandTOL)
         self.takeoff = rospy.ServiceProxy('/mavros/cmd/takeoff', CommandTOL)
 
@@ -47,8 +48,9 @@ class PixhawkConnector(object):
         # TODO: check this math for trig errors
         dt = (msg.header.stamp - self.last_pos.header.stamp).to_sec()
 
-        self.last_pos.vector.x += dt * (vel.x * cos(yaw) + vel.y * sin(yaw))
-        self.last_pos.vector.y += dt * (vel.y * cos(yaw) - vel.x * sin(yaw))
+        # The velocity retrieved is (we think) in North - East - Down, while ROS normally uses East - North - Up
+        self.last_pos.vector.x += dt * vel.y
+        self.last_pos.vector.y += dt * vel.x
         self.last_pos.vector.z = alt
 
         self.last_pos.header.stamp = msg.header.stamp
@@ -59,7 +61,7 @@ class PixhawkConnector(object):
         pose.header.frame_id = 'odom'
 
         pose.pose.orientation = orientation
-        pose.pose.position.z = self.last_pos.vector
+        pose.pose.position = self.last_pos.vector
 
         self.publish_pose(pose)
 
@@ -69,10 +71,14 @@ class PixhawkConnector(object):
                                pose.header.frame_id)
         # TODO: Publish Odometry message as well
 
-    def setup_pixhawk(self):
-        ok = self.set_mode(custom_mode='GUIDED')
-        if not ok.mode_sent:
-            rospy.logerr("Unable to set Pixhawk mode")
+    def setup_pixhawk(self, rate=160):
+        # ok = self.set_mode(custom_mode='GUIDED')
+        # if not ok.mode_sent:
+        #     rospy.logerr("Unable to set Pixhawk mode")
+        ok = self.set_rate(message_rate=rate)
+        rospy.loginfo("Setting stream rate to {}".format(rate))
+        if not ok:
+            rospy.logerr("Unable to set stream rate")
 
     def on_takeoff(self):
         res = self.takeoff()
@@ -93,10 +99,8 @@ class PixhawkConnector(object):
         self.vel_pub.publish(self.vel)
 
     def run(self):
-        r = rospy.Rate(100)
-        while not rospy.is_shutdown():
-            r.sleep()
-
+        self.setup_pixhawk()
+        rospy.spin()
 
 if __name__ == '__main__':
     rospy.init_node('pixhawk_connector')
