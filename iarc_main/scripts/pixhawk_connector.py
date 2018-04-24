@@ -43,10 +43,13 @@ class PixhawkConnector(object):
         vel = msg.twist.twist.linear
         alt = msg.pose.pose.position.z
         orientation = msg.pose.pose.orientation
-        _, _, yaw = tf.transformations.euler_from_quaternion(orientation)
+        _, _, yaw = tf.transformations.euler_from_quaternion([orientation.x,orientation.y,orientation.z,orientation.w])
 
         # TODO: check this math for trig errors
         dt = (msg.header.stamp - self.last_pos.header.stamp).to_sec()
+        if dt > 1:
+            # It's been too long!
+            dt=0
 
         # The velocity retrieved is (we think) in North - East - Down, while ROS normally uses East - North - Up
         self.last_pos.vector.x += dt * vel.y
@@ -66,8 +69,10 @@ class PixhawkConnector(object):
         self.publish_pose(pose)
 
     def publish_pose(self, pose):
+        orientation = [pose.pose.orientation.x,pose.pose.orientation.y,pose.pose.orientation.z,pose.pose.orientation.w]
+        position = [pose.pose.position.x, pose.pose.position.y, pose.pose.position.z]
         print "Calculated pose: ", pose
-        self.tfb.sendTransform(pose.pose.position, pose.pose.orientation, pose.header.stamp, 'fcu',
+        self.tfb.sendTransform(position, orientation, pose.header.stamp, 'fcu',
                                pose.header.frame_id)
         # TODO: Publish Odometry message as well
 
@@ -75,7 +80,7 @@ class PixhawkConnector(object):
         # ok = self.set_mode(custom_mode='GUIDED')
         # if not ok.mode_sent:
         #     rospy.logerr("Unable to set Pixhawk mode")
-        ok = self.set_rate(message_rate=rate)
+        ok = self.set_rate(message_rate=rate, on_off=True)
         rospy.loginfo("Setting stream rate to {}".format(rate))
         if not ok:
             rospy.logerr("Unable to set stream rate")

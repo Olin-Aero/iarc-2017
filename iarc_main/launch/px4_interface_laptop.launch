@@ -1,6 +1,6 @@
 <launch>
     <include file="$(find mavros)/launch/px4.launch">
-		<arg name="fcu_url" value="/dev/ttyUSB0:57600"/>
+		<arg name="fcu_url" value="/dev/ttyACM0:57600"/>
 	</include>
     <node pkg="iarc_main" type="pixhawk_connector.py" name="pixhawk_connector" output="screen"/>
     <node pkg="tf" type="static_transform_publisher" name="camera_transform"
