@@ -13,7 +13,7 @@ Owner:
 import rospy
 import sys
 from sensor_msgs.msg import Image, CameraInfo
-from geometry_msgs.msg import Vector3, Vector3Stamped, PoseWithCovarianceStamped, PoseWithCovariance, Pose
+from geometry_msgs.msg import Vector3, Vector3Stamped, PoseWithCovarianceStamped, PoseWithCovariance, Pose, Point, Quaternion
 from std_msgs.msg import Header
 from cv_bridge import CvBridge, CvBridgeError
 import numpy as np
@@ -22,6 +22,7 @@ import cv2
 import math
 from image_geometry import PinholeCameraModel
 from tf import TransformListener
+from tf.transformations import quaternion_from_euler
 
 
 class ColorTrackerROS(object):
@@ -55,7 +56,6 @@ class ColorTrackerROS(object):
             for box in self.boxes:
                 center = np.mean(box, axis=0)
                 heading = get_heading(box, center, self.processed_image)
-                quat = self.tf.quaternion_from_euler(heading)
                 ray = self.cameraModel.projectPixelTo3dRay(center)
                 camera_ray = Vector3Stamped(header=msg.header,
                                             vector=Vector3(*ray))
@@ -64,10 +64,11 @@ class ColorTrackerROS(object):
                 pos, quat = self.tf.lookupTransform('map', msg.header.frame_id, msg.header.stamp)
                 multiplier = -pos[2] / world_ray.vector.z
                 drone_to_roomba = np.array([world_ray.vector.x, world_ray.vector.y, world_ray.vector.z]) * multiplier
-
+                quat = quaternion_from_euler(0,0,heading)
                 map_to_roomba = pos + drone_to_roomba
+                print map_to_roomba
 
-                pose = Pose(position=Vector3(*map_to_roomba), orientation = quat)
+                pose = Pose(position=Point(*map_to_roomba), orientation = Quaternion(*quat))
 
                 pwcs = PoseWithCovarianceStamped(header=Header(frame_id='map', stamp=msg.header.stamp),
                                                  pose=PoseWithCovariance(
@@ -140,7 +141,6 @@ class ColorTracker(object):
             boxes.append(box)
             cv2.drawContours(image, [box], 0, (0, 0, 255), 2)
 
-        print(boxes[0])
         if display:
             cv2.imshow("Binary Image With Morphology", binary_image)
             # cv2.imshow("Original images", image)
@@ -198,7 +198,7 @@ def get_heading(box, center, binary_image):
             # heading from box[1] -> box[2]
             heading = get_vector_heading(box[1], box[2])
             print "box 1 to 2"
-
+    heading = -heading
     print "Heading angle", math.degrees(heading), heading
     return heading
 
@@ -264,7 +264,7 @@ def get_average_darkness(point_a, point_b, binary_image):
         for j in range(int(y0), int(y1)):
             # TODO: 100 here is an arbitrary choice, need a better way to get pixels lying on the diagonal
             if abs((i - x0) * (point_a[0] - quarter[0]) - (j - y0) * (point_a[1] - quarter[1])) <= 100:
-                if binary_image[i][j] > 0:
+                if i < len(binary_image) and j < len(binary_image[i]) and binary_image[i][j] > 0:
                     intensity += 1
                 count += 1
     if count == 0:
