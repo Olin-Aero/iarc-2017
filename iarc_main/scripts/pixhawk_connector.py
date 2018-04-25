@@ -15,8 +15,8 @@ import tf.transformations
 class PixhawkConnector(object):
     def __init__(self):
         self.vel_pub = rospy.Publisher('/mavros/setpoint_velocity/cmd_vel_unstamped', Twist, queue_size=0)
+        self.odom_pub = rospy.Publisher('/odometry', Odometry, queue_size=10)
 
-        rospy.wait_for_service('/mavros/set_mode')
         rospy.sleep(0.2)
         self.set_mode = rospy.ServiceProxy('/mavros/set_mode', SetMode)
         self.set_rate = rospy.ServiceProxy('/mavros/set_stream_rate', StreamRate)
@@ -66,17 +66,25 @@ class PixhawkConnector(object):
         pose.pose.orientation = orientation
         pose.pose.position = self.last_pos.vector
 
-        self.publish_pose(pose)
+        self.publish_pose(pose, msg.twist)
 
-    def publish_pose(self, pose):
+    def publish_pose(self, pose, twist, child_frame='fcu'):
         orientation = [pose.pose.orientation.x,pose.pose.orientation.y,pose.pose.orientation.z,pose.pose.orientation.w]
         position = [pose.pose.position.x, pose.pose.position.y, pose.pose.position.z]
         print "Calculated pose: ", pose
-        self.tfb.sendTransform(position, orientation, pose.header.stamp, 'fcu',
+        self.tfb.sendTransform(position, orientation, pose.header.stamp, child_frame,
                                pose.header.frame_id)
-        # TODO: Publish Odometry message as well
+
+        odom = Odometry()
+        odom.header = pose.header
+        odom.pose = pose.pose
+        odom.twist = twist.twist
+        odom.child_frame_id = child_frame
+
+        self.odom_pub.publish(odom)
 
     def setup_pixhawk(self, rate=160):
+        rospy.wait_for_service('/mavros/set_mode', timeout=5.0)
         # ok = self.set_mode(custom_mode='GUIDED')
         # if not ok.mode_sent:
         #     rospy.logerr("Unable to set Pixhawk mode")
