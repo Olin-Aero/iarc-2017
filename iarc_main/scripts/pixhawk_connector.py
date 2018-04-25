@@ -43,13 +43,14 @@ class PixhawkConnector(object):
         vel = msg.twist.twist.linear
         alt = msg.pose.pose.position.z
         orientation = msg.pose.pose.orientation
-        _, _, yaw = tf.transformations.euler_from_quaternion([orientation.x,orientation.y,orientation.z,orientation.w])
+        _, _, yaw = tf.transformations.euler_from_quaternion(
+            [orientation.x, orientation.y, orientation.z, orientation.w])
 
         # TODO: check this math for trig errors
         dt = (msg.header.stamp - self.last_pos.header.stamp).to_sec()
         if dt > 1:
             # It's been too long!
-            dt=0
+            dt = 0
 
         # The velocity retrieved is (we think) in North - East - Down, while ROS normally uses East - North - Up
         self.last_pos.vector.x += dt * vel.y
@@ -69,7 +70,8 @@ class PixhawkConnector(object):
         self.publish_pose(pose, msg.twist)
 
     def publish_pose(self, pose, twist, child_frame='fcu'):
-        orientation = [pose.pose.orientation.x,pose.pose.orientation.y,pose.pose.orientation.z,pose.pose.orientation.w]
+        orientation = [pose.pose.orientation.x, pose.pose.orientation.y, pose.pose.orientation.z,
+                       pose.pose.orientation.w]
         position = [pose.pose.position.x, pose.pose.position.y, pose.pose.position.z]
         print "Calculated pose: ", pose
         self.tfb.sendTransform(position, orientation, pose.header.stamp, child_frame,
@@ -84,7 +86,7 @@ class PixhawkConnector(object):
         self.odom_pub.publish(odom)
 
     def setup_pixhawk(self, rate=160):
-        rospy.wait_for_service('/mavros/set_mode', timeout=5.0)
+        rospy.wait_for_service('/mavros/set_mode')
         # ok = self.set_mode(custom_mode='GUIDED')
         # if not ok.mode_sent:
         #     rospy.logerr("Unable to set Pixhawk mode")
@@ -94,14 +96,14 @@ class PixhawkConnector(object):
             rospy.logerr("Unable to set stream rate")
 
     def on_takeoff(self):
+        rospy.wait_for_service('/mavros/cmd/takeoff')
         res = self.takeoff()
         rospy.loginfo("Took Off:", res)
-        pass
 
     def on_land(self):
+        rospy.wait_for_service('/mavros/cmd/land')
         res = self.land()
         rospy.loginfo("Landed:", res)
-        pass
 
     def on_vel(self, msg):
         """
@@ -114,6 +116,7 @@ class PixhawkConnector(object):
     def run(self):
         self.setup_pixhawk()
         rospy.spin()
+
 
 if __name__ == '__main__':
     rospy.init_node('pixhawk_connector')
