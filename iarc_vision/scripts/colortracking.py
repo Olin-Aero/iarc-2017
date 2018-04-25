@@ -23,6 +23,7 @@ import math
 from image_geometry import PinholeCameraModel
 from tf import TransformListener
 from tf.transformations import quaternion_from_euler
+from iarc_main.msg import RoombaList
 
 
 class ColorTrackerROS(object):
@@ -41,6 +42,7 @@ class ColorTrackerROS(object):
         cv2.namedWindow('binary')
 
         self.debug_pub = rospy.Publisher("tracker/debug", PoseWithCovarianceStamped, queue_size=10)
+        self.roomba_pub = rospy.Publisher("visible_roombas", RoombaList, queue_size = 10)
 
     def process_image(self, msg):
         """
@@ -52,7 +54,7 @@ class ColorTrackerROS(object):
             self.cv_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding="bgr8")
             # do image processing here
             self.boxes, self.processed_image = self.tracker.find_bounding_boxes(self.cv_image, display=False)
-
+            listOfRoombas = []
             for box in self.boxes:
                 center = np.mean(box, axis=0)
                 heading = get_heading(box, center, self.processed_image)
@@ -75,9 +77,9 @@ class ColorTrackerROS(object):
                                                      pose=pose,
                                                      covariance=np.diag([.2, .2, 0, 0, 0, 0.2]).flatten()
                                                  ))
-
+                listOfRoombas.append(pwcs)
                 self.debug_pub.publish(pwcs)
-
+            self.roomba_pub.publish(listOfRoombas)
             # TODO: Do something with the boxes
             # TODO: make sure it doesn't get too far behind
 
