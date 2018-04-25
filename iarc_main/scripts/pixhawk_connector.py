@@ -1,7 +1,7 @@
 #!/usr/bin/env python2
 
 import rospy
-from geometry_msgs.msg import Twist, PoseStamped, Vector3Stamped
+from geometry_msgs.msg import Twist, PoseStamped, Vector3Stamped, PoseWithCovariance, TwistWithCovariance
 from mavros_msgs.srv import SetMode, CommandTOL, StreamRate
 from nav_msgs.msg import Odometry
 from std_msgs.msg import Empty
@@ -15,8 +15,8 @@ import tf.transformations
 class PixhawkConnector(object):
     def __init__(self):
         self.vel_pub = rospy.Publisher('/mavros/setpoint_velocity/cmd_vel_unstamped', Twist, queue_size=0)
+        self.odom_pub = rospy.Publisher('/odometry', Odometry, queue_size=10)
 
-        rospy.wait_for_service('/mavros/set_mode')
         rospy.sleep(0.2)
         self.set_mode = rospy.ServiceProxy('/mavros/set_mode', SetMode)
         self.set_rate = rospy.ServiceProxy('/mavros/set_stream_rate', StreamRate)
@@ -43,13 +43,14 @@ class PixhawkConnector(object):
         vel = msg.twist.twist.linear
         alt = msg.pose.pose.position.z
         orientation = msg.pose.pose.orientation
-        _, _, yaw = tf.transformations.euler_from_quaternion([orientation.x,orientation.y,orientation.z,orientation.w])
+        _, _, yaw = tf.transformations.euler_from_quaternion(
+            [orientation.x, orientation.y, orientation.z, orientation.w])
 
         # TODO: check this math for trig errors
         dt = (msg.header.stamp - self.last_pos.header.stamp).to_sec()
         if dt > 1:
             # It's been too long!
-            dt=0
+            dt = 0
 
         # The velocity retrieved is (we think) in North - East - Down, while ROS normally uses East - North - Up
         self.last_pos.vector.x += dt * vel.y
@@ -66,17 +67,30 @@ class PixhawkConnector(object):
         pose.pose.orientation = orientation
         pose.pose.position = self.last_pos.vector
 
-        self.publish_pose(pose)
+        self.publish_pose(pose, msg.twist)
 
-    def publish_pose(self, pose):
-        orientation = [pose.pose.orientation.x,pose.pose.orientation.y,pose.pose.orientation.z,pose.pose.orientation.w]
+    def publish_pose(self, pose, twist, child_frame='fcu'):
+        orientation = [pose.pose.orientation.x, pose.pose.orientation.y, pose.pose.orientation.z,
+                       pose.pose.orientation.w]
         position = [pose.pose.position.x, pose.pose.position.y, pose.pose.position.z]
         print "Calculated pose: ", pose
-        self.tfb.sendTransform(position, orientation, pose.header.stamp, 'fcu',
+        self.tfb.sendTransform(position, orientation, pose.header.stamp, child_frame,
                                pose.header.frame_id)
-        # TODO: Publish Odometry message as well
+
+        odom = Odometry()
+        odom.header = pose.header
+        
+        odom.pose = PoseWithCovariance(pose=pose.pose)
+        odom.pose.covariance[0] = -1
+
+        odom.twist = TwistWithCovariance(twist=twist.twist)
+        odom.twist.covariance[0] = -1
+        odom.child_frame_id = child_frame
+
+        self.odom_pub.publish(odom)
 
     def setup_pixhawk(self, rate=160):
+        rospy.wait_for_service('/mavros/set_mode')
         # ok = self.set_mode(custom_mode='GUIDED')
         # if not ok.mode_sent:
         #     rospy.logerr("Unable to set Pixhawk mode")
@@ -86,14 +100,14 @@ class PixhawkConnector(object):
             rospy.logerr("Unable to set stream rate")
 
     def on_takeoff(self):
+        rospy.wait_for_service('/mavros/cmd/takeoff')
         res = self.takeoff()
         rospy.loginfo("Took Off:", res)
-        pass
 
     def on_land(self):
+        rospy.wait_for_service('/mavros/cmd/land')
         res = self.land()
         rospy.loginfo("Landed:", res)
-        pass
 
     def on_vel(self, msg):
         """
@@ -106,6 +120,7 @@ class PixhawkConnector(object):
     def run(self):
         self.setup_pixhawk()
         rospy.spin()
+
 
 if __name__ == '__main__':
     rospy.init_node('pixhawk_connector')
