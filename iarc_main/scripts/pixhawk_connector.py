@@ -1,7 +1,7 @@
 #!/usr/bin/env python2
 
 import rospy
-from geometry_msgs.msg import Twist, PoseStamped, Vector3Stamped
+from geometry_msgs.msg import Twist, PoseStamped, Vector3Stamped, PoseWithCovariance, TwistWithCovariance
 from mavros_msgs.srv import SetMode, CommandTOL, StreamRate
 from nav_msgs.msg import Odometry
 from std_msgs.msg import Empty
@@ -79,8 +79,12 @@ class PixhawkConnector(object):
 
         odom = Odometry()
         odom.header = pose.header
-        odom.pose = pose.pose
-        odom.twist = twist.twist
+        
+        odom.pose = PoseWithCovariance(pose=pose.pose)
+        odom.pose.covariance[0] = -1
+
+        odom.twist = TwistWithCovariance(twist=twist.twist)
+        odom.twist.covariance[0] = -1
         odom.child_frame_id = child_frame
 
         self.odom_pub.publish(odom)
