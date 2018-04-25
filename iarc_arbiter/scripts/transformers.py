@@ -131,7 +131,7 @@ class PIDPosController(object):
                                  rospy.get_param('~use_vel_derivs', True))
 
         self.last_odom = Odometry()
-        self.odom_sub = rospy.Subscriber('/ardrone/odometry', Odometry, self.on_odom)
+        self.odom_sub = rospy.Subscriber('/odometry', Odometry, self.on_odom)
 
         self.integral_x = 0.0
         self.previous_error_x = 0.0

@@ -1,6 +1,7 @@
 <launch>
     <remap from="/ardrone/takeoff" to="/takeoff"/>
     <remap from="/ardrone/land" to="/land"/>
+    <remap from="/ardrone/odometry" to="/odometry"/>
     <include file="$(find ardrone_autonomy)/launch/ardrone.launch"/>
     <node pkg="iarc_main" type="delayed_camswitch.sh" name="switch_cam"/>
     <node pkg="tf" type="static_transform_publisher" name="base_link_ardrone_fix"
