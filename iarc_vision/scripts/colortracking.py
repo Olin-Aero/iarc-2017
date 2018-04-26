@@ -8,11 +8,16 @@ How to Use:
 
 Owner:
 
+
+Notes:
+If the image is compressed:
+rosrun image_transport republish in:=ardrone/bottom/image_raw _image_transport:=compressed raw out:=ardrone/bottom/image_raw
+
 """
 
 import rospy
 import sys
-from sensor_msgs.msg import Image, CameraInfo
+from sensor_msgs.msg import CompressedImage, Image, CameraInfo
 from geometry_msgs.msg import Vector3, Vector3Stamped, PoseWithCovarianceStamped, PoseWithCovariance, Pose, Point, Quaternion
 from std_msgs.msg import Header
 from cv_bridge import CvBridge, CvBridgeError
