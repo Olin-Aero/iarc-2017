@@ -84,7 +84,8 @@ class ColorTrackerROS(object):
                                                  ))
                 listOfRoombas.append(pwcs)
                 self.debug_pub.publish(pwcs)
-            self.roomba_pub.publish(listOfRoombas)
+            if(not not listOfRoombas):
+                self.roomba_pub.publish(header=Header(frame_id='map',stamp=msg.header.stamp),data=listOfRoombas)
             # TODO: Do something with the boxes
             # TODO: make sure it doesn't get too far behind
 
@@ -121,10 +122,10 @@ class ColorTracker(object):
         # Get bounding boxes around red and green rectangles
         hsv_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
         red_image = self.get_red_bounding_boxes(hsv_image, image)
-        green_image = self.get_green_bounding_boxes(hsv_image, image)
+        #green_image = self.get_green_bounding_boxes(hsv_image, image)
         # TODO: Differentiate red vs green boxes
-        binary_image = cv2.bitwise_or(red_image, green_image)
-
+        #binary_image = cv2.bitwise_or(red_image, green_image)
+        binary_image = red_image
         # Remove noise
         kernel = np.ones((5, 5), np.uint8)
         binary_image = cv2.morphologyEx(binary_image, cv2.MORPH_OPEN, kernel)
@@ -162,14 +163,14 @@ class ColorTracker(object):
 
     def get_red_bounding_boxes(self, hsv_image, rgb_image):
         binary_image1 = cv2.inRange(hsv_image, np.array([0, 100, 0], dtype="uint8"),
-                                    np.array([10, 255, 255], dtype="uint8"))
+                                    np.array([5, 255, 255], dtype="uint8"))
         binary_image2 = cv2.inRange(hsv_image, np.array([170, 100, 0], dtype="uint8"),
                                     np.array([180, 255, 255], dtype="uint8"))
-        binary_image3 = cv2.inRange(rgb_image, np.array([80, 80, 250], dtype="uint8"),
-                                    np.array([220, 230, 255], dtype="uint8"))
+        # binary_image3 = cv2.inRange(rgb_image, np.array([80, 80, 250], dtype="uint8"),
+        #                             np.array([220, 230, 255], dtype="uint8"))
         binary_image4 = cv2.bitwise_or(binary_image1, binary_image2)
-        return cv2.bitwise_or(binary_image3, binary_image4)
-
+        # return cv2.bitwise_or(binary_image3, binary_image4)
+        return binary_image4
 
 def get_heading(box, center, binary_image):
     """
