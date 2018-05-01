@@ -33,5 +33,5 @@ rosrun teleop_twist_keyboard teleop_twist_keyboard.py
 Run the filter with visualization and gazebo interface:
 
 ```
-roslaunch iarc_roombafilter filter.launch sim:=true viz:=true
+roslaunch iarc_roombafilter filter.launch gz_obs:=true viz:=true
 ```
