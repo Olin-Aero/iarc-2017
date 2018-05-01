@@ -28,7 +28,7 @@ import math
 from image_geometry import PinholeCameraModel
 from tf import TransformListener
 from tf.transformations import quaternion_from_euler
-from iarc_main.msg import RoombaList
+from iarc_main.msg import Roomba, RoombaList
 
 
 class ColorTrackerROS(object):
@@ -82,7 +82,10 @@ class ColorTrackerROS(object):
                                                      pose=pose,
                                                      covariance=np.diag([.2, .2, 0, 0, 0, 0.2]).flatten()
                                                  ))
-                listOfRoombas.append(pwcs)
+                rb = Roomba(last_seen=msg.header.stamp, frame_id='map', type=Roomba.RED, # << TODO:FIX
+                        visible_location=pwcs)
+
+                listOfRoombas.append(rb)
                 self.debug_pub.publish(pwcs)
             if(not not listOfRoombas):
                 self.roomba_pub.publish(header=Header(frame_id='map',stamp=msg.header.stamp),data=listOfRoombas)
@@ -137,7 +140,7 @@ class ColorTracker(object):
         # Get bounding box from contours
         maxcnt = []
         for i in contours:
-            if cv2.contourArea(i) > 6000:
+            if cv2.contourArea(i) > 1000:
                 maxcnt.append(i)
 
         # Draw coutours on the image

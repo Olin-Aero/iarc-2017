@@ -32,7 +32,7 @@ class RVIZInterface(object):
         # Flag : show output filtered estimates
         self._show_est = rospy.get_param('~show_est', default=True)
         # Flag : 2D Sim, fake observation area
-        self._sim2d = rospy.get_param('~sim2d', default=True)
+        self._sim2d = rospy.get_param('~sim2d', default=False)
 
         self._drone = None
         self._tf = tf.TransformListener()
