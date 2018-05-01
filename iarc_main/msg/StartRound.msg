@@ -1,0 +1,2 @@
+bool start
+time time

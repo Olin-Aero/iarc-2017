@@ -28,7 +28,7 @@ Panels:
     Experimental: false
     Name: Time
     SyncMode: 0
-    SyncSource: Image
+    SyncSource: ""
 Visualization Manager:
   Class: ""
   Displays:
@@ -70,23 +70,37 @@ Visualization Manager:
       Frame Timeout: 15
       Frames:
         All Enabled: false
-        drone/ardrone_base_bottomcam:
-          Value: false
-        drone/ardrone_base_frontcam:
-          Value: false
-        drone/base_footprint:
+        base_link:
           Value: true
-        drone/base_link:
+        drone:
           Value: true
-        drone/base_stabilized:
-          Value: false
-        drone/bottom_link:
-          Value: false
-        drone/front_link:
-          Value: false
-        drone/sonar_link:
-          Value: false
         map:
+          Value: true
+        obstacle0:
+          Value: true
+        obstacle1:
+          Value: true
+        obstacle2:
+          Value: true
+        obstacle3:
+          Value: true
+        odom:
+          Value: true
+        target0:
+          Value: true
+        target1:
+          Value: true
+        target2:
+          Value: true
+        target3:
+          Value: true
+        target4:
+          Value: true
+        target5:
+          Value: true
+        target6:
+          Value: true
+        target7:
           Value: true
       Marker Scale: 1
       Name: TF
@@ -95,17 +109,35 @@ Visualization Manager:
       Show Names: true
       Tree:
         map:
-          drone/base_footprint:
-            drone/base_stabilized:
-              drone/base_link:
-                drone/bottom_link:
-                  drone/ardrone_base_bottomcam:
-                    {}
-                drone/front_link:
-                  drone/ardrone_base_frontcam:
-                    {}
-                drone/sonar_link:
-                  {}
+          drone:
+            base_link:
+              {}
+          obstacle0:
+            {}
+          obstacle1:
+            {}
+          obstacle2:
+            {}
+          obstacle3:
+            {}
+          odom:
+            {}
+          target0:
+            {}
+          target1:
+            {}
+          target2:
+            {}
+          target3:
+            {}
+          target4:
+            {}
+          target5:
+            {}
+          target6:
+            {}
+          target7:
+            {}
       Update Interval: 0
       Value: true
     - Alpha: 1
@@ -165,8 +197,8 @@ Visualization Manager:
       Scale: 34.1464157
       Target Frame: <Fixed Frame>
       Value: TopDownOrtho (rviz)
-      X: 2.60816765
-      Y: 7.76769924
+      X: 0
+      Y: 0
     Saved: ~
 Window Geometry:
   Displays:
