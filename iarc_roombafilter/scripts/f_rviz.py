@@ -19,7 +19,7 @@ from iarc_main.msg import Roomba, RoombaList
 from gazebo_msgs.msg import ModelStates
 from visualization_msgs.msg import Marker, MarkerArray
 
-from f_utils import observability
+from iarc_roombafilter.f_utils import observability
 
 class RVIZInterface(object):
     def __init__(self):

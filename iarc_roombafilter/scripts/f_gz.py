@@ -15,7 +15,7 @@ from iarc_main.msg import Roomba, RoombaList
 from std_msgs.msg import Header
 from geometry_msgs.msg import PoseWithCovariance, PoseWithCovarianceStamped, Point, PointStamped, PoseStamped
 
-from f_utils import observability, PolygonObservation
+from iarc_roombafilter.f_utils import observability, PolygonObservation
 
 R = 3.0
 
