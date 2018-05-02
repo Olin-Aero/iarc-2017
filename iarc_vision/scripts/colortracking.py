@@ -206,7 +206,9 @@ def get_heading(box, center, binary_image):
             # heading from box[1] -> box[2]
             heading = get_vector_heading(box[1], box[2])
             print "box 1 to 2"
-    heading = -heading
+    heading = (-heading) - math.pi / 2
+    if(heading < math.pi):
+        heading = heading + 2*math.pi
     print "Heading angle", math.degrees(heading), heading
     return heading
 
