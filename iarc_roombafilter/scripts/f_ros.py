@@ -7,10 +7,11 @@ Configuration files should be modified under f_config.py
 Takes RoombaObservation and filters them into pose.
 
 TODO(yoonyoungcho) : expose dynamic_reconfigure
-TODO(yoonyoungcho) : figure out world-time synchronization
 TODO(yoonyoungcho) : dynamic dt
 TODO(yoonyoungcho) : situational covariance updates (unobservable, should-be-observable, add-noise-event, reversal-event, ...)
 TODO(yoonyoungcho) : is model-based predictive simulation necessary?
+TODO(yoonyoungcho) : use input & output covariance information for RoombaList()
+TODO(yoonyoungcho) : resolve issues around tf and timestamps
 """
 
 import numpy as np
@@ -26,13 +27,6 @@ from iarc_roombafilter import f_config as cfg
 from iarc_roombafilter.f_manager import UKFManager
 from iarc_roombafilter.f_utils import *
 from iarc_roombafilter.f_model import TargetRoombaModel, ObstacleRoombaModel
-
-#import f_config as cfg
-#from f_manager import UKFManager
-## Filter-Related ...
-#from f_utils import *
-#from f_model import TargetRoombaModel, ObstacleRoombaModel
-
 
 class UKFManagerROS(object):
     def __init__(self, dt):
@@ -52,8 +46,8 @@ class UKFManagerROS(object):
         self._rate = rospy.get_param('~rate', default=50)  # 50hz
 
         # create ROS interfaces
-        self._tf = tf.TransformListener(True, cache_time=rospy.Duration(5))
-        self.tf_pub = tf.TransformBroadcaster()
+        self._tfl = tf.TransformListener(True, cache_time=rospy.Duration(5))
+        self._tfb = tf.TransformBroadcaster()
         self._cam_sub = rospy.Subscriber(self._cam_topic, CameraInfo, self.cam_cb, queue_size=1)
         self._sub = rospy.Subscriber(self._obs_topic, RoombaList, self.obs_cb, queue_size=1)
         self._sync_sub = rospy.Subscriber(self._sync_topic, StartRound, self.sync_cb)
@@ -77,9 +71,7 @@ class UKFManagerROS(object):
             self._cam_sub = None
 
     def obs_cb(self, msg):
-        """
-        Save observation for processing ...
-        """
+        """ Save observation for processing ... """
         self._obs = msg
 
     def sync_cb(self, msg):
@@ -89,9 +81,6 @@ class UKFManagerROS(object):
             self._t0 = rospy.Time.now().to_sec()
         else:
             self._t0 = t
-        #if msg.data:
-        #    # TODO : replace with msg.time?
-        #    self._t0 = rospy.Time.now().to_sec()
 
     def time(self, t=None):
         """ Return Synchronized Time since t0 """
@@ -114,7 +103,7 @@ class UKFManagerROS(object):
 
         if self._sim2d:
             try:
-                pos, _ = self._tf.lookupTransform('map', 'base_link', rospy.Time(0))
+                pos, _ = self._tfl.lookupTransform('map', 'base_link', rospy.Time(0))
                 obs_ar = ConicObservation(
                         pos[0],
                         pos[1],
@@ -126,15 +115,15 @@ class UKFManagerROS(object):
                 return
         else:
             try:
-                _, qxn = self._tf.lookupTransform(self._cam_frame, 'map', rospy.Time(0))
-                txn, _ = self._tf.lookupTransform('map', self._cam_frame, rospy.Time(0))
+                _, qxn = self._tfl.lookupTransform(self._cam_frame, 'map', rospy.Time(0))
+                txn, _ = self._tfl.lookupTransform('map', self._cam_frame, rospy.Time(0))
                 qxn = [qxn[3], qxn[0], qxn[1], qxn[2]]  # reorder xyzw-> wxyz
                 ar = observability(self._K, self._w, self._h, qxn, txn, False)
                 obs_ar = PolygonObservation(ar)
             except tf.Exception as e:
                 rospy.loginfo_throttle(5, 'Falling back to conic observation {}'.format(e))
                 try:
-                    txn, _ = self._tf.lookupTransform('base_link', 'map', msg.header.stamp)
+                    txn, _ = self._tfl.lookupTransform('base_link', 'map', msg.header.stamp)
                     obs_ar = ConicObservation(txn[0], txn[1], txn[2], 2)
                 except tf.Exception as e:
                     print "That didn't work...", e
@@ -148,7 +137,7 @@ class UKFManagerROS(object):
             # print r.visible_location.pose.pose.position.x
 
             p = PoseStamped(r.visible_location.header, r.visible_location.pose.pose)
-            p = self._tf.transformPose('map', p).pose
+            p = self._tfl.transformPose('map', p).pose
             p, q = p.position, p.orientation
             h = tf.transformations.euler_from_quaternion([q.x, q.y, q.z, q.w])[2]
 
@@ -205,7 +194,7 @@ class UKFManagerROS(object):
 
             msg = Roomba(last_seen=now, frame_id=roomba_frame, type=Roomba.RED, visible_location=loc)
 
-            self.tf_pub.sendTransformMessage(
+            self._tfb.sendTransformMessage(
                 TransformStamped(
                     header=msg.visible_location.header,
                     child_frame_id=msg.frame_id,
