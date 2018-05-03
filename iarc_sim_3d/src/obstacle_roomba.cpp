@@ -11,7 +11,7 @@
 #include <iostream>
 
 // durations
-#define T_INIT (5.00F)
+#define T_INIT (0.00F)
 #define T_DELAY (0.015F)
 
 namespace gazebo

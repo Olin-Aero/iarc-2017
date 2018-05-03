@@ -11,7 +11,7 @@
 #include <iostream>
 
 // durations
-#define T_INIT (5.00F)
+#define T_INIT (0.00F)
 #define T_180 (2.15F)
 #define T_45 (0.5375F)
 #define T_NOISE (0.85F)

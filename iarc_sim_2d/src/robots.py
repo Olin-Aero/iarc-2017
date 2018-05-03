@@ -327,7 +327,7 @@ class Drone(object):
 
             d = np.sqrt(dx**2 + dy**2)
 
-            if d < np.sin(cfg.BOTTOM_CAMERA_FOV)*self.pos3d[2]:
+            if d < np.tan(cfg.BOTTOM_CAMERA_FOV/2.0)*self.pos3d[2]:
                 visible_roombas = np.append(visible_roombas, roomba_array[i])
                 index_list.append(i)
         self.visible_roombas = visible_roombas
