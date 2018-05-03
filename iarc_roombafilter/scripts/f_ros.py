@@ -12,6 +12,7 @@ TODO(yoonyoungcho) : situational covariance updates (unobservable, should-be-obs
 TODO(yoonyoungcho) : is model-based predictive simulation necessary?
 TODO(yoonyoungcho) : use input & output covariance information for RoombaList()
 TODO(yoonyoungcho) : resolve issues around tf and timestamps
+TODO(yoonyoungcho) : use color information, etc., for matching performance
 """
 
 import numpy as np
