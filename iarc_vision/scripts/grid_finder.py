@@ -11,7 +11,6 @@ rosbag play --clock --rate 0.2 --start 10 filename.something
 # TODO : fix possible time-stamp issues
 # associated with rospy.Time() / rospy.Time.now() ...
 # TODO : fix grid thickness configuration based on drone altitude
-# TODO : drone-pose based line/feature matching for even better continuous grid-based pose correction?
 
 import numpy as np
 import cv2
