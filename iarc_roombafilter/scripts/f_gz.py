@@ -15,16 +15,7 @@ from iarc_main.msg import Roomba, RoombaList
 from std_msgs.msg import Header
 from geometry_msgs.msg import PoseWithCovariance, PoseWithCovarianceStamped, Point, PointStamped, PoseStamped
 
-from f_utils import observability, PolygonObservation
-
-R = 3.0
-
-def is_visible(src, dst):
-    # dst pose is visible from src pose
-    p0 = src.position
-    p1 = dst.position
-    r2 = (p0.x - p1.x)**2 + (p0.y - p1.y)**2
-    return (r2 < R**2) # within +-3m radius
+from iarc_roombafilter.f_utils import observability, PolygonObservation
 
 class GazeboInterface(object):
     def __init__(self):
