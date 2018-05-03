@@ -33,6 +33,9 @@ from iarc_main.msg import Roomba, RoombaList
 
 class ColorTrackerROS(object):
     def __init__(self):
+        """
+        Initialize Color Tracking ROS interface.
+        """
         rospy.init_node('color_tracker')
         self.tracker = ColorTracker()
         self.cv_image = self.processed_image = None  # the latest image from the camera
@@ -42,9 +45,12 @@ class ColorTrackerROS(object):
         self.tf = TransformListener()
         rospy.Subscriber("/ardrone/bottom/image_raw", Image, self.process_image)
         rospy.Subscriber("/ardrone/bottom/camera_info", CameraInfo, self.on_camera_info)
+        self._gui = rospy.get_param('~gui', default=False) # set to _gui:=true for debug display
+
         print("Initializing Color Tracker")
-        cv2.namedWindow('preview_window')
-        cv2.namedWindow('binary')
+        if self._gui:
+            cv2.namedWindow('preview_window')
+            cv2.namedWindow('binary')
 
         self.debug_pub = rospy.Publisher("tracker/debug", PoseWithCovarianceStamped, queue_size=10)
         self.roomba_pub = rospy.Publisher("visible_roombas", RoombaList, queue_size = 10)
@@ -63,32 +69,32 @@ class ColorTrackerROS(object):
             for box in self.boxes:
                 center = np.mean(box, axis=0)
                 heading = get_heading(box, center, self.processed_image)
+                # @TODO(nathanestill) : handle invalid heading information / fill covariance accordingly
+
                 ray = self.cameraModel.projectPixelTo3dRay(center)
                 camera_ray = Vector3Stamped(header=msg.header,
                                             vector=Vector3(*ray))
-                world_ray = self.tf.transformVector3('map', camera_ray)
-                # print(camera_ray, world_ray)
-                pos, quat = self.tf.lookupTransform('map', msg.header.frame_id, msg.header.stamp)
-                multiplier = -pos[2] / world_ray.vector.z
-                drone_to_roomba = np.array([world_ray.vector.x, world_ray.vector.y, world_ray.vector.z]) * multiplier
+
+                # get drone height for ground-plane projection
+                pos, _ = self.tf.lookupTransform('map', msg.header.frame_id, msg.header.stamp)
+                multiplier = -pos[2] / camera_ray.vector.z
+
+                # implicitly convert optical -> robot frame, and scale by height
+                drone_to_roomba = np.array([-camera_ray.vector.y, -camera_ray.vector.x, camera_ray.vector.z]) * multiplier
                 quat = quaternion_from_euler(0,0,heading)
-                map_to_roomba = pos + drone_to_roomba
-                print map_to_roomba
-
-                pose = Pose(position=Point(*map_to_roomba), orientation = Quaternion(*quat))
-
-                pwcs = PoseWithCovarianceStamped(header=Header(frame_id='map', stamp=msg.header.stamp),
+                pose = Pose(position=Point(*drone_to_roomba), orientation = Quaternion(*quat))
+                pwcs = PoseWithCovarianceStamped(header=Header(frame_id='base_link', stamp=msg.header.stamp),
                                                  pose=PoseWithCovariance(
                                                      pose=pose,
                                                      covariance=np.diag([.2, .2, 0, 0, 0, 0.2]).flatten()
                                                  ))
-                rb = Roomba(last_seen=msg.header.stamp, frame_id='map', type=Roomba.RED, # << TODO:FIX
+                rb = Roomba(last_seen=msg.header.stamp, frame_id='base_link', type=Roomba.RED, # << TODO:FIX
                         visible_location=pwcs)
 
                 listOfRoombas.append(rb)
                 self.debug_pub.publish(pwcs)
             if(not not listOfRoombas):
-                self.roomba_pub.publish(header=Header(frame_id='map',stamp=msg.header.stamp),data=listOfRoombas)
+                self.roomba_pub.publish(header=Header(frame_id='base_link',stamp=msg.header.stamp),data=listOfRoombas)
             # TODO: Do something with the boxes
             # TODO: make sure it doesn't get too far behind
 
@@ -106,7 +112,7 @@ class ColorTrackerROS(object):
         r = rospy.Rate(5)
         while not rospy.is_shutdown():
             # start out not issuing any motor commands
-            if not self.cv_image is None:
+            if not self.cv_image is None and self._gui:
                 cv2.imshow('preview_window', self.cv_image)
                 cv2.imshow('binary', self.processed_image)
                 cv2.waitKey(5)
