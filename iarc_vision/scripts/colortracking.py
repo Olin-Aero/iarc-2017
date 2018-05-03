@@ -13,6 +13,16 @@ Notes:
 If the image is compressed:
 rosrun image_transport republish in:=ardrone/bottom/image_raw _image_transport:=compressed raw out:=ardrone/bottom/image_raw
 
+TODO(nathanestill) : Improve robustness of detection on **GREEN** Roombas; currently not working in 3d simulation
+TODO(nathanestill) : handle invalid heading information / fill output covariance accordingly
+TODO(nathanestill) : expose covariance information to be configurable
+TODO(nathanestill) : contourArea() check in ColorTracker.find_bounding_boxes() should be dependent on drone height
+    (if drone is higher in the air, expected roomba area should be smaller)
+    consider passing an area threshold as parameter to ColorTracker.find_bounding_boxes()
+TODO(nathanestill) : fill type information from ColorTracker() to return green/red for each detected roomba
+    consider returning the color information from ColorTracker.find_bounding_boxes()
+
+TODO(yoonyoungcho) : fix frame_id information across each perception stack or reconfigure iarc_main.Roomba msg type
 """
 
 import rospy
@@ -30,7 +40,6 @@ from tf import TransformListener
 from tf.transformations import quaternion_from_euler
 from iarc_main.msg import Roomba, RoombaList
 
-
 class ColorTrackerROS(object):
     def __init__(self):
         """
@@ -43,9 +52,14 @@ class ColorTrackerROS(object):
         self.bridge = CvBridge()  # used to convert ROS messages to OpenCV
         self.cameraModel = PinholeCameraModel()
         self.tf = TransformListener()
+
+        # parameters ...
+        self._gui = bool(rospy.get_param('~gui', default=False)) # set to _gui:=true for debug display
+        self._rate = float(rospy.get_param('~rate', default=10.0)) # processing rate
+
+        # start listening ...
         rospy.Subscriber("/ardrone/bottom/image_raw", Image, self.process_image)
         rospy.Subscriber("/ardrone/bottom/camera_info", CameraInfo, self.on_camera_info)
-        self._gui = rospy.get_param('~gui', default=False) # set to _gui:=true for debug display
 
         print("Initializing Color Tracker")
         if self._gui:
@@ -69,7 +83,6 @@ class ColorTrackerROS(object):
             for box in self.boxes:
                 center = np.mean(box, axis=0)
                 heading = get_heading(box, center, self.processed_image)
-                # @TODO(nathanestill) : handle invalid heading information / fill covariance accordingly
 
                 ray = self.cameraModel.projectPixelTo3dRay(center)
                 camera_ray = Vector3Stamped(header=msg.header,
@@ -88,7 +101,7 @@ class ColorTrackerROS(object):
                                                      pose=pose,
                                                      covariance=np.diag([.2, .2, 0, 0, 0, 0.2]).flatten()
                                                  ))
-                rb = Roomba(last_seen=msg.header.stamp, frame_id='base_link', type=Roomba.RED, # << TODO:FIX
+                rb = Roomba(last_seen=msg.header.stamp, frame_id='base_link', type=Roomba.RED,
                         visible_location=pwcs)
 
                 listOfRoombas.append(rb)
@@ -109,7 +122,7 @@ class ColorTrackerROS(object):
 
     def run(self):
         """ The main run loop, in this node it doesn't do anything """
-        r = rospy.Rate(5)
+        r = rospy.Rate(self._rate)
         while not rospy.is_shutdown():
             # start out not issuing any motor commands
             if not self.cv_image is None and self._gui:
