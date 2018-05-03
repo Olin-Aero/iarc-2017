@@ -36,7 +36,7 @@ rostopic pub /ardrone/takeoff std_msgs/Empty "{}"
 rosrun iarc_roombafilter f_rviz.py _map_frame:=odom
 
 # run grid finder
-rosrun iarc_main grid_finder.py _ann_out:='ann_img' _odom:='odom'
+rosrun iarc_vision grid_finder.py _ann_out:='ann_img' _odom:='odom'
 
 # move around
 rosrun teleop_twist_keyboard teleop_twist_keyboard.py 
