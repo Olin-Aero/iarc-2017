@@ -24,7 +24,7 @@ from cv_bridge import CvBridge, CvBridgeError
 from matplotlib import pyplot as plt
 from tf.transformations import *
 
-SENSOR_FEED = "/odometry/filtered" # ROS topic publishing sensor data
+# TODO : replace all the parameters
 LOWER_COLOR_THRESHOLD = 130#150 # Darkest color of a line out of 255
 UPPER_COLOR_THRESHOLD = 255 # Lightest color of a line out of 255
 MIN_CONTOUR_SIZE = 200#200 # Size cutoff in pixels for filtering out noise
@@ -55,6 +55,8 @@ class GridFinder:
         self._odom_frame = rospy.get_param('~odom', default='odom')
         self._ci_topic = rospy.get_param('~camera_info', default='/ardrone/bottom/camera_info')
         self._map_frame = rospy.get_param('~map', default='map')
+        self._rate = rospy.get_param('~rate', default=20.0)
+        #self._size = rospy.get_param('~size', default=1.0) # side length
 
         # conversion utilities
         self._cv = CvBridge()
@@ -208,7 +210,7 @@ class GridFinder:
                 rospy.logerr_throttle(1.0, 'Failed to publish annotations : {}'.format(e))
     
     def run(self):
-        r = rospy.Rate(20)
+        r = rospy.Rate(self._rate)
         while(not rospy.is_shutdown()):
             self.process_image()
             r.sleep()
