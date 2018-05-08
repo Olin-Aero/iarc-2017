@@ -12,6 +12,7 @@ find_package(catkin REQUIRED COMPONENTS
     std_msgs
     geometry_msgs
     visualization_msgs
+	nav_msgs
 
     roscpp
     tf
@@ -139,6 +140,10 @@ add_library(target_roomba SHARED
 add_library(obstacle_roomba SHARED
     src/obstacle_roomba.cpp
 )
+add_executable(noisy_odometry_node
+	src/noisy_odometry_node.cpp
+)
+
 target_link_libraries(target_roomba
     ${GAZEBO_LIBRARIES}
     ${catkin_LIBRARIES}
@@ -147,6 +152,9 @@ target_link_libraries(obstacle_roomba
     ${GAZEBO_LIBRARIES}
     ${catkin_LIBRARIES}
     )
+target_link_libraries(noisy_odometry_node
+	${catkin_LIBRARIES}
+	)
 
 ## Add cmake target dependencies of the library
 ## as an example, code may need to be generated before libraries

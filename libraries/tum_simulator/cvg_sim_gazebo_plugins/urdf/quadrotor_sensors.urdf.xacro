@@ -71,15 +71,6 @@ xmlns:xacro="http://ros.org/wiki/xacro"
         <frameName>map</frameName>
       </plugin>
 
-      <plugin name="quadrotor_groundtruth_noise_sim" filename="libgazebo_ros_p3d.so">
-        <alwaysOn>true</alwaysOn>
-        <updateRate>100.0</updateRate>
-        <bodyName>base_link</bodyName>
-        <topicName>noisy_odom</topicName>
-        <gaussianNoise>0.1</gaussianNoise>
-        <frameName>map</frameName>
-      </plugin>
-
     </gazebo>
   </xacro:macro>
 </robot>

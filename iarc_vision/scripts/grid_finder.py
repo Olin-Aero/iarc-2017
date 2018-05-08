@@ -51,9 +51,10 @@ class GridFinder:
         rospy.init_node('grid_finder')
 
         # TODO : subscribe to rectified image?
-        self._image_topic = rospy.get_param('~image_feed', default='/ardrone/bottom/image_raw/compressed')
+        self._image_topic = rospy.get_param('~image_feed', default='/ardrone/bottom/image_raw')
         self._odom_frame = rospy.get_param('~odom', default='odom')
         self._ci_topic = rospy.get_param('~camera_info', default='/ardrone/bottom/camera_info')
+        self._map_frame = rospy.get_param('~map', default='map')
 
         # conversion utilities
         self._cv = CvBridge()
@@ -66,7 +67,7 @@ class GridFinder:
         self.msg = None
 
         # TODO : handle non-compressed scenarios?
-        rospy.Subscriber(self._image_topic, CompressedImage, self.image_raw_callback)
+        rospy.Subscriber(self._image_topic, Image, self.image_raw_callback)
 
         # display annotations - useful for debugging.
         self._ann_img = None
@@ -119,7 +120,7 @@ class GridFinder:
         self.msg = None
 
         try:
-            frame = self._cv.compressed_imgmsg_to_cv2(msg, "bgr8")
+            frame = self._cv.imgmsg_to_cv2(msg, "bgr8")
 
             if self._K is None:
                 # need accurate camera parameters!
@@ -146,7 +147,7 @@ class GridFinder:
                         h0 = tf.transformations.euler_from_quaternion(q0)[-1]
 
                         # grid -> odom -> base_link -> camera -> square
-                        pose = self.listener.transformPose('grid', pose)
+                        pose = self.listener.transformPose(self._map_frame, pose)
                         #print 'pose', pose
                         e_x, e_q = pose.pose.position, pose.pose.orientation
 
@@ -162,6 +163,7 @@ class GridFinder:
 
                         err_x = e_x - gt_x 
                         err_h = e_h - gt_h# + 0.1
+                        print 'err_x', err_x
                         print 'err_h', err_h
 
                         # apply soft update on grid->odom tf
@@ -195,7 +197,7 @@ class GridFinder:
                 self._tf.sendTransform(tvec, q, rospy.Time.now(), 'square', self._cam_frame)
 
         # publish tf ...
-        self._tf.sendTransform(self._x0, self._q0, rospy.Time.now(), self._odom_frame, "grid")
+        self._tf.sendTransform(self._x0, self._q0, rospy.Time.now(), self._odom_frame, self._map_frame)
 
         # publish annotation ...
         if self._ann_img is not None:
@@ -206,7 +208,7 @@ class GridFinder:
                 rospy.logerr_throttle(1.0, 'Failed to publish annotations : {}'.format(e))
     
     def run(self):
-        r = rospy.Rate(100)
+        r = rospy.Rate(20)
         while(not rospy.is_shutdown()):
             self.process_image()
             r.sleep()
