@@ -16,9 +16,6 @@ rosrun image_transport republish in:=ardrone/bottom/image_raw _image_transport:=
 TODO(nathanestill) : Improve robustness of detection on **GREEN** Roombas; currently not working in 3d simulation
 TODO(nathanestill) : handle invalid heading information / fill output covariance accordingly
 TODO(nathanestill) : expose covariance information to be configurable
-TODO(nathanestill) : contourArea() check in ColorTracker.find_bounding_boxes() should be dependent on drone height
-    (if drone is higher in the air, expected roomba area should be smaller)
-    consider passing an area threshold as parameter to ColorTracker.find_bounding_boxes()
 TODO(nathanestill) : fill type information from ColorTracker() to return green/red for each detected roomba
     consider returning the color information from ColorTracker.find_bounding_boxes()
 
