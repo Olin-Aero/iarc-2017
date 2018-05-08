@@ -56,6 +56,7 @@ class ColorTrackerROS(object):
         # parameters ...
         self._gui = bool(rospy.get_param('~gui', default=False)) # set to _gui:=true for debug display
         self._rate = float(rospy.get_param('~rate', default=10.0)) # processing rate
+        self._par = float(rospy.get_param('~plate_area', default=0.0338709))
 
         # start listening ...
         rospy.Subscriber("/ardrone/bottom/image_raw", Image, self.process_image)
@@ -80,16 +81,21 @@ class ColorTrackerROS(object):
             # do image processing here
             self.boxes, self.processed_image = self.tracker.find_bounding_boxes(self.cv_image, display=False)
             listOfRoombas = []
+            pos, _ = self.tf.lookupTransform('map', msg.header.frame_id, msg.header.stamp)
+
+            # area scale + tolerance
+            xy2uv = self.cameraModel.getDeltaU(1.0, pos[2]) * self.cameraModel.getDeltaV(1.0, pos[2])
+            ar = self._par * xy2uv
+
             for box in self.boxes:
                 center = np.mean(box, axis=0)
                 heading = get_heading(box, center, self.processed_image)
-
+                
                 ray = self.cameraModel.projectPixelTo3dRay(center)
                 camera_ray = Vector3Stamped(header=msg.header,
                                             vector=Vector3(*ray))
 
                 # get drone height for ground-plane projection
-                pos, _ = self.tf.lookupTransform('map', msg.header.frame_id, msg.header.stamp)
                 multiplier = -pos[2] / camera_ray.vector.z
 
                 # implicitly convert optical -> robot frame, and scale by height
