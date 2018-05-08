@@ -55,7 +55,7 @@ class ColorTrackerROS(object):
 
         # parameters ...
         self._gui = bool(rospy.get_param('~gui', default=False)) # set to _gui:=true for debug display
-        self._rate = float(rospy.get_param('~rate', default=10.0)) # processing rate
+        self._rate = float(rospy.get_param('~rate', default=50.0)) # processing rate
         self._par = float(rospy.get_param('~plate_area', default=0.0338709))
 
         # start listening ...
@@ -78,14 +78,19 @@ class ColorTrackerROS(object):
         """
         try:
             self.cv_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding="bgr8")
-            # do image processing here
-            self.boxes, self.processed_image = self.tracker.find_bounding_boxes(self.cv_image, display=False)
-            listOfRoombas = []
+
+            # get drone position ...
+            self.tf.waitForTransform('map', msg.header.frame_id,
+                    msg.header.stamp, rospy.Duration(1.0))
             pos, _ = self.tf.lookupTransform('map', msg.header.frame_id, msg.header.stamp)
 
             # area scale + tolerance
             xy2uv = self.cameraModel.getDeltaU(1.0, pos[2]) * self.cameraModel.getDeltaV(1.0, pos[2])
-            ar = self._par * xy2uv
+            min_area = 0.75 * self._par * xy2uv
+
+            # do image processing here
+            self.boxes, self.processed_image = self.tracker.find_bounding_boxes(self.cv_image, min_area, display=False)
+            listOfRoombas = []
 
             for box in self.boxes:
                 center = np.mean(box, axis=0)
@@ -94,15 +99,16 @@ class ColorTrackerROS(object):
                 ray = self.cameraModel.projectPixelTo3dRay(center)
                 camera_ray = Vector3Stamped(header=msg.header,
                                             vector=Vector3(*ray))
+                drone_ray = self.tf.transformVector3('base_link', camera_ray)
 
                 # get drone height for ground-plane projection
-                multiplier = -pos[2] / camera_ray.vector.z
+                multiplier = -pos[2] / drone_ray.vector.z
 
                 # implicitly convert optical -> robot frame, and scale by height
-                drone_to_roomba = np.array([-camera_ray.vector.y, -camera_ray.vector.x, camera_ray.vector.z]) * multiplier
+                drone_to_roomba = np.array([drone_ray.vector.x, drone_ray.vector.y, drone_ray.vector.z]) * multiplier
                 quat = quaternion_from_euler(0,0,heading)
                 pose = Pose(position=Point(*drone_to_roomba), orientation = Quaternion(*quat))
-                pwcs = PoseWithCovarianceStamped(header=Header(frame_id='base_link', stamp=msg.header.stamp),
+                pwcs = PoseWithCovarianceStamped(header=Header(frame_id=msg.header.frame_id, stamp=msg.header.stamp),
                                                  pose=PoseWithCovariance(
                                                      pose=pose,
                                                      covariance=np.diag([.2, .2, 0, 0, 0, 0.2]).flatten()
@@ -132,9 +138,12 @@ class ColorTrackerROS(object):
         while not rospy.is_shutdown():
             # start out not issuing any motor commands
             if not self.cv_image is None and self._gui:
-                cv2.imshow('preview_window', self.cv_image)
-                cv2.imshow('binary', self.processed_image)
-                cv2.waitKey(5)
+                try:
+                    cv2.imshow('preview_window', self.cv_image)
+                    cv2.imshow('binary', self.processed_image)
+                    cv2.waitKey(5)
+                except Exception as e:
+                    pass
             r.sleep()
 
 
@@ -142,7 +151,7 @@ class ColorTracker(object):
     def __init__(self):
         self.red_lower_bound = 0
 
-    def find_bounding_boxes(self, image, display=True):
+    def find_bounding_boxes(self, image, min_area, display=True):
         """
         Input: OpenCV image (numpy array)
         Output: List of bounding boxes (topleft, bottomright, isRed)
@@ -160,12 +169,14 @@ class ColorTracker(object):
 
         # Threshold and find contours
         ret, thresh = cv2.threshold(binary_image, 127, 255, 0)
-        binary_image, contours, hierarchy = cv2.findContours(thresh, 1, 2)
+        _, contours, hierarchy = cv2.findContours(thresh, 
+                cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
         # Get bounding box from contours
         maxcnt = []
         for i in contours:
-            if cv2.contourArea(i) > 1000:
+            a = cv2.contourArea(i)
+            if a > min_area:
                 maxcnt.append(i)
 
         # Draw coutours on the image
@@ -173,6 +184,7 @@ class ColorTracker(object):
         for i in maxcnt:
             rect = cv2.minAreaRect(i)
             box = cv2.boxPoints(rect)
+
             box = np.int0(box)
             boxes.append(box)
             cv2.drawContours(image, [box], 0, (0, 0, 255), 2)
@@ -314,7 +326,7 @@ def get_average_darkness(point_a, point_b, binary_image):
 def test_image_from_file(filename):
     tracker = ColorTracker()
     # TODO: Load image
-    boxes, binary_image = tracker.find_bounding_boxes(filename, True)
+    boxes, binary_image = tracker.find_bounding_boxes(filename, 1000, True)
 
     # TODO: Display result
 

@@ -134,8 +134,7 @@ class RVIZInterface(object):
                 self._ar_pub.publish(self._ar_msg)
             elif self._cam_frame:
                 # looks a bit stupid ... TODO(yoonyoungcho): fix
-                _, q = self._tf.lookupTransform(self._cam_frame, self._map_frame, rospy.Time(0))
-                t, _ = self._tf.lookupTransform(self._map_frame, self._cam_frame, rospy.Time(0))
+                t, q = self._tf.lookupTransform(self._map_frame, self._cam_frame, rospy.Time(0))
                 q = [q[3], q[0], q[1], q[2]]
                 ar = observability(self._K, self._w, self._h, q, t, False)
                 poly = self._a2p(ar)

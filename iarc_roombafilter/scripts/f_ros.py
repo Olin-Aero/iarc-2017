@@ -116,8 +116,9 @@ class UKFManagerROS(object):
                 return
         else:
             try:
-                _, qxn = self._tfl.lookupTransform(self._cam_frame, 'map', rospy.Time(0))
-                txn, _ = self._tfl.lookupTransform('map', self._cam_frame, rospy.Time(0))
+                txn, qxn = self._tf.lookupTransform(self._map_frame, self._cam_frame, rospy.Time(0))
+                #_, qxn = self._tfl.lookupTransform(self._cam_frame, 'map', rospy.Time(0))
+                #txn, _ = self._tfl.lookupTransform('map', self._cam_frame, rospy.Time(0))
                 qxn = [qxn[3], qxn[0], qxn[1], qxn[2]]  # reorder xyzw-> wxyz
                 ar = observability(self._K, self._w, self._h, qxn, txn, False)
                 obs_ar = PolygonObservation(ar)
