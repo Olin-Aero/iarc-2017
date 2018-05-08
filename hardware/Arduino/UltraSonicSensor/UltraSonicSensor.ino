@@ -14,17 +14,21 @@
 void setup() {
   // initialize serial communication at 115200 bits per second:
   Serial.begin(115200);
+  pinMode(2, OUTPUT);
+
 }
 
 // the loop routine runs over and over again forever:
 void loop() {
   // print out the value you read:
-  String output =  String(analogRead(A0)) + " " 
+  String output =  String(analogRead(A0)) + " "
   + String(analogRead(A1)) + " " 
   + String(analogRead(A2)) + " " 
   + String(analogRead(A3)) + " " 
   + String(analogRead(A4)) + " " 
   + String(analogRead(A5)); 
   Serial.println(output);
-  delay(1);        // delay in between reads for stability
+  digitalWrite(2, LOW);
+  delay(50);        // delay in between reads for stability
+  digitalWrite(2, HIGH);
 }
