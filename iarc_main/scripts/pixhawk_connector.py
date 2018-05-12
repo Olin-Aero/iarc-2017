@@ -81,7 +81,7 @@ class PixhawkConnector(object):
         orientation = [pose.pose.orientation.x, pose.pose.orientation.y, pose.pose.orientation.z,
                        pose.pose.orientation.w]
         position = [pose.pose.position.x, pose.pose.position.y, pose.pose.position.z]
-        print "Calculated pose: ", pose
+        rospy.loginfo_throttle(1.0, "Calculated pose: {}".format(pose))
         self.tfb.sendTransform(position, orientation, pose.header.stamp, child_frame,
                                pose.header.frame_id)
 
