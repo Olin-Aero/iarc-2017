@@ -1,15 +1,12 @@
 #!/usr/bin/env python2
-
+import numpy as np
 import rospy
-from geometry_msgs.msg import Twist, PoseStamped, Vector3Stamped, PoseWithCovariance, TwistWithCovariance
+import tf.transformations
+from geometry_msgs.msg import Twist, PoseStamped, PoseWithCovariance, TwistWithCovariance
 from mavros_msgs.srv import SetMode, CommandTOL, StreamRate
 from nav_msgs.msg import Odometry
 from std_msgs.msg import Empty
-
-from numpy import sin, cos
-
 from tf import TransformBroadcaster
-import tf.transformations
 
 
 class PixhawkConnector(object):
@@ -33,7 +30,7 @@ class PixhawkConnector(object):
         self.takeoff_sub = rospy.Subscriber('/takeoff', Empty, self.on_takeoff)
         self.land_sub = rospy.Subscriber('/land', Empty, self.on_land)
 
-        self.last_pos = Vector3Stamped()
+        self.last_pose = PoseStamped()
         self.position_sub = rospy.Subscriber('/mavros/global_position/local', Odometry, self.on_pose)
 
     def on_pose(self, msg):
@@ -46,18 +43,19 @@ class PixhawkConnector(object):
         _, _, yaw = tf.transformations.euler_from_quaternion(
             [orientation.x, orientation.y, orientation.z, orientation.w])
 
-        # TODO: check this math for trig errors
-        dt = (msg.header.stamp - self.last_pos.header.stamp).to_sec()
+        dt = (msg.header.stamp - self.last_pose.header.stamp).to_sec()
         if dt > 1:
             # It's been too long!
             dt = 0
 
         # The velocity retrieved is (we think) in North - East - Down, while ROS normally uses East - North - Up
-        self.last_pos.vector.x += dt * vel.y
-        self.last_pos.vector.y += dt * vel.x
-        self.last_pos.vector.z = alt
+        self.last_pose.pose.position.x += dt * vel.y
+        self.last_pose.pose.position.y += dt * vel.x
+        self.last_pose.pose.position.z = alt
 
-        self.last_pos.header.stamp = msg.header.stamp
+        self.last_pose.pose.orientation = orientation
+
+        self.last_pose.header.stamp = msg.header.stamp
 
         pose = PoseStamped()
 
@@ -65,7 +63,7 @@ class PixhawkConnector(object):
         pose.header.frame_id = 'odom'
 
         pose.pose.orientation = orientation
-        pose.pose.position = self.last_pos.vector
+        pose.pose.position = self.last_pose.pose.position
 
         self.publish_pose(pose, msg.twist)
 
@@ -79,7 +77,7 @@ class PixhawkConnector(object):
 
         odom = Odometry()
         odom.header = pose.header
-        
+
         odom.pose = PoseWithCovariance(pose=pose.pose)
         odom.pose.covariance[0] = -1
 
@@ -114,7 +112,16 @@ class PixhawkConnector(object):
         :param Twist msg:
         :return: None
         """
-        self.vel = msg
+        q = self.last_pose.pose.orientation
+        _, _, yaw = tf.transformations.euler_from_quaternion([q.x, q.y, q.z, q.w])
+
+        # TODO: check the signs on these math equations
+        self.vel.linear.z = msg.linear.z
+        self.vel.linear.x = msg.linear.x*np.cos(yaw) + msg.linear.y*np.sin(yaw)
+        self.vel.linear.y = msg.linear.y*np.cos(yaw) - msg.linear.x*np.sin(yaw)
+
+        self.vel.angular = msg.angular
+
         self.vel_pub.publish(self.vel)
 
     def run(self):
