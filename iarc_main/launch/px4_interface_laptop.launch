@@ -5,5 +5,4 @@
     <node pkg="tf" type="static_transform_publisher" name="camera_transform"
           args="0 0 0 0 0 0 base_link bottom_cam 100"/>
     <node pkg="tf" type="static_transform_publisher" name="fcu_transform" args="0 0 0 0 0 0 base_link fcu 100" />
-
 </launch>

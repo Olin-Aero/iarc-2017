@@ -5,25 +5,34 @@ import tf.transformations
 from geometry_msgs.msg import Twist, PoseStamped, PoseWithCovariance, TwistWithCovariance
 from mavros_msgs.srv import SetMode, CommandTOL, StreamRate
 from nav_msgs.msg import Odometry
-from std_msgs.msg import Empty
+from std_msgs.msg import Empty, Header
 from tf import TransformBroadcaster
 
 
 class PixhawkConnector(object):
     def __init__(self):
 
-	self.vel_pub = rospy.Publisher('/mavros/setpoint_velocity/cmd_vel_unstamped', Twist, queue_size=0)
+        self.vel_pub = rospy.Publisher('/mavros/setpoint_velocity/cmd_vel_unstamped', Twist, queue_size=0)
         self.odom_pub = rospy.Publisher('/odometry', Odometry, queue_size=10)
 
-        rospy.sleep(0.2)
+        self.tfb = TransformBroadcaster()
+
+        rospy.sleep(0.5)
+
+        startpose = PoseStamped()
+        startpose.header.stamp = rospy.Time.now()
+        startpose.header.frame_id = 'odom'
+        startpose.pose.orientation.w = 1
+        self.publish_pose(startpose, TwistWithCovariance())
+
+        rospy.loginfo("Published initial tf")
+
         self.set_mode = rospy.ServiceProxy('/mavros/set_mode', SetMode)
         self.set_rate = rospy.ServiceProxy('/mavros/set_stream_rate', StreamRate)
         self.land = rospy.ServiceProxy('/mavros/cmd/land', CommandTOL)
         self.takeoff = rospy.ServiceProxy('/mavros/cmd/takeoff', CommandTOL)
 
         rospy.loginfo('Services connected')
-
-        self.tfb = TransformBroadcaster()
 
         self.vel = Twist()
         self.vel_sub = rospy.Subscriber('/cmd_vel', Twist, self.on_vel)
@@ -96,14 +105,14 @@ class PixhawkConnector(object):
         ok = self.set_rate(message_rate=rate, on_off=True)
         rospy.loginfo("Setting stream rate to {}".format(rate))
         if not ok:
-           rospy.logerr("Unable to set stream rate")
+            rospy.logerr("Unable to set stream rate")
 
-    def on_takeoff(self,msg):
+    def on_takeoff(self, msg):
         rospy.wait_for_service('/mavros/cmd/takeoff')
-        res = self.takeoff(latitude=float("NaN"),longitude=float("NaN"),altitude=2)
+        res = self.takeoff(latitude=float("NaN"), longitude=float("NaN"), altitude=2)
         rospy.loginfo("Took Off:", res)
 
-    def on_land(self,msg):
+    def on_land(self, msg):
         rospy.wait_for_service('/mavros/cmd/land')
         res = self.land()
         rospy.loginfo("Landed:", res)
@@ -118,8 +127,8 @@ class PixhawkConnector(object):
 
         # TODO: check the signs on these math equations
         self.vel.linear.z = msg.linear.z
-        self.vel.linear.x = msg.linear.x*np.cos(yaw) + msg.linear.y*np.sin(yaw)
-        self.vel.linear.y = msg.linear.y*np.cos(yaw) - msg.linear.x*np.sin(yaw)
+        self.vel.linear.x = msg.linear.x * np.cos(yaw) + msg.linear.y * np.sin(yaw)
+        self.vel.linear.y = msg.linear.y * np.cos(yaw) - msg.linear.x * np.sin(yaw)
 
         self.vel.angular = msg.angular
 
