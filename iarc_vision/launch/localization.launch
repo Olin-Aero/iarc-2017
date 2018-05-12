@@ -1,0 +1,6 @@
+<launch>
+	<node pkg="robot_localization" type="ukf_localization_node" name="ukf_localization_global" output="screen">
+		<rosparam command="load" file="$(find iarc_vision)/config/localization_global.yaml" />
+		<!--<remap from="/odometry/filtered" to="/odometry/filtered/global"/>-->
+	</node>
+</launch>
