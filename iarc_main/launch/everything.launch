@@ -1,0 +1,14 @@
+<launch>
+    <!-- PERCEPTION -->
+    <!--<include file="$(find iarc_vision)/launch/...something..."/>-->
+
+    <!-- REASONING -->
+    <node pkg="iarc_forebrain" type="forebrain.py" name="forebrain"/>
+
+    <!-- CONTROL -->
+    <include file="$(find iarc_main)/launch/backbone.launch"/>
+
+    <!-- HARDWARE -->
+    <include file="$(find iarc_main)/launch/px4_interface_laptop.launch"/>
+    <include file="$(find iarc_vision)/launch/usb_camera.launch"/>
+</launch>
