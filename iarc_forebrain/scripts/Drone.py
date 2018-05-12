@@ -268,7 +268,7 @@ class Drone:
         while not time and not rospy.is_shutdown():
             try:
                 time = self.tf.getLatestCommonTime(frame, self.FRAME_ID)
-            except tf.LookupException:
+            except:
                 rospy.sleep(0.5)
                 rospy.logwarn("Frame missing, delaying...")
 
