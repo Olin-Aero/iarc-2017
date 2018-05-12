@@ -227,7 +227,7 @@ class Drone:
         self.takeoff(height)
         self.hover(0, height)
 
-    def redirect_45(self, roomba, hover_height = 1.0, land_height = 0.3, height = None):
+    def redirect_45(self, roomba, hover_height=1.0, land_height=0.3, height=None):
         """
         Redirects the target roomba 45 degrees by landing on it.
         :param Roomba roomba: The target to redirect
@@ -243,20 +243,19 @@ class Drone:
             self.last_height = height
 
         # First, move to above the roomba, to get positioned well and get a feel for how it's moving.
-        self.move_to(0, 0, roomba.frame_id, height = hover_height)
+        self.move_to(0, 0, roomba.frame_id, height=hover_height)
 
         # Next, lower down to just above the roomba, in preparation for landing.
         # Note that this relies on move_to updating itself to move towards a moving reference frame.  TODO: check / test that.
-        self.move_to(0, 0, roomba.frame_id, height = land_height, tol = 0.1)
+        self.move_to(0, 0, roomba.frame_id, height=land_height, tol=0.1)
 
         self.land()
 
-        self.takeoff(height = hover_height) # Get back up to a safe height, so we can see where the roomba is again.
+        self.takeoff(height=hover_height)  # Get back up to a safe height, so we can see where the roomba is again.
 
-        #TODO: see if the roomba actually got redirected, change return value based off that.
+        # TODO: see if the roomba actually got redirected, change return value based off that.
 
-        return True 
-        
+        return True
 
     def get_pos(self, frame='map'):
         """
@@ -265,8 +264,14 @@ class Drone:
         :param frame: The world frame in which to return the result
         :return (PoseStamped): The position of the drone at the latest available time
         """
-        # TODO: Handle errors if frames do not exist
-        time = self.tf.getLatestCommonTime(frame, self.FRAME_ID)
+        time = None
+        while not time and not rospy.is_shutdown():
+            try:
+                time = self.tf.getLatestCommonTime(frame, self.FRAME_ID)
+            except tf.LookupException:
+                rospy.sleep(0.5)
+                rospy.logwarn("Frame missing, delaying...")
+
         position, quaternion = self.tf.lookupTransform(frame, self.FRAME_ID, time)
 
         return PoseStamped(
