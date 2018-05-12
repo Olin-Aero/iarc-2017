@@ -1,0 +1,467 @@
+<robot
+  name="iarc_urdf">
+  <link
+    name="fcu">
+    <inertial>
+      <origin
+        xyz="3.02684736132543E-18 6.25357962316157E-17 -0.0231249405777104"
+        rpy="0 0 0" />
+      <mass
+        value="22.8976176490115" />
+      <inertia
+        ixx="0"
+        ixy="0"
+        ixz="0"
+        iyy="0"
+        iyz="0"
+        izz="0" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://iarc_urdf/meshes/fcu.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://iarc_urdf/meshes/fcu.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <link
+    name="base_link">
+    <inertial>
+      <origin
+        xyz="5.09293762121163E-18 -7.93302489973188E-17 0.13441505942229"
+        rpy="0 0 0" />
+      <mass
+        value="22.8976176490115" />
+      <inertia
+        ixx="0"
+        ixy="0"
+        ixz="0"
+        iyy="0"
+        iyz="0"
+        izz="0" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://iarc_urdf/meshes/base_link.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://iarc_urdf/meshes/base_link.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="base_joint"
+    type="fixed">
+    <origin
+      xyz="0 0 -0.15754"
+      rpy="0 -1.09476442525376E-47 -3.14159265358979" />
+    <parent
+      link="fcu" />
+    <child
+      link="base_link" />
+    <axis
+      xyz="0 0 0" />
+  </joint>
+  <link
+    name="L_US_1">
+    <inertial>
+      <origin
+        xyz="6.67980844352989E-08 -7.41458737274492E-06 -0.00840646225316072"
+        rpy="0 0 0" />
+      <mass
+        value="0.00361575702705974" />
+      <inertia
+        ixx="0"
+        ixy="0"
+        ixz="0"
+        iyy="0"
+        iyz="0"
+        izz="0" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://iarc_urdf/meshes/L_US_1.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://iarc_urdf/meshes/L_US_1.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="J_US_1"
+    type="fixed">
+    <origin
+      xyz="-0.299742692222185 0.023445 0.105130977459881"
+      rpy="1.83259571459404 2.22044604925031E-16 -1.5707963267949" />
+    <parent
+      link="base_link" />
+    <child
+      link="L_US_1" />
+    <axis
+      xyz="0 0 0" />
+  </joint>
+  <link
+    name="L_US_2">
+    <inertial>
+      <origin
+        xyz="6.67980844248905E-08 -7.41458737282819E-06 -0.00840646225316083"
+        rpy="0 0 0" />
+      <mass
+        value="0.00361575702705974" />
+      <inertia
+        ixx="0"
+        ixy="0"
+        ixz="0"
+        iyy="0"
+        iyz="0"
+        izz="0" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://iarc_urdf/meshes/L_US_2.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://iarc_urdf/meshes/L_US_2.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="J_US_2"
+    type="fixed">
+    <origin
+      xyz="-0.170175311702819 -0.247862286063153 0.105130977459881"
+      rpy="1.83259571459404 2.43359476804514E-16 -0.523598775598299" />
+    <parent
+      link="base_link" />
+    <child
+      link="L_US_2" />
+    <axis
+      xyz="0 0 0" />
+  </joint>
+  <link
+    name="L_US_3">
+    <inertial>
+      <origin
+        xyz="6.67980844387683E-08 -7.41458737274492E-06 -0.00840646225316094"
+        rpy="0 0 0" />
+      <mass
+        value="0.00361575702705973" />
+      <inertia
+        ixx="0"
+        ixy="0"
+        ixz="0"
+        iyy="0"
+        iyz="0"
+        izz="0" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://iarc_urdf/meshes/L_US_3.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://iarc_urdf/meshes/L_US_3.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="J_US_3"
+    type="fixed">
+    <origin
+      xyz="0.129567380519366 -0.271307286063153 0.105130977459881"
+      rpy="1.83259571459404 -3.25629823315878E-16 0.523598775598298" />
+    <parent
+      link="base_link" />
+    <child
+      link="L_US_3" />
+    <axis
+      xyz="0 0 0" />
+  </joint>
+  <link
+    name="L_US_4">
+    <inertial>
+      <origin
+        xyz="6.67980844352989E-08 -7.41458737271716E-06 -0.00840646225316083"
+        rpy="0 0 0" />
+      <mass
+        value="0.00361575702705974" />
+      <inertia
+        ixx="0"
+        ixy="0"
+        ixz="0"
+        iyy="0"
+        iyz="0"
+        izz="0" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://iarc_urdf/meshes/L_US_4.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://iarc_urdf/meshes/L_US_4.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="J_US_4"
+    type="fixed">
+    <origin
+      xyz="0.299742692222185 -0.023445 0.105130977459881"
+      rpy="1.83259571459404 0 1.5707963267949" />
+    <parent
+      link="base_link" />
+    <child
+      link="L_US_4" />
+    <axis
+      xyz="0 0 0" />
+  </joint>
+  <link
+    name="L_US_5">
+    <inertial>
+      <origin
+        xyz="6.67980844110128E-08 -7.41458737280043E-06 -0.00840646225316088"
+        rpy="0 0 0" />
+      <mass
+        value="0.00361575702705973" />
+      <inertia
+        ixx="0"
+        ixy="0"
+        ixz="0"
+        iyy="0"
+        iyz="0"
+        izz="0" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://iarc_urdf/meshes/L_US_5.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://iarc_urdf/meshes/L_US_5.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="J_US_5"
+    type="fixed">
+    <origin
+      xyz="0.170175311702818 0.247862286063152 0.105130977459881"
+      rpy="1.83259571459404 -2.43359476804514E-16 2.61799387799149" />
+    <parent
+      link="base_link" />
+    <child
+      link="L_US_5" />
+    <axis
+      xyz="0 0 0" />
+  </joint>
+  <link
+    name="L_US_6">
+    <inertial>
+      <origin
+        xyz="6.67980844387683E-08 -7.41458737277267E-06 -0.00840646225316088"
+        rpy="0 0 0" />
+      <mass
+        value="0.00361575702705974" />
+      <inertia
+        ixx="0"
+        ixy="0"
+        ixz="0"
+        iyy="0"
+        iyz="0"
+        izz="0" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://iarc_urdf/meshes/L_US_6.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://iarc_urdf/meshes/L_US_6.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="J_US_6"
+    type="fixed">
+    <origin
+      xyz="-0.129567380519366 0.271307286063153 0.105130977459881"
+      rpy="1.83259571459404 2.28485308661177E-16 -2.61799387799149" />
+    <parent
+      link="base_link" />
+    <child
+      link="L_US_6" />
+    <axis
+      xyz="0 0 0" />
+  </joint>
+  <link
+    name="L_CAM">
+    <inertial>
+      <origin
+        xyz="-4.48707976235626E-17 -1.13709443398529E-17 -0.0616061378915807"
+        rpy="0 0 0" />
+      <mass
+        value="0.043088537724238" />
+      <inertia
+        ixx="0"
+        ixy="0"
+        ixz="0"
+        iyy="0"
+        iyz="0"
+        izz="0" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://iarc_urdf/meshes/L_CAM.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://iarc_urdf/meshes/L_CAM.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="J_CAM"
+    type="fixed">
+    <origin
+      xyz="0 0 0.14588"
+      rpy="2.2204E-16 -5.5511E-17 -1.6653E-16" />
+    <parent
+      link="base_link" />
+    <child
+      link="L_CAM" />
+    <axis
+      xyz="0 0 0" />
+  </joint>
+</robot>
