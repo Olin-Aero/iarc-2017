@@ -3,7 +3,7 @@
 		<param name="odom_in" value="/ground_truth/state"/>
 		<param name="odom_out" value="/noisy_odom"/>
 		<param name="rate" value="10.0"/>
-		<param name="noise_lin" value="0.05"/>
+		<param name="noise_lin" value="0.1"/>
 		<param name="noise_ang" value="0.0"/>
 	</node>
 </launch>
