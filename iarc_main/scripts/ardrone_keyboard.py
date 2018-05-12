@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-import roslib;
+import roslib
 
 roslib.load_manifest('teleop_twist_keyboard')
 import rospy
@@ -91,12 +91,20 @@ def vels(speed, turn):
     return "currently:\tspeed %s\tturn %s " % (speed, turn)
 
 
+def land():
+    for p in land_pubs:
+        p.publish()
+
+
 if __name__ == "__main__":
     settings = termios.tcgetattr(sys.stdin)
 
     pub = rospy.Publisher('/teleop/cmd_vel', Twist, queue_size=1)
-    takeoff_pub = rospy.Publisher('/ardrone/takeoff', Empty, queue_size=1)
-    land_pub = rospy.Publisher('/ardrone/land', Empty, queue_size=1)
+    takeoff_pub = rospy.Publisher('/teleop/cmd_takeoff', Empty, queue_size=1)
+    land_pubs = [rospy.Publisher('/teleop/cmd_land', Empty, queue_size=1),
+                 rospy.Publisher('/land', Empty, queue_size=1),
+                 rospy.Publisher('/ardrone/land', Empty, queue_size=1)]
+
     activate_pub = rospy.Publisher('/arbiter/activate_behavior', String, queue_size=1)
     rospy.init_node('teleop_twist_keyboard')
 
@@ -146,7 +154,7 @@ if __name__ == "__main__":
                 if takeoffLand[key][0] == 1:
                     takeoff_pub.publish()
                 elif takeoffLand[key][1] == 1:
-                    land_pub.publish()
+                    land()
 
     except Exception as e:
         print e
@@ -154,5 +162,5 @@ if __name__ == "__main__":
     finally:
         twist = Twist()
         pub.publish(twist)
-        land_pub.publish()
+        land()
         termios.tcsetattr(sys.stdin, termios.TCSADRAIN, settings)
