@@ -3,11 +3,16 @@ import math
 import rospy
 import tf
 import tf.transformations
-from ardrone_autonomy.msg import Navdata
 from geometry_msgs.msg import Twist, PoseStamped, Pose, Point, Quaternion
 from iarc_arbiter.msg import RegisterBehavior, VelAlt
 from iarc_main.msg import Roomba
 from std_msgs.msg import String, Empty, Header
+
+try:
+    from ardrone_autonomy.msg import Navdata
+except ImportError:
+    rospy.logwarn("Unable to import ardrone_autonomy, assuming running on PX4")
+    Navdata = None
 
 
 class Drone:
@@ -50,7 +55,8 @@ class Drone:
             'forebrain')
 
         self.navdata = None
-        rospy.Subscriber('/ardrone/navdata', Navdata, self._on_navdata)
+        if Navdata is not None:
+            rospy.Subscriber('/ardrone/navdata', Navdata, self._on_navdata)
 
     def is_flying(self):
         """
