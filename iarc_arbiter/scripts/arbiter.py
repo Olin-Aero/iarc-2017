@@ -70,10 +70,6 @@ class Arbiter:
         self.debug_pub = rospy.Publisher('/arbiter/debug', String, queue_size=10)
         self.active_pub = rospy.Publisher('/arbiter/active_behavior', String, queue_size=10)
 
-        rospy.Subscriber('/arbiter/register', RegisterBehavior, self.handle_register)
-
-        rospy.Subscriber('/arbiter/activate_behavior', String, self.handle_activate)
-
         self.ddynrec.add_variable("midbrain_freq", "Frequency of the main control loop for PIDs",
                                   rospy.get_param('~midbrain_freq', 100), 1, 1000)
 
@@ -82,6 +78,10 @@ class Arbiter:
         self.null_behavior.handle_message('cmd_vel', Twist())
 
         rospy.sleep(0.5)
+
+        rospy.Subscriber('/arbiter/register', RegisterBehavior, self.handle_register)
+
+        rospy.Subscriber('/arbiter/activate_behavior', String, self.handle_activate)
 
     def start_ddynrec(self):
         """
