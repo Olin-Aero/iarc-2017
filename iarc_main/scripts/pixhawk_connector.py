@@ -14,7 +14,8 @@ import tf.transformations
 
 class PixhawkConnector(object):
     def __init__(self):
-        self.vel_pub = rospy.Publisher('/mavros/setpoint_velocity/cmd_vel_unstamped', Twist, queue_size=0)
+
+	self.vel_pub = rospy.Publisher('/mavros/setpoint_velocity/cmd_vel_unstamped', Twist, queue_size=0)
         self.odom_pub = rospy.Publisher('/odometry', Odometry, queue_size=10)
 
         rospy.sleep(0.2)
@@ -91,20 +92,20 @@ class PixhawkConnector(object):
 
     def setup_pixhawk(self, rate=160):
         rospy.wait_for_service('/mavros/set_mode')
-        # ok = self.set_mode(custom_mode='GUIDED')
-        # if not ok.mode_sent:
-        #     rospy.logerr("Unable to set Pixhawk mode")
+        ok = self.set_mode(custom_mode='GUIDED')
+        if not ok.mode_sent:
+            rospy.logerr("Unable to set Pixhawk mode")
         ok = self.set_rate(message_rate=rate, on_off=True)
         rospy.loginfo("Setting stream rate to {}".format(rate))
         if not ok:
-            rospy.logerr("Unable to set stream rate")
+           rospy.logerr("Unable to set stream rate")
 
-    def on_takeoff(self):
+    def on_takeoff(self,msg):
         rospy.wait_for_service('/mavros/cmd/takeoff')
-        res = self.takeoff()
+        res = self.takeoff(latitude=float("NaN"),longitude=float("NaN"),altitude=2)
         rospy.loginfo("Took Off:", res)
 
-    def on_land(self):
+    def on_land(self,msg):
         rospy.wait_for_service('/mavros/cmd/land')
         res = self.land()
         rospy.loginfo("Landed:", res)
