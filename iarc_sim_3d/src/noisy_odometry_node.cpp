@@ -51,6 +51,8 @@ class NoisyOdometryNode{
 	void odom_cb(const nav_msgs::OdometryConstPtr& msg){
 		if(!_initialized){
 			odom_msg = *msg;
+			odom_msg.pose.pose = msg->pose.pose;
+			odom_msg.twist.twist = msg->twist.twist;
 			_initialized = true;
 			_t0 = ros::Time::now();
 		}else{
@@ -70,10 +72,11 @@ class NoisyOdometryNode{
 			p.z += zzl(l.z)*dt;
 
 			// apply angular twist
-			tf::Quaternion q, dq;
-			tf::quaternionMsgToTF(odom_msg.pose.pose.orientation, q);
-			dq.setRPY(zza(a.x)*dt, zza(a.y)*dt, zza(a.z)*dt);
-			tf::quaternionTFToMsg(q*dq, odom_msg.pose.pose.orientation);
+			//tf::Quaternion q, dq;
+			//tf::quaternionMsgToTF(odom_msg.pose.pose.orientation, q);
+			//dq.setRPY(zza(a.x)*dt, zza(a.y)*dt, zza(a.z)*dt);
+			//tf::quaternionTFToMsg(q*dq, odom_msg.pose.pose.orientation);
+			odom_msg.pose.pose.orientation = msg->pose.pose.orientation;
 
 			// copy data
 			odom_msg.child_frame_id = msg->child_frame_id;

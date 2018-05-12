@@ -194,8 +194,6 @@ class GridFinder:
                         self._t0 = stamp
                     except tf.Exception as e:
                         rospy.logerr_throttle(1.0, 'failed to transform pose and stuff : {}'.format(e))
-
-            self.publish()
         except CvBridgeError as e:
             print(e)
 
@@ -240,6 +238,7 @@ class GridFinder:
         r = rospy.Rate(self._rate)
         while(not rospy.is_shutdown()):
             self.process_image()
+            self.publish()
             r.sleep()
         cv2.destroyAllWindows()
 
