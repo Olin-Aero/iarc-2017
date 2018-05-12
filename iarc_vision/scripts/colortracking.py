@@ -77,9 +77,9 @@ class ColorTrackerROS(object):
             self.cv_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding="bgr8")
 
             # get drone position ...
-            self.tf.waitForTransform('map', msg.header.frame_id,
-                    msg.header.stamp, rospy.Duration(1.0))
-            pos, _ = self.tf.lookupTransform('map', msg.header.frame_id, msg.header.stamp)
+            # self.tf.waitForTransform('map', msg.header.frame_id,
+            #         msg.header.stamp, rospy.Duration(1.0))
+            # pos, _ = self.tf.lookupTransform('map', msg.header.frame_id, msg.header.stamp)
 
             # area scale + tolerance
             xy2uv = self.cameraModel.getDeltaU(1.0, pos[2]) * self.cameraModel.getDeltaV(1.0, pos[2])
@@ -91,8 +91,8 @@ class ColorTrackerROS(object):
 
             for box in self.boxes:
                 center = np.mean(box, axis=0)
-                heading = get_heading(box, center, self.processed_image)
-                
+                heading, covarianceOfHeading = get_heading(box, center, self.processed_image)
+
                 ray = self.cameraModel.projectPixelTo3dRay(center)
                 camera_ray = Vector3Stamped(header=msg.header,
                                             vector=Vector3(*ray))
@@ -108,7 +108,7 @@ class ColorTrackerROS(object):
                 pwcs = PoseWithCovarianceStamped(header=Header(frame_id=msg.header.frame_id, stamp=msg.header.stamp),
                                                  pose=PoseWithCovariance(
                                                      pose=pose,
-                                                     covariance=np.diag([.2, .2, 0, 0, 0, 0.2]).flatten()
+                                                     covariance=np.diag([.2, .2, 0, 0, 0, covarianceOfHeading]).flatten()
                                                  ))
                 rb = Roomba(last_seen=msg.header.stamp, frame_id='base_link', type=Roomba.RED,
                         visible_location=pwcs)
@@ -166,7 +166,7 @@ class ColorTracker(object):
 
         # Threshold and find contours
         ret, thresh = cv2.threshold(binary_image, 127, 255, 0)
-        _, contours, hierarchy = cv2.findContours(thresh, 
+        _, contours, hierarchy = cv2.findContours(thresh,
                 cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
         # Get bounding box from contours
@@ -183,8 +183,11 @@ class ColorTracker(object):
             box = cv2.boxPoints(rect)
 
             box = np.int0(box)
-            boxes.append(box)
-            cv2.drawContours(image, [box], 0, (0, 0, 255), 2)
+            width = distance(box[0],box[1])
+            height = distance(box[0],box[2])
+            if((1.5 < width / height and width / height < 1.8) or (1.5 < height / width and height / width < 1.8) )
+                boxes.append(box)
+                cv2.drawContours(image, [box], 0, (0, 0, 255), 2)
 
         if display:
             cv2.imshow("Binary Image With Morphology", binary_image)
@@ -246,8 +249,12 @@ def get_heading(box, center, binary_image):
     heading = (-heading) - math.pi / 2
     if(heading < math.pi):
         heading = heading + 2*math.pi
-    print "Heading angle", math.degrees(heading), heading
-    return heading
+    if(math.degrees(heading) % 90 == 0):
+        covarianceOfHeading = 100
+    else:
+        covarianceOfHeading = 0.2
+    print "Heading angle", math.degrees(heading), heading, covarianceOfHeading
+    return heading, covarianceOfHeading
 
 
 def get_vector_heading(tail, head):
