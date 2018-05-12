@@ -77,7 +77,7 @@ class PixhawkConnector(object):
 
         self.publish_pose(pose, msg.twist)
 
-    def publish_pose(self, pose, twist, child_frame='fcu'):
+    def publish_pose(self, pose, twist, child_frame='base_link'):
         orientation = [pose.pose.orientation.x, pose.pose.orientation.y, pose.pose.orientation.z,
                        pose.pose.orientation.w]
         position = [pose.pose.position.x, pose.pose.position.y, pose.pose.position.z]
