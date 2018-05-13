@@ -135,8 +135,10 @@ class PixhawkConnector(object):
         self.vel.linear.y = msg.linear.y * np.cos(yaw) - msg.linear.x * np.sin(yaw)
 
         self.vel.angular = msg.angular
-
-        self.vel_pub.publish(self.vel)
+        try:
+            self.vel_pub.publish(self.vel)
+        except:
+            rospy.logerr("Unable to publish velocity")
 
     def run(self):
         self.setup_pixhawk()
