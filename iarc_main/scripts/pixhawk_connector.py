@@ -54,9 +54,13 @@ class PixhawkConnector(object):
             [orientation.x, orientation.y, orientation.z, orientation.w])
 
         dt = (msg.header.stamp - self.last_pose.header.stamp).to_sec()
-        if dt > 1:
+        if dt > 1 or dt < 0:
             # It's been too long!
             dt = 0
+            rospy.logwarn("Erroneously large dt detected, skipping.")
+        if vel.x > 1000 or vel.y > 1000:
+            vel.x = vel.y = 0
+            rospy.logwarn("Erroneously large velocities detected, skipping.")
 
         # The velocity retrieved is (we think) in North - East - Down, while ROS normally uses East - North - Up
         self.last_pose.pose.position.x += dt * vel.y
