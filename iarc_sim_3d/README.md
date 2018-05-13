@@ -27,6 +27,7 @@ Note that multiple `catkin_make` may be necessary.
 
 ```
 roslaunch iarc_sim_3d sim.launch
+rosrun iarc_forebrain start.py _sim:=true
 ```
 
 **Wait 5 seconds** in simulation time for all the robots to start running.

@@ -8,12 +8,24 @@ How to Use:
 
 Owner:
 
+
+Notes:
+If the image is compressed:
+rosrun image_transport republish in:=ardrone/bottom/image_raw _image_transport:=compressed raw out:=ardrone/bottom/image_raw
+
+TODO(nathanestill) : Improve robustness of detection on **GREEN** Roombas; currently not working in 3d simulation
+TODO(nathanestill) : handle invalid heading information / fill output covariance accordingly
+TODO(nathanestill) : expose covariance information to be configurable
+TODO(nathanestill) : fill type information from ColorTracker() to return green/red for each detected roomba
+    consider returning the color information from ColorTracker.find_bounding_boxes()
+
+TODO(yoonyoungcho) : fix frame_id information across each perception stack or reconfigure iarc_main.Roomba msg type
 """
 
 import rospy
 import sys
-from sensor_msgs.msg import Image, CameraInfo
-from geometry_msgs.msg import Vector3, Vector3Stamped, PoseWithCovarianceStamped, PoseWithCovariance, Pose
+from sensor_msgs.msg import CompressedImage, Image, CameraInfo
+from geometry_msgs.msg import Vector3, Vector3Stamped, PoseWithCovarianceStamped, PoseWithCovariance, Pose, Point, Quaternion
 from std_msgs.msg import Header
 from cv_bridge import CvBridge, CvBridgeError
 import numpy as np
@@ -22,10 +34,14 @@ import cv2
 import math
 from image_geometry import PinholeCameraModel
 from tf import TransformListener
-
+from tf.transformations import quaternion_from_euler
+from iarc_main.msg import Roomba, RoombaList
 
 class ColorTrackerROS(object):
     def __init__(self):
+        """
+        Initialize Color Tracking ROS interface.
+        """
         rospy.init_node('color_tracker')
         self.tracker = ColorTracker()
         self.cv_image = self.processed_image = None  # the latest image from the camera
@@ -33,13 +49,23 @@ class ColorTrackerROS(object):
         self.bridge = CvBridge()  # used to convert ROS messages to OpenCV
         self.cameraModel = PinholeCameraModel()
         self.tf = TransformListener()
+
+        # parameters ...
+        self._gui = bool(rospy.get_param('~gui', default=False)) # set to _gui:=true for debug display
+        self._rate = float(rospy.get_param('~rate', default=50.0)) # processing rate
+        self._par = float(rospy.get_param('~plate_area', default=0.0338709))
+
+        # start listening ...
         rospy.Subscriber("/ardrone/bottom/image_raw", Image, self.process_image)
         rospy.Subscriber("/ardrone/bottom/camera_info", CameraInfo, self.on_camera_info)
+
         print("Initializing Color Tracker")
-        cv2.namedWindow('preview_window')
-        cv2.namedWindow('binary')
+        if self._gui:
+            cv2.namedWindow('preview_window')
+            cv2.namedWindow('binary')
 
         self.debug_pub = rospy.Publisher("tracker/debug", PoseWithCovarianceStamped, queue_size=10)
+        self.roomba_pub = rospy.Publisher("visible_roombas", RoombaList, queue_size = 10)
 
     def process_image(self, msg):
         """
@@ -49,34 +75,48 @@ class ColorTrackerROS(object):
         """
         try:
             self.cv_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding="bgr8")
+
+            # get drone position ...
+            self.tf.waitForTransform('map', msg.header.frame_id,
+                    msg.header.stamp, rospy.Duration(1.0))
+            pos, _ = self.tf.lookupTransform('map', msg.header.frame_id, msg.header.stamp)
+
+            # area scale + tolerance
+            xy2uv = self.cameraModel.getDeltaU(1.0, pos[2]) * self.cameraModel.getDeltaV(1.0, pos[2])
+            min_area = 0.75 * self._par * xy2uv
+
             # do image processing here
-            self.boxes, self.processed_image = self.tracker.find_bounding_boxes(self.cv_image, display=False)
+            self.boxes, self.processed_image = self.tracker.find_bounding_boxes(self.cv_image, min_area, display=False)
+            listOfRoombas = []
 
             for box in self.boxes:
                 center = np.mean(box, axis=0)
                 heading = get_heading(box, center, self.processed_image)
-                quat = self.tf.quaternion_from_euler(heading)
+                
                 ray = self.cameraModel.projectPixelTo3dRay(center)
                 camera_ray = Vector3Stamped(header=msg.header,
                                             vector=Vector3(*ray))
-                world_ray = self.tf.transformVector3('map', camera_ray)
-                # print(camera_ray, world_ray)
-                pos, quat = self.tf.lookupTransform('map', msg.header.frame_id, msg.header.stamp)
-                multiplier = -pos[2] / world_ray.vector.z
-                drone_to_roomba = np.array([world_ray.vector.x, world_ray.vector.y, world_ray.vector.z]) * multiplier
+                drone_ray = self.tf.transformVector3('base_link', camera_ray)
 
-                map_to_roomba = pos + drone_to_roomba
+                # get drone height for ground-plane projection
+                multiplier = -pos[2] / drone_ray.vector.z
 
-                pose = Pose(position=Vector3(*map_to_roomba), orientation = quat)
-
-                pwcs = PoseWithCovarianceStamped(header=Header(frame_id='map', stamp=msg.header.stamp),
+                # implicitly convert optical -> robot frame, and scale by height
+                drone_to_roomba = np.array([drone_ray.vector.x, drone_ray.vector.y, drone_ray.vector.z]) * multiplier
+                quat = quaternion_from_euler(0,0,heading)
+                pose = Pose(position=Point(*drone_to_roomba), orientation = Quaternion(*quat))
+                pwcs = PoseWithCovarianceStamped(header=Header(frame_id=msg.header.frame_id, stamp=msg.header.stamp),
                                                  pose=PoseWithCovariance(
                                                      pose=pose,
                                                      covariance=np.diag([.2, .2, 0, 0, 0, 0.2]).flatten()
                                                  ))
+                rb = Roomba(last_seen=msg.header.stamp, frame_id='base_link', type=Roomba.RED,
+                        visible_location=pwcs)
 
+                listOfRoombas.append(rb)
                 self.debug_pub.publish(pwcs)
-
+            if(not not listOfRoombas):
+                self.roomba_pub.publish(header=Header(frame_id='base_link',stamp=msg.header.stamp),data=listOfRoombas)
             # TODO: Do something with the boxes
             # TODO: make sure it doesn't get too far behind
 
@@ -91,13 +131,16 @@ class ColorTrackerROS(object):
 
     def run(self):
         """ The main run loop, in this node it doesn't do anything """
-        r = rospy.Rate(5)
+        r = rospy.Rate(self._rate)
         while not rospy.is_shutdown():
             # start out not issuing any motor commands
-            if not self.cv_image is None:
-                cv2.imshow('preview_window', self.cv_image)
-                cv2.imshow('binary', self.processed_image)
-                cv2.waitKey(5)
+            if not self.cv_image is None and self._gui:
+                try:
+                    cv2.imshow('preview_window', self.cv_image)
+                    cv2.imshow('binary', self.processed_image)
+                    cv2.waitKey(5)
+                except Exception as e:
+                    pass
             r.sleep()
 
 
@@ -105,7 +148,7 @@ class ColorTracker(object):
     def __init__(self):
         self.red_lower_bound = 0
 
-    def find_bounding_boxes(self, image, display=True):
+    def find_bounding_boxes(self, image, min_area, display=True):
         """
         Input: OpenCV image (numpy array)
         Output: List of bounding boxes (topleft, bottomright, isRed)
@@ -113,22 +156,24 @@ class ColorTracker(object):
         # Get bounding boxes around red and green rectangles
         hsv_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
         red_image = self.get_red_bounding_boxes(hsv_image, image)
-        green_image = self.get_green_bounding_boxes(hsv_image, image)
+        #green_image = self.get_green_bounding_boxes(hsv_image, image)
         # TODO: Differentiate red vs green boxes
-        binary_image = cv2.bitwise_or(red_image, green_image)
-
+        #binary_image = cv2.bitwise_or(red_image, green_image)
+        binary_image = red_image
         # Remove noise
         kernel = np.ones((5, 5), np.uint8)
         binary_image = cv2.morphologyEx(binary_image, cv2.MORPH_OPEN, kernel)
 
         # Threshold and find contours
         ret, thresh = cv2.threshold(binary_image, 127, 255, 0)
-        binary_image, contours, hierarchy = cv2.findContours(thresh, 1, 2)
+        _, contours, hierarchy = cv2.findContours(thresh, 
+                cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
         # Get bounding box from contours
         maxcnt = []
         for i in contours:
-            if cv2.contourArea(i) > 6000:
+            a = cv2.contourArea(i)
+            if a > min_area:
                 maxcnt.append(i)
 
         # Draw coutours on the image
@@ -136,11 +181,11 @@ class ColorTracker(object):
         for i in maxcnt:
             rect = cv2.minAreaRect(i)
             box = cv2.boxPoints(rect)
+
             box = np.int0(box)
             boxes.append(box)
             cv2.drawContours(image, [box], 0, (0, 0, 255), 2)
 
-        print(boxes[0])
         if display:
             cv2.imshow("Binary Image With Morphology", binary_image)
             # cv2.imshow("Original images", image)
@@ -155,14 +200,14 @@ class ColorTracker(object):
 
     def get_red_bounding_boxes(self, hsv_image, rgb_image):
         binary_image1 = cv2.inRange(hsv_image, np.array([0, 100, 0], dtype="uint8"),
-                                    np.array([10, 255, 255], dtype="uint8"))
+                                    np.array([5, 255, 255], dtype="uint8"))
         binary_image2 = cv2.inRange(hsv_image, np.array([170, 100, 0], dtype="uint8"),
                                     np.array([180, 255, 255], dtype="uint8"))
-        binary_image3 = cv2.inRange(rgb_image, np.array([80, 80, 250], dtype="uint8"),
-                                    np.array([220, 230, 255], dtype="uint8"))
+        # binary_image3 = cv2.inRange(rgb_image, np.array([80, 80, 250], dtype="uint8"),
+        #                             np.array([220, 230, 255], dtype="uint8"))
         binary_image4 = cv2.bitwise_or(binary_image1, binary_image2)
-        return cv2.bitwise_or(binary_image3, binary_image4)
-
+        # return cv2.bitwise_or(binary_image3, binary_image4)
+        return binary_image4
 
 def get_heading(box, center, binary_image):
     """
@@ -198,7 +243,9 @@ def get_heading(box, center, binary_image):
             # heading from box[1] -> box[2]
             heading = get_vector_heading(box[1], box[2])
             print "box 1 to 2"
-
+    heading = (-heading) - math.pi / 2
+    if(heading < math.pi):
+        heading = heading + 2*math.pi
     print "Heading angle", math.degrees(heading), heading
     return heading
 
@@ -264,7 +311,7 @@ def get_average_darkness(point_a, point_b, binary_image):
         for j in range(int(y0), int(y1)):
             # TODO: 100 here is an arbitrary choice, need a better way to get pixels lying on the diagonal
             if abs((i - x0) * (point_a[0] - quarter[0]) - (j - y0) * (point_a[1] - quarter[1])) <= 100:
-                if binary_image[i][j] > 0:
+                if i < len(binary_image) and j < len(binary_image[i]) and binary_image[i][j] > 0:
                     intensity += 1
                 count += 1
     if count == 0:
@@ -276,7 +323,7 @@ def get_average_darkness(point_a, point_b, binary_image):
 def test_image_from_file(filename):
     tracker = ColorTracker()
     # TODO: Load image
-    boxes, binary_image = tracker.find_bounding_boxes(filename, True)
+    boxes, binary_image = tracker.find_bounding_boxes(filename, 1000, True)
 
     # TODO: Display result
 

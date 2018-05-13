@@ -7,10 +7,12 @@ Configuration files should be modified under f_config.py
 Takes RoombaObservation and filters them into pose.
 
 TODO(yoonyoungcho) : expose dynamic_reconfigure
-TODO(yoonyoungcho) : figure out world-time synchronization
 TODO(yoonyoungcho) : dynamic dt
 TODO(yoonyoungcho) : situational covariance updates (unobservable, should-be-observable, add-noise-event, reversal-event, ...)
 TODO(yoonyoungcho) : is model-based predictive simulation necessary?
+TODO(yoonyoungcho) : use input & output covariance information for RoombaList()
+TODO(yoonyoungcho) : resolve issues around tf and timestamps
+TODO(yoonyoungcho) : use color information, etc., for matching performance
 """
 
 import numpy as np
@@ -18,16 +20,15 @@ import rospy
 import tf
 from geometry_msgs.msg import Point, Quaternion, Transform, TransformStamped
 from geometry_msgs.msg import Pose, PoseStamped, PoseWithCovariance, PoseWithCovarianceStamped
-from iarc_main.msg import Roomba, RoombaList
+from iarc_main.msg import Roomba, RoombaList, StartRound
 from sensor_msgs.msg import CameraInfo
-from std_msgs.msg import Header
+from std_msgs.msg import Header, Bool
 
-import f_config as cfg
-from f_manager import UKFManager
-# Filter-Related ...
-from f_utils import *
-from f_model import TargetRoombaModel, ObstacleRoombaModel
 
+from iarc_roombafilter import f_config as cfg
+from iarc_roombafilter.f_manager import UKFManager
+from iarc_roombafilter.f_utils import *
+from iarc_roombafilter.f_model import TargetRoombaModel, ObstacleRoombaModel
 
 class UKFManagerROS(object):
     def __init__(self, dt):
@@ -42,17 +43,20 @@ class UKFManagerROS(object):
         self._cam_topic = rospy.get_param('~cam_topic', default='/ardrone/bottom/camera_info')
         self._obs_topic = rospy.get_param('~obs_topic', default='visible_roombas')
         self._out_topic = rospy.get_param('~out_topic', default='seen_roombas')
+        self._sync_topic = rospy.get_param('~sync_topic', default='start_round')
         self._sim2d = rospy.get_param('~sim2d', default=False)
         self._rate = rospy.get_param('~rate', default=50)  # 50hz
 
         # create ROS interfaces
-        self._tf = tf.TransformListener(True, cache_time=rospy.Duration(5))
-        self.tf_pub = tf.TransformBroadcaster()
+        self._tfl = tf.TransformListener(True, cache_time=rospy.Duration(5))
+        self._tfb = tf.TransformBroadcaster()
         self._cam_sub = rospy.Subscriber(self._cam_topic, CameraInfo, self.cam_cb, queue_size=1)
         self._sub = rospy.Subscriber(self._obs_topic, RoombaList, self.obs_cb, queue_size=1)
+        self._sync_sub = rospy.Subscriber(self._sync_topic, StartRound, self.sync_cb)
         self._pub = rospy.Publisher(self._out_topic, RoombaList, queue_size=10)
         self._mgr = UKFManager(dt, self._sigma)
         self._t = rospy.Time.now()
+        self._t0 = None
 
         self._obs = None
         self._cam_frame = ''
@@ -69,10 +73,25 @@ class UKFManagerROS(object):
             self._cam_sub = None
 
     def obs_cb(self, msg):
-        """
-        Save observation for processing ...
-        """
+        """ Save observation for processing ... """
         self._obs = msg
+
+    def sync_cb(self, msg):
+        """ Synchronize Round-Start Time with current time"""
+        t = msg.time.to_sec()
+        if t == 0:
+            self._t0 = rospy.Time.now().to_sec()
+        else:
+            self._t0 = t
+
+    def time(self, t=None):
+        """ Return Synchronized Time since t0 """
+        if t is None:
+            t = rospy.Time.now().to_sec()
+        if self._t0 is not None:
+            return t - self._t0
+        else:
+            return None
 
     def obs_proc(self):
         """
@@ -86,7 +105,7 @@ class UKFManagerROS(object):
 
         if self._sim2d:
             try:
-                pos, _ = self._tf.lookupTransform('map', 'base_link', rospy.Time(0))
+                pos, _ = self._tfl.lookupTransform('map', 'base_link', rospy.Time(0))
                 obs_ar = ConicObservation(
                         pos[0],
                         pos[1],
@@ -98,16 +117,17 @@ class UKFManagerROS(object):
                 return
         else:
             try:
-                _, q = self._tf.lookupTransform(self._cam_frame, 'map', rospy.Time(0))
-                t, _ = self._tf.lookupTransform('map', self._cam_frame, rospy.Time(0))
-                q = [q[3], q[0], q[1], q[2]]  # reorder xyzw-> wxyz
-                ar = observability(self._K, self._w, self._h, q, t, False)
+                txn, qxn = self._tf.lookupTransform(self._map_frame, self._cam_frame, rospy.Time(0))
+                #_, qxn = self._tfl.lookupTransform(self._cam_frame, 'map', rospy.Time(0))
+                #txn, _ = self._tfl.lookupTransform('map', self._cam_frame, rospy.Time(0))
+                qxn = [qxn[3], qxn[0], qxn[1], qxn[2]]  # reorder xyzw-> wxyz
+                ar = observability(self._K, self._w, self._h, qxn, txn, False)
                 obs_ar = PolygonObservation(ar)
             except tf.Exception as e:
                 rospy.loginfo_throttle(5, 'Falling back to conic observation {}'.format(e))
                 try:
-                    t, _ = self._tf.lookupTransform('base_link', 'map', msg.header.stamp)
-                    obs_ar = ConicObservation(t[0], t[1], t[2], 2)
+                    txn, _ = self._tfl.lookupTransform('base_link', 'map', msg.header.stamp)
+                    obs_ar = ConicObservation(txn[0], txn[1], txn[2], 2)
                 except tf.Exception as e:
                     print "That didn't work...", e
                     return
@@ -120,7 +140,7 @@ class UKFManagerROS(object):
             # print r.visible_location.pose.pose.position.x
 
             p = PoseStamped(r.visible_location.header, r.visible_location.pose.pose)
-            p = self._tf.transformPose('map', p).pose
+            p = self._tfl.transformPose('map', p).pose
             p, q = p.position, p.orientation
             h = tf.transformations.euler_from_quaternion([q.x, q.y, q.z, q.w])[2]
 
@@ -141,11 +161,12 @@ class UKFManagerROS(object):
             )
             obs.append(o)
 
-        # t = msg.header.stamp.to_sec()
+        #t = msg.header.stamp.to_sec()
         t = rospy.Time.now().to_sec()
         dt = t - self._t
+        t1 = self.time(t) # t1 != t since it marks time passing from round-start
         if dt > 0:
-            self._mgr.step(obs, t, dt, obs_ar)
+            self._mgr.step(obs, t1, dt, obs_ar)
             self._t = t
 
     def publish(self):
@@ -176,7 +197,7 @@ class UKFManagerROS(object):
 
             msg = Roomba(last_seen=now, frame_id=roomba_frame, type=Roomba.RED, visible_location=loc)
 
-            self.tf_pub.sendTransformMessage(
+            self._tfb.sendTransformMessage(
                 TransformStamped(
                     header=msg.visible_location.header,
                     child_frame_id=msg.frame_id,
@@ -196,7 +217,8 @@ class UKFManagerROS(object):
         rate = rospy.Rate(self._rate)
         self._t = rospy.Time.now().to_sec()
         while not rospy.is_shutdown():
-            # self._t = rospy.Time.now().to_sec()
+            if self._t0 is None:
+                continue
             self.obs_proc()
             self.publish()
             rate.sleep()

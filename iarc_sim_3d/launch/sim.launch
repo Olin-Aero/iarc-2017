@@ -1,7 +1,10 @@
 <launch>
+	<arg name="paused" default="true"/>
+
     <!-- Create World -->
     <include file="$(find gazebo_ros)/launch/empty_world.launch">
         <arg name="world_name" value="$(find iarc_sim_3d)/worlds/iarc.world"/>
+		<arg name="paused" value="$(arg paused)"/>
     </include>
     <!-- Spawn simulated quadrotor uav -->
     <include file="$(find iarc_sim_3d)/launch/spawn_drone.launch"/>

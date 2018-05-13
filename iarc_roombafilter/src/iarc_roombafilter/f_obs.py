@@ -17,7 +17,7 @@ class CircularObservation(object):
         self.x = x
         self.y = y
         self.r = r
-        print r
+        #print r
     def __contains__(self, p):
         """
         Check for existence within observation area.

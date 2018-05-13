@@ -9,6 +9,8 @@ from std_msgs.msg import Float64, String
 from geometry_msgs.msg import Twist, Pose2D, Point
 from iarc_main.msg import Roomba as mainRoomba
 from iarc_main.msg import RoombaList, FailureOOB, FailureCollision, FailureAltitude, Failures
+from iarc_main.msg import StartRound
+
 from iarc_sim_2d.msg import Roomba, Roombas
 rospack = rospkg.RosPack()
 
@@ -23,11 +25,14 @@ class Simulator(object):
         self.tf = tf.TransformListener()
         self.drone, self.targets, self.obstacles = self.spawn_robots(num_targets, num_obstacles)
 
-        self.startTime = rospy.Time(0)
-        print("Start time is: \n" )
-        print(self.startTime)
+        self.startTime = None
+        #rospy.Time(0)
+        #print("Start time is: \n" )
+        #print(self.startTime)
         self.seqNum = 1
+
         self.vis_roombas = rospy.Publisher('/visible_roombas', RoombaList, queue_size=10)
+        self.start_sub = rospy.Subscriber('/start_round', StartRound, self.start_cb)
 
         # failure publishers and messages
         self.FailureAltitude = FailureAltitude()
@@ -52,6 +57,11 @@ class Simulator(object):
         print("Completed")
 
         self.Failure_Conditions = rospy.Publisher('Failure_Conditions', String, queue_size=10)
+
+    def start_cb(self, msg):
+        self.startTime = msg.time
+        if msg.start and self.startTime.to_sec() == 0:
+            self.startTime = rospy.Time.now()
 
     def print_msg(self, msg):
         print(msg.data)
@@ -347,11 +357,19 @@ class Simulator(object):
 
         self.drone.heightPublisher = rospy.Publisher('/drone/height',Float64,queue_size = 10)
 
-        t0 = rospy.Time.now().to_sec()
+        # wait for start signal ...
+        while self.startTime is None:
+            if rospy.is_shutdown():
+                return
+            continue
+
+        t0 = self.startTime.to_sec()
+        #t0 = rospy.Time.now().to_sec()
         t1 = t0
         t2 = t0
-        self.startTime = rospy.Time.now()
+        #self.startTime = rospy.Time.now()
 
+        rate = rospy.Rate(100.0)
         while not rospy.is_shutdown():
             try:
                 robot_pos, robot_headings, drone_pos, drone_heading = self.get_positions()
@@ -366,8 +384,7 @@ class Simulator(object):
             dt = t2-t1
 
             self.update(dt, (t2-t0)*1000)
-
-            rospy.sleep(.01)
+            rate.sleep()
             t1 = t2
 
 def main():

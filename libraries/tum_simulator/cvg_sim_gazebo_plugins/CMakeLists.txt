@@ -117,7 +117,8 @@ include_directories(
 add_library(reset_plugin src/reset_plugin.cpp)
 
 add_library(hector_gazebo_ros_baro src/gazebo_ros_baro.cpp)
-add_dependencies(hector_gazebo_ros_baro cvg_sim_msgs_gencpp)
+#add_dependencies(hector_gazebo_ros_baro cvg_sim_msgs_gencpp)
+target_link_libraries(hector_gazebo_ros_baro ${catkin_LIBRARIES})
 
 add_library(hector_gazebo_quadrotor_simple_controller src/quadrotor_simple_controller.cpp)
 add_dependencies(hector_gazebo_quadrotor_simple_controller ardrone_autonomy_gencpp)

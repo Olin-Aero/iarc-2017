@@ -19,7 +19,7 @@ from iarc_main.msg import Roomba, RoombaList
 from gazebo_msgs.msg import ModelStates
 from visualization_msgs.msg import Marker, MarkerArray
 
-from f_utils import observability
+from iarc_roombafilter.f_utils import observability
 
 class RVIZInterface(object):
     def __init__(self):
@@ -32,7 +32,7 @@ class RVIZInterface(object):
         # Flag : show output filtered estimates
         self._show_est = rospy.get_param('~show_est', default=True)
         # Flag : 2D Sim, fake observation area
-        self._sim2d = rospy.get_param('~sim2d', default=True)
+        self._sim2d = rospy.get_param('~sim2d', default=False)
 
         self._map_frame = rospy.get_param('~map_frame', default='map')
 
@@ -134,8 +134,7 @@ class RVIZInterface(object):
                 self._ar_pub.publish(self._ar_msg)
             elif self._cam_frame:
                 # looks a bit stupid ... TODO(yoonyoungcho): fix
-                _, q = self._tf.lookupTransform(self._cam_frame, self._map_frame, rospy.Time(0))
-                t, _ = self._tf.lookupTransform(self._map_frame, self._cam_frame, rospy.Time(0))
+                t, q = self._tf.lookupTransform(self._map_frame, self._cam_frame, rospy.Time(0))
                 q = [q[3], q[0], q[1], q[2]]
                 ar = observability(self._K, self._w, self._h, q, t, False)
                 poly = self._a2p(ar)
