@@ -114,12 +114,12 @@ class PixhawkConnector(object):
     def on_takeoff(self, msg):
         rospy.wait_for_service('/mavros/cmd/takeoff')
         res = self.takeoff(latitude=float("NaN"), longitude=float("NaN"), altitude=2)
-        rospy.loginfo("Took Off:", res)
+        rospy.loginfo("Took Off")
 
     def on_land(self, msg):
         rospy.wait_for_service('/mavros/cmd/land')
         res = self.land()
-        rospy.loginfo("Landed:", res)
+        rospy.loginfo("Landed")
 
     def on_vel(self, msg):
         """
