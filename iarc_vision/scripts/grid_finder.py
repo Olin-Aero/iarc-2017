@@ -19,6 +19,7 @@ import tf
 from std_msgs.msg import Header
 from sensor_msgs.msg import Image, CompressedImage, CameraInfo
 from geometry_msgs.msg import Point, Pose, PoseStamped, Quaternion, TransformStamped
+from geometry_msgs.msg import PoseWithCovariance, TwistWithCovariance
 from nav_msgs.msg import Odometry
 from cv_bridge import CvBridge, CvBridgeError
 from matplotlib import pyplot as plt
@@ -56,6 +57,7 @@ class GridFinder:
         self._ci_topic = rospy.get_param('~camera_info', default='/ardrone/bottom/camera_info')
         self._map_frame = rospy.get_param('~map', default='map')
         self._rate = rospy.get_param('~rate', default=20.0)
+        self._odom_out = rospy.get_param('~grid_odom', default='grid_odom')
         #self._size = rospy.get_param('~size', default=1.0) # side length
 
         # conversion utilities
@@ -74,9 +76,9 @@ class GridFinder:
         # display annotations - useful for debugging.
         self._ann_img = None
         self._ann_out = rospy.get_param('~ann_out', default='') 
-        print 'ao', self._ann_out
         if self._ann_out:
             self._ann_pub = rospy.Publisher(self._ann_out, Image)
+        self._odom_pub = rospy.Publisher(self._odom_out, Odometry)
 
         # get camera info
         self._K = None
@@ -88,6 +90,8 @@ class GridFinder:
         # persistent internal pose information
         self._x0 = [0., 0., 0.]
         self._q0 = [1., 0., 0., 0.] #wxyz
+        self._t0 = rospy.Time.now()
+
         self._square = None # pose of found square
 
     def camera_info_callback(self, msg):
@@ -120,6 +124,7 @@ class GridFinder:
         # pop message from processing queue
         msg = self.msg
         self.msg = None
+        stamp = msg.header.stamp
 
         try:
             frame = self._cv.imgmsg_to_cv2(msg, "bgr8")
@@ -141,14 +146,20 @@ class GridFinder:
                 if rvec is not None and tvec is not None:
                     ang = np.linalg.norm(rvec)
                     q = tf.transformations.quaternion_about_axis(ang, (rvec/ang).ravel())
-                    pose = PoseStamped(header=Header(frame_id=self._cam_frame),
-                            pose=Pose(position=Point(*tvec), orientation=Quaternion(*q)))
+                    pose = PoseStamped(
+                            header=Header(
+                                frame_id=self._cam_frame, stamp=stamp),
+                            pose=Pose(position=Point(*tvec), orientation=Quaternion(*q))
+                            )
                     try:
                         # previous grid -> odom
                         x0, q0 = self._x0, self._q0 
                         h0 = tf.transformations.euler_from_quaternion(q0)[-1]
 
                         # grid -> odom -> base_link -> camera -> square
+                        self.listener.waitForTransform(self._map_frame, self._cam_frame,
+                                time=stamp, timeout=rospy.Duration(1.0))
+
                         pose = self.listener.transformPose(self._map_frame, pose)
                         #print 'pose', pose
                         e_x, e_q = pose.pose.position, pose.pose.orientation
@@ -172,7 +183,7 @@ class GridFinder:
                         # TODO : arbitrary alpha? currently set as hard update.
                         # might be worth experimenting
 
-                        alpha = 1.0
+                        alpha = 0.9
                         x = x0 - alpha*err_x
                         h = h0 - alpha*err_h
                         q = tf.transformations.quaternion_about_axis(h, [0,0,1])
@@ -180,10 +191,9 @@ class GridFinder:
                         self._x0 = x
                         self._x0[2] = 0 # remove z position, as it should be zero
                         self._q0 = q
+                        self._t0 = stamp
                     except tf.Exception as e:
                         rospy.logerr_throttle(1.0, 'failed to transform pose and stuff : {}'.format(e))
-
-            self.publish()
         except CvBridgeError as e:
             print(e)
 
@@ -199,7 +209,22 @@ class GridFinder:
                 self._tf.sendTransform(tvec, q, rospy.Time.now(), 'square', self._cam_frame)
 
         # publish tf ...
+        # TODO : some kind of map-frame server? robot_localization didn't work.
         self._tf.sendTransform(self._x0, self._q0, rospy.Time.now(), self._odom_frame, self._map_frame)
+
+        # publish corrected position...
+        # map -> odom
+        odom_msg = Odometry(
+                header=Header(stamp=self._t0, frame_id=self._map_frame),
+                child_frame_id=self._odom_frame,
+                pose=PoseWithCovariance(
+                    pose=Pose(
+                        position=Point(*self._x0),
+                        orientation=Quaternion(*self._q0)),
+                    covariance=np.diag([0.05,0.05,0.05,0.01,0.01,0.01]).ravel()), # TODO : wrong-ish
+                twist=TwistWithCovariance()
+                )
+        self._odom_pub.publish(odom_msg)
 
         # publish annotation ...
         if self._ann_img is not None:
@@ -213,6 +238,7 @@ class GridFinder:
         r = rospy.Rate(self._rate)
         while(not rospy.is_shutdown()):
             self.process_image()
+            self.publish()
             r.sleep()
         cv2.destroyAllWindows()
 
