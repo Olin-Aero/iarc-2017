@@ -11,6 +11,7 @@ from tf import TransformListener
 import tf.transformations
 
 from math import pi
+from iarc_main.msg import StartRound
 
 
 class Strategy(object):
@@ -178,14 +179,14 @@ class WorldState(object):
         else:
             self.tfl = tfl
 
-        self.startSub = rospy.Subscriber('start_round', Bool, self._on_start)
+        self.startSub = rospy.Subscriber('start_round', StartRound, self._on_start)
         self.roombaSub = rospy.Subscriber('visible_roombas', RoombaList, self._on_roombas)
 
     def _on_start(self, msg):
-        if not self.has_started and msg.data:
-            self.round_start_time = rospy.Time.now()
-
-        self.has_started = msg.data
+        if msg.start:
+            self.round_start_time = msg.time
+            #self.round_start_time = rospy.Time.now()
+        self.has_started = msg.start
 
     def _on_roombas(self, msg):
         """

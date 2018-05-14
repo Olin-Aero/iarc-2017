@@ -1,0 +1,4 @@
+<launch>
+	<node pkg="iarc_vision" type="grid_finder.py" name="grid_finder"/>
+	<node pkg="iarc_vision" type="color_tracker.py" name="color_tracker"/>
+</launch>

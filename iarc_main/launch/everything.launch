@@ -1,7 +1,6 @@
 <launch>
     <!-- PERCEPTION -->
-    <node pkg="iarc_vision" type="grid_finder.py" name="gridfinder"/>
-    <node pkg="iarc_vision" type="colortracking.py" name="colortracker"/>
+	<include file="$(find iarc_vision)/launch/vision.launch"/>
 
     <!-- REASONING -->
     <node pkg="iarc_forebrain" type="forebrain.py" name="forebrain"/>
