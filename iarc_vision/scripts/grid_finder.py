@@ -24,9 +24,10 @@ from nav_msgs.msg import Odometry
 from cv_bridge import CvBridge, CvBridgeError
 from matplotlib import pyplot as plt
 from tf.transformations import *
+from iarc_vision.lines_finder import HoughLinesPFinder
 
 # TODO : replace all the parameters
-LOWER_COLOR_THRESHOLD = 130#150 # Darkest color of a line out of 255
+LOWER_COLOR_THRESHOLD = 180 # Darkest color of a line out of 255
 UPPER_COLOR_THRESHOLD = 255 # Lightest color of a line out of 255
 MIN_CONTOUR_SIZE = 200#200 # Size cutoff in pixels for filtering out noise
 DILATION_KERNEL_SIZE = 5 # Size of kernel in sqrt(pixels) for dilation
@@ -70,7 +71,6 @@ class GridFinder:
         self.camOdomPose = None
         self.msg = None
 
-        # TODO : handle non-compressed scenarios?
         rospy.Subscriber(self._image_topic, Image, self.image_raw_callback)
 
         # display annotations - useful for debugging.
@@ -78,7 +78,10 @@ class GridFinder:
         self._ann_out = rospy.get_param('~ann_out', default='') 
         if self._ann_out:
             self._ann_pub = rospy.Publisher(self._ann_out, Image)
-        self._odom_pub = rospy.Publisher(self._odom_out, Odometry)
+
+        # TODO : Odom message currently disabled
+        # (mostly useless anyways)
+        #self._odom_pub = rospy.Publisher(self._odom_out, Odometry)
 
         # get camera info
         self._K = None
@@ -89,10 +92,11 @@ class GridFinder:
 
         # persistent internal pose information
         self._x0 = [0., 0., 0.]
-        self._q0 = [1., 0., 0., 0.] #wxyz
+        self._q0 = [0., 0., 0., 1.] #xyzw
         self._t0 = rospy.Time.now()
 
         self._square = None # pose of found square
+        self._lines = None
 
     def camera_info_callback(self, msg):
         """ Get camera info once, and quit """
@@ -100,6 +104,14 @@ class GridFinder:
         self._w = msg.width
         self._h = msg.height
         self._cam_frame = msg.header.frame_id
+
+        self._lines = HoughLinesPFinder(
+                rho=1.0,
+                theta=np.deg2rad(1.0),
+                threshold=80,
+                min_length=0.25*min(self._w,self._h),
+                max_gap=10
+                )
 
         if self._ci_sub:
             self._ci_sub.unregister()
@@ -115,6 +127,91 @@ class GridFinder:
         except CvBridgeError as e:
             print(e)
 
+    def findGrid(self, frame, annotate, K):
+        '''Determines the location of the camera frame using a grid of tape'''
+
+        # Save initial image
+        orig = np.copy(frame)
+        frame = cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)
+
+        # Load image
+        shape = frame.shape
+        height = shape[0]
+        width = shape[1]
+
+        # Color filtering
+        lower = np.array([LOWER_COLOR_THRESHOLD])
+        upper = np.array([UPPER_COLOR_THRESHOLD])
+        mask = cv2.inRange(frame, lower, upper)
+        frame = cv2.bitwise_and(frame, frame, mask=mask)
+
+        #cv2.imshow('frame', frame)
+        #cv2.waitKey(1)
+        
+        # Filter out small particles
+        # im2, contours, hierarchy = cv2.findContours(frame, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        # filter(lambda x:len(x)>MIN_CONTOUR_SIZE, contours)
+        # cv2.drawContours(frame, contours, -1, (0,255,0), 3)
+
+        # Fill in gaps
+        #kernel = np.ones((DILATION_KERNEL_SIZE, DILATION_KERNEL_SIZE), np.uint8)
+        #frame = cv2.dilate(frame, kernel, iterations=1)
+        cv2.imshow('frame', frame)
+        cv2.waitKey(1)
+
+        # Find and merge lines
+        #lines = cv2.HoughLines(edges,HOUGH_DIST_RES,HOUGH_ANGLE_RES,HOUGH_THRESHOLD)
+        #lines = mergeLines(lines)
+        lines = self._lines(mask)
+
+        # Find intersections
+        intersections = []
+        if lines:
+            for i, line1 in enumerate(lines):
+                for line2 in lines[i:]:
+                    if abs(np.sin(line1[1]-line2[1]))>MIN_INTERSECT_ANGLE:
+                        intersection = intersect(line1, line2)
+                        if intersection:
+                            intersections+=[intersection+(line1,line2)]
+
+        # Find a grid square
+        mid = midpoint(intersections, width, height)
+        vertices = orderVertices(getVertices(mid, intersections))
+
+        # Compute pose
+        pose = getPose(vertices, SIDE_LENGTH, shape, K)
+        
+        # Annotate image
+        if annotate:
+            #ann1 = cv2.cvtColor(edges, cv2.COLOR_GRAY2BGR)
+            ann = cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR)
+
+            if lines!=None:
+                for line in lines:
+                    rho = line[0]
+                    theta = line[1]
+                    plotline = getLine(rho, theta)
+                    cv2.line(ann,plotline[0],plotline[1],(255,255,0),5)
+            if intersections:
+                for p in intersections:
+                    cv2.line(ann,p[0:2],p[0:2],(0,0,255),50)
+            if vertices:
+                cv2.line(ann,vertices[1][0:2],vertices[1][0:2],(0,255,0),70)
+                cv2.line(ann,vertices[2][0:2],vertices[2][0:2],(0,255,255),60)
+                cv2.line(ann,vertices[3][0:2],vertices[3][0:2],(255,0,255),50)
+
+                cv2.line(ann, vertices[0][0:2], vertices[2][0:2], (255,0,0), 40)
+                cv2.line(ann, vertices[1][0:2], vertices[3][0:2], (255,0,0), 40)
+            if mid:
+                cv2.line(ann,mid[0:2],mid[0:2],(255,255,0),100)
+
+            ann = cv2.addWeighted(orig, 0.5, ann, 0.5, 0.0)
+            #ann = np.concatenate((ann1, ann), axis=0)
+            return pose, ann
+        else:
+            return pose
+
+
     def process_image(self):
         """ Image -> tf{Grid->Odom} """
         if self.msg is None:
@@ -128,74 +225,76 @@ class GridFinder:
 
         try:
             frame = self._cv.imgmsg_to_cv2(msg, "bgr8")
-
             if self._K is None:
                 # need accurate camera parameters!
                 return
 
             if self._ann_out:
                 # annotate
-                pose, self._ann_img = findGrid(frame, annotate=True, K=self._K)
+                pose, self._ann_img = self.findGrid(frame, annotate=True, K=self._K)
             else:
-                pose = findGrid(frame, annotate=False, K=self._K)
+                pose = self.findGrid(frame, annotate=False, K=self._K)
+
+            if pose is None:
+                # grid not found
+                return
 
             self._square = pose
+            _, rvec, tvec = pose
 
-            if pose is not None:
-                _, rvec, tvec = pose
-                if rvec is not None and tvec is not None:
-                    ang = np.linalg.norm(rvec)
-                    q = tf.transformations.quaternion_about_axis(ang, (rvec/ang).ravel())
-                    pose = PoseStamped(
-                            header=Header(
-                                frame_id=self._cam_frame, stamp=stamp),
-                            pose=Pose(position=Point(*tvec), orientation=Quaternion(*q))
-                            )
-                    try:
-                        # previous grid -> odom
-                        x0, q0 = self._x0, self._q0 
-                        h0 = tf.transformations.euler_from_quaternion(q0)[-1]
+            if rvec is not None and tvec is not None:
+                ang = np.linalg.norm(rvec)
+                q = tf.transformations.quaternion_about_axis(ang, (rvec/ang).ravel())
+                pose = PoseStamped(
+                        header=Header(
+                            frame_id=self._cam_frame, stamp=stamp),
+                        pose=Pose(position=Point(*tvec), orientation=Quaternion(*q))
+                        )
+                try:
+                    # previous grid -> odom
+                    x0, q0 = self._x0, self._q0 
+                    h0 = tf.transformations.euler_from_quaternion(q0)[-1]
 
-                        # grid -> odom -> base_link -> camera -> square
-                        self.listener.waitForTransform(self._map_frame, self._cam_frame,
-                                time=stamp, timeout=rospy.Duration(1.0))
+                    # grid -> odom -> base_link -> camera -> square
+                    self.listener.waitForTransform(self._map_frame, self._cam_frame,
+                            time=stamp, timeout=rospy.Duration(1.0))
 
-                        pose = self.listener.transformPose(self._map_frame, pose)
-                        #print 'pose', pose
-                        e_x, e_q = pose.pose.position, pose.pose.orientation
+                    pose = self.listener.transformPose(self._map_frame, pose)
+                    #print 'pose', pose
+                    e_x, e_q = pose.pose.position, pose.pose.orientation
 
-                        # heading from quaternion, around z axis
-                        e_h = tf.transformations.euler_from_quaternion([e_q.x, e_q.y, e_q.z, e_q.w])[-1]
-                        e_x = np.asarray([e_x.x, e_x.y, e_x.z])
+                    # heading from quaternion, around z axis
+                    e_h = tf.transformations.euler_from_quaternion([e_q.x, e_q.y, e_q.z, e_q.w])[-1]
+                    e_x = np.asarray([e_x.x, e_x.y, e_x.z])
 
-                        # "snap to nearest 0.5, 1.5, ..."
-                        gt_x = snap(e_x, SIDE_LENGTH, SIDE_LENGTH/2.0)
-                        gt_h = snap(e_h, np.pi/2)
-                        # "snap to nearest pi/2"
-                        #gt_h = np.round(e_h/(np.pi/2))*(np.pi/2)
+                    # "snap to nearest 0.5, 1.5, ..."
+                    gt_x = snap(e_x, SIDE_LENGTH, SIDE_LENGTH/2.0)
+                    gt_h = snap(e_h, np.pi/2)
+                    # "snap to nearest pi/2"
+                    #gt_h = np.round(e_h/(np.pi/2))*(np.pi/2)
 
-                        err_x = e_x - gt_x 
-                        err_h = e_h - gt_h# + 0.1
-                        print 'err_x', err_x
-                        print 'err_h', err_h
+                    err_x = e_x - gt_x 
+                    err_h = e_h - gt_h# + 0.1
+                    print 'err_x', err_x
+                    print 'err_h', err_h
 
-                        # apply soft update on grid->odom tf
-                        # TODO : arbitrary alpha? currently set as hard update.
-                        # might be worth experimenting
+                    # apply soft update on grid->odom tf
+                    # TODO : arbitrary alpha? currently set as hard update.
+                    # might be worth experimenting
 
-                        alpha = 0.9
-                        x = x0 - alpha*err_x
-                        h = h0 - alpha*err_h
-                        q = tf.transformations.quaternion_about_axis(h, [0,0,1])
+                    alpha = 0.9
+                    x = x0 - alpha*err_x
+                    h = h0 - alpha*err_h
+                    q = tf.transformations.quaternion_about_axis(h, [0,0,1])
 
-                        self._x0 = x
-                        self._x0[2] = 0 # remove z position, as it should be zero
-                        self._q0 = q
-                        self._t0 = stamp
-                    except tf.Exception as e:
-                        rospy.logerr_throttle(1.0, 'failed to transform pose and stuff : {}'.format(e))
+                    self._x0 = x
+                    self._x0[2] = 0 # remove z position, as it should be zero
+                    self._q0 = q
+                    self._t0 = stamp
+                except tf.Exception as e:
+                    rospy.logerr_throttle(1.0, 'failed to transform pose and stuff : {}'.format(e))
         except CvBridgeError as e:
-            print(e)
+            rospy.logerr_throttle(1.0, 'CVBridgeError : {}'.format(e))
 
     def publish(self):
         if self._square is not None:
@@ -214,17 +313,17 @@ class GridFinder:
 
         # publish corrected position...
         # map -> odom
-        odom_msg = Odometry(
-                header=Header(stamp=self._t0, frame_id=self._map_frame),
-                child_frame_id=self._odom_frame,
-                pose=PoseWithCovariance(
-                    pose=Pose(
-                        position=Point(*self._x0),
-                        orientation=Quaternion(*self._q0)),
-                    covariance=np.diag([0.05,0.05,0.05,0.01,0.01,0.01]).ravel()), # TODO : wrong-ish
-                twist=TwistWithCovariance()
-                )
-        self._odom_pub.publish(odom_msg)
+        # odom_msg = Odometry(
+        #         header=Header(stamp=self._t0, frame_id=self._map_frame),
+        #         child_frame_id=self._odom_frame,
+        #         pose=PoseWithCovariance(
+        #             pose=Pose(
+        #                 position=Point(*self._x0),
+        #                 orientation=Quaternion(*self._q0)),
+        #             covariance=np.diag([0.05,0.05,0.05,0.01,0.01,0.01]).ravel()), # TODO : wrong-ish
+        #         twist=TwistWithCovariance()
+        #         )
+        # self._odom_pub.publish(odom_msg)
 
         # publish annotation ...
         if self._ann_img is not None:
@@ -241,96 +340,6 @@ class GridFinder:
             self.publish()
             r.sleep()
         cv2.destroyAllWindows()
-
-def findGrid(frame, annotate, K):
-    '''Determines the location of the camera frame using a grid of tape'''
-
-    # Save initial image
-    orig = np.copy(frame)
-    frame = cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)
-
-    # Load image
-    shape = frame.shape
-    height = shape[0]
-    width = shape[1]
-
-    # Color filtering
-    lower = np.array([LOWER_COLOR_THRESHOLD])
-    upper = np.array([UPPER_COLOR_THRESHOLD])
-    mask = cv2.inRange(frame, lower, upper)
-    frame = cv2.bitwise_and(frame, frame, mask=mask)
-    
-    # Filter out small particles
-    im2, contours, hierarchy = cv2.findContours(frame, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-    filter(lambda x:len(x)>MIN_CONTOUR_SIZE, contours)
-    cv2.drawContours(frame, contours, -1, (0,255,0), 3)
-
-    # Fill in gaps
-    kernel = np.ones((DILATION_KERNEL_SIZE, DILATION_KERNEL_SIZE), np.uint8)
-    frame = cv2.erode(frame, kernel, iterations=1)
-    # TODO(superduperpacman42) : The actual operation here is erosion.
-    # clarify what the intended operation was, and make them consistent.
-
-    # Find edges
-    edges = cv2.Canny(frame,0,255)
-
-    # Crop out the borders
-    # TODO(superduperpacman42) : Why crop the borders?
-    # if the borders are going to be cropped, then
-    # the intersections must be translated thenceforth
-    # to match where they are actuallly found.
-    #edges = edges[BORDER_SIZE:-BORDER_SIZE, BORDER_SIZE:-BORDER_SIZE]
-
-    # Find and merge lines
-    lines = cv2.HoughLines(edges,HOUGH_DIST_RES,HOUGH_ANGLE_RES,HOUGH_THRESHOLD)
-    lines = mergeLines(lines)
-
-    # Find intersections
-    intersections = []
-    if lines:
-        for i, line1 in enumerate(lines):
-            for line2 in lines[i:]:
-                if abs(np.sin(line1[1]-line2[1]))>MIN_INTERSECT_ANGLE:
-                    intersection = intersect(line1, line2)
-                    if intersection:
-                        intersections+=[intersection+(line1,line2)]
-
-    # Find a grid square
-    mid = midpoint(intersections, width, height)
-    vertices = orderVertices(getVertices(mid, intersections))
-
-    # Compute pose
-    pose = getPose(vertices, SIDE_LENGTH, shape, K)
-    
-    # Annotate image
-    if annotate:
-        #ann1 = cv2.cvtColor(edges, cv2.COLOR_GRAY2BGR)
-        ann = cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR)
-
-        if lines!=None:
-            for line in lines:
-                rho = line[0]
-                theta = line[1]
-                plotline = getLine(rho, theta)
-                cv2.line(ann,plotline[0],plotline[1],(255,255,0),5)
-        if intersections:
-            for p in intersections:
-                cv2.line(ann,p[0:2],p[0:2],(0,0,255),50)
-        if vertices:
-            cv2.line(ann,vertices[1][0:2],vertices[1][0:2],(0,255,0),70)
-            cv2.line(ann,vertices[2][0:2],vertices[2][0:2],(0,255,255),60)
-            cv2.line(ann,vertices[3][0:2],vertices[3][0:2],(255,0,255),50)
-
-            cv2.line(ann, vertices[0][0:2], vertices[2][0:2], (255,0,0), 40)
-            cv2.line(ann, vertices[1][0:2], vertices[3][0:2], (255,0,0), 40)
-        if mid:
-            cv2.line(ann,mid[0:2],mid[0:2],(255,255,0),100)
-
-        ann = cv2.addWeighted(orig, 0.5, ann, 0.5, 0.0)
-        #ann = np.concatenate((ann1, ann), axis=0)
-        return pose, ann
-    else:
-        return pose
 
 def getLine(rho, theta):
     '''Convert (rho, theta) defined line to endpoints'''

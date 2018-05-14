@@ -107,7 +107,7 @@ class HoughLinesFinder(LinesFinder):
 
         lines = np.squeeze(lines, axis=1)
         lines = self.merge(lines.tolist())
-        lines = [rt2l(rt) for rt in lines]
+        #lines = [rt2l(rt) for rt in lines]
         return lines
 
 class HoughLinesPFinder(LinesFinder):
@@ -178,7 +178,7 @@ class HoughLinesPFinder(LinesFinder):
         if lines is not None:
             lines = np.squeeze(lines, axis=1)
             lines = self.merge(lines)
-            lines = [rt2l(l2rt(l)) for l in lines]
+            lines = [l2rt(l) for l in lines]
 
         return lines
 
