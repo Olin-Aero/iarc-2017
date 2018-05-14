@@ -156,8 +156,8 @@ class GridFinder:
         # Fill in gaps
         #kernel = np.ones((DILATION_KERNEL_SIZE, DILATION_KERNEL_SIZE), np.uint8)
         #frame = cv2.dilate(frame, kernel, iterations=1)
-        cv2.imshow('frame', frame)
-        cv2.waitKey(1)
+        #cv2.imshow('frame', frame)
+        #cv2.waitKey(1)
 
         # Find and merge lines
         #lines = cv2.HoughLines(edges,HOUGH_DIST_RES,HOUGH_ANGLE_RES,HOUGH_THRESHOLD)
