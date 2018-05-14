@@ -55,7 +55,7 @@ class Arbiter:
         # Subscribe to the behaviors passed as ROS parameters
         starting_behaviors = rospy.get_param('~behaviors', [])
         for b in starting_behaviors:
-            behavior = Behavior(self.process_command, b)
+            behavior = Behavior(self.process_command, b, freq=20)
             behavior.subscribe(self.transformers)
             self.behaviors[b] = behavior
 
