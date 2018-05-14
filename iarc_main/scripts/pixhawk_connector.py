@@ -47,6 +47,10 @@ class PixhawkConnector(object):
         """
         :param Odometry msg:
         """
+        if (msg.header.stamp - rospy.Time.now()).to_sec() > 0:
+            rospy.logwarn_throttle(1.0, "Got an odometry message from the future, correcting.")
+            msg.header.stamp = rospy.Time.now()
+
         vel = msg.twist.twist.linear
         alt = msg.pose.pose.position.z
         orientation = msg.pose.pose.orientation

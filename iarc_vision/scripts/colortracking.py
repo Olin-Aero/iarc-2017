@@ -48,7 +48,7 @@ class ColorTrackerROS(object):
         self.boxes = []
         self.bridge = CvBridge()  # used to convert ROS messages to OpenCV
         self.cameraModel = PinholeCameraModel()
-        self.tf = TransformListener(cache_time=rospy.Duration(10.0))
+        self.tf = TransformListener(cache_time=rospy.Duration.from_sec(20))
 
         # parameters ...
         self._gui = bool(rospy.get_param('~gui', default=False)) # set to _gui:=true for debug display
@@ -80,9 +80,12 @@ class ColorTrackerROS(object):
             self.cv_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding="bgr8")
 
             # get drone position ...
-            self.tf.waitForTransform('map', msg.header.frame_id,
-                    msg.header.stamp, rospy.Duration(0.1))
-            pos, _ = self.tf.lookupTransform('map', msg.header.frame_id, msg.header.stamp)
+
+            # proper tf below ... hacking for now
+            # self.tf.waitForTransform('map', msg.header.frame_id,
+            #        msg.header.stamp, rospy.Duration(0.1))
+            # pos, _ = self.tf.lookupTransform('map', msg.header.frame_id, msg.header.stamp)
+            pos, _ = self.tf.lookupTransform('map', msg.header.frame_id, rospy.Time(0))
 
             # area scale + tolerance
             xy2uv = self.cameraModel.getDeltaU(1.0, pos[2]) * self.cameraModel.getDeltaV(1.0, pos[2])
@@ -117,8 +120,10 @@ class ColorTrackerROS(object):
 
                 listOfRoombas.append(rb)
                 self.debug_pub.publish(pwcs)
-            if(not not listOfRoombas):
-                self.roomba_pub.publish(header=Header(frame_id='base_link',stamp=msg.header.stamp),data=listOfRoombas)
+
+            self.roomba_pub.publish(header=Header(frame_id='base_link',stamp=msg.header.stamp),data=listOfRoombas)
+
+            print "Successfully processed image!"
             # TODO: Do something with the boxes
             # TODO: make sure it doesn't get too far behind
 
@@ -156,11 +161,13 @@ class ColorTracker(object):
         """
         # Get bounding boxes around red and green rectangles
         hsv_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
-        red_image = self.get_green_bounding_boxes(hsv_image, image)
-        #green_image = self.get_green_bounding_boxes(hsv_image, image)
+
+        # red_image = self.get_red_bounding_boxes(hsv_image, image)
+        green_image = self.get_green_bounding_boxes(hsv_image, image)
+
         # TODO: Differentiate red vs green boxes
         #binary_image = cv2.bitwise_or(red_image, green_image)
-        binary_image = red_image
+        binary_image = green_image
         # Remove noise
         kernel = np.ones((5, 5), np.uint8)
         binary_image = cv2.morphologyEx(binary_image, cv2.MORPH_OPEN, kernel)
