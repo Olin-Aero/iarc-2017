@@ -77,9 +77,9 @@ class ColorTrackerROS(object):
             self.cv_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding="bgr8")
 
             # get drone position ...
-            self.tf.waitForTransform('map', msg.header.frame_id,
-                    msg.header.stamp, rospy.Duration(0.1))
-            pos, _ = self.tf.lookupTransform('map', msg.header.frame_id, msg.header.stamp)
+            # self.tf.waitForTransform('map', msg.header.frame_id,
+            #         msg.header.stamp, rospy.Duration(0.1))
+            pos, _ = self.tf.lookupTransform('map', msg.header.frame_id, rospy.Time(0))
 
             # area scale + tolerance
             xy2uv = self.cameraModel.getDeltaU(1.0, pos[2]) * self.cameraModel.getDeltaV(1.0, pos[2])
@@ -116,8 +116,7 @@ class ColorTrackerROS(object):
                 listOfRoombas.append(rb)
                 self.debug_pub.publish(pwcs)
 
-            if(not not listOfRoombas):
-                self.roomba_pub.publish(header=Header(frame_id='base_link',stamp=msg.header.stamp),data=listOfRoombas)
+            self.roomba_pub.publish(header=Header(frame_id='base_link',stamp=msg.header.stamp),data=listOfRoombas)
 
             print "Successfully processed image!"
             # TODO: Do something with the boxes
