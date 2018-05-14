@@ -157,11 +157,11 @@ class ColorTracker(object):
         """
         # Get bounding boxes around red and green rectangles
         hsv_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
-        red_image = self.get_red_bounding_boxes(hsv_image, image)
-        #green_image = self.get_green_bounding_boxes(hsv_image, image)
+        # red_image = self.get_red_bounding_boxes(hsv_image, image)
+        green_image = self.get_green_bounding_boxes(hsv_image, image)
         # TODO: Differentiate red vs green boxes
         #binary_image = cv2.bitwise_or(red_image, green_image)
-        binary_image = red_image
+        binary_image = green_image
         # Remove noise
         kernel = np.ones((5, 5), np.uint8)
         binary_image = cv2.morphologyEx(binary_image, cv2.MORPH_OPEN, kernel)
