@@ -65,3 +65,19 @@ rostopic pub /arbiter/activate_behavior std_msgs/String "data: 'goto_click'"
 rosrun iarc_roombafilter f_rviz.py _map_frame:=odom
 rviz
 ```
+
+
+```bash
+roscore
+roslaunch iarc_sim_3d sim.launch
+roslaunch iarc_sim_3d noisy_odom.launch 
+rosrun tf static_transform_publisher 0 0 0 0 0 0 drone/base_link base_link 1
+rosrun iarc_forebrain start.py _sim:=True
+rostopic pub /ardrone/takeoff std_msgs/Empty "{}" --once
+rosrun iarc_vision grid_finder.py _ann_out:=ann_out _map:=map
+roslaunch iarc_main backbone.launch 
+rosrun iarc_roombafilter f_rviz.py _map_frame:=map
+rosrun iarc_strategy explorer.py 
+rosrun iarc_vision color_tracker.py 
+rosrun iarc_forebrain forebrain.py 
+```

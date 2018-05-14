@@ -257,7 +257,7 @@ class GridFinder:
 
                     # grid -> odom -> base_link -> camera -> square
                     self.listener.waitForTransform(self._map_frame, self._cam_frame,
-                            time=stamp, timeout=rospy.Duration(1.0))
+                            time=stamp, timeout=rospy.Duration(0.1))
 
                     pose = self.listener.transformPose(self._map_frame, pose)
                     #print 'pose', pose

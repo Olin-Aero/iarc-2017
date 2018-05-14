@@ -12,6 +12,7 @@ import tf.transformations
 
 from math import pi
 from iarc_main.msg import StartRound
+from geometry_msgs.msg import PoseStamped
 
 
 class Strategy(object):
@@ -22,6 +23,7 @@ class Strategy(object):
         self.drone = Drone(tfl=tfl)
         self.world = WorldState(tfl=tfl)
         self._explore_srv = rospy.ServiceProxy('/explorer/explore', ExplorationTarget)
+        self._tfl = tfl
         self.targeting = None
         rospy.sleep(1)
 
@@ -61,28 +63,42 @@ class Strategy(object):
         #self.world.wait_for_start()
         r = rospy.Rate(20)
         self.drone.takeoff(1.5)
+
+        last_explore = None
+        explore_target = None
+
         while not rospy.is_shutdown():
-            target = self.choose_target(self.world.targets)
+            target = self.choose_target(self.world.targets, self.world.obstacles)
             if target is not None:
                 rospy.loginfo('Current Target : {}'.format(target))
+                self.drone.move_towards(des_x=target.x, des_y=target.y, frame='map', height=target.z)
                 #self.drone.move_towards(0, 0, target.frame_id)
                 #self.drone.move_towards(0, 0, target.frame_id)
             else:
-                rospy.loginfo('explore')
-                resp = self._explore_srv()
-                if resp.success:
-                    target = resp.target
-                    rospy.loginfo('Exploration Target : {}'.format(target))
-                    self.drone.move_to(des_x=target.x, des_y=target.y, frame='map', height=target.z)
-                else:
+                now = rospy.Time.now()
+                if last_explore is None or (now - last_explore).to_sec() > 5.0: 
+                    rospy.loginfo('explore')
+                    resp = self._explore_srv()
+                    if resp.success:
+                        last_explore = now
+                        explore_target = resp.target
+                        rospy.loginfo('Exploration Target : {}'.format(target))
+                    else:
+                        explore_target = None
+                    #self.drone.move_to(des_x=target.x, des_y=target.y, frame='map', height=target.z)
+
+                if explore_target is None:
                     # fallback
                     self.drone.hover(0)
+                else:
+                    self.drone.move_towards(des_x=explore_target.x, des_y=explore_target.y, frame='map', height=explore_target.z)
             r.sleep()
 
     def test_follow_redirect(self):
         #self.world.wait_for_start()
         r = rospy.Rate(20)
         self.drone.takeoff(1.5)
+
         while not rospy.is_shutdown():
             target = self.choose_target(self.world.targets,self.world.obstacles)
             if target is not None:
@@ -99,6 +115,9 @@ class Strategy(object):
                     # Follow the roomba
                     self.drone.move_towards(0, 0, target.frame_id, 2.5)
             else:
+                now = rospy.Time.now()
+
+
                 resp = self._explore_srv()
                 if resp.success:
                     target = resp.target
@@ -129,29 +148,44 @@ class Strategy(object):
         :rtype: Roomba|None
         """
         #s = targetSelect(goodnessScore(targets, obstacles, self.targeting))
-        s = targets[-1]
-        if targets != []:
-            s = (targets[-1], 0)
-        else:
-            return (None, 0)
+        #s = targets[-1]
+        #if targets != []:
+        #    s = (targets[-1], 0)
+        #else:
+        #    return None
 
-        if(s[1] < -100):
-            return None
-        self.targeting = s[0]
-        return s[0]
-        # closestRoomba = None
-        # minimumCloseness = pi
-        # for i in targets:
-        #     position, quaternion = self.tfl.lookupTransform("map", i.frame_id, rospy.Time(0))
-        #     heading = tf.transformations.euler_from_quaternion(quaternion)
-        #     closeToPiOver2 = abs(heading[2] % pi - pi / 2)
-        #     if(closeToPiOver2 < minimumCloseness):
-        #         minimumCloseness = closeToPiOver2
-        #         closestRoomba = i
-        # return closestRoomba
+        ##if(s[1] < -100):
+        ##    return None
+        #self.targeting = s[0]
+        #return s[0]
+
+        closestRoomba = None
+        minimumCloseness = pi
+        for i in targets:
+            #position, quaternion = self.tfl.lookupTransform("map", i.frame_id, rospy.Time(0))
+            ps = PoseStamped(
+                    header = i.visible_location.header,
+                    pose = i.visible_location.pose.pose
+                    )
+            try:
+                map_ps = self._tfl.transformPose('map', ps)
+            except tf.Exception as e:
+                rospy.loginfo_throttle(0.5, 'map_ps failed : {}'.format(e))
+                continue
+            position, quaternion = map_ps.pose.position, map_ps.pose.orientation
+            quaternion = [quaternion.x, quaternion.y, quaternion.z, quaternion.w]
+
+            heading = tf.transformations.euler_from_quaternion(quaternion)
+            closeToPiOver2 = abs(heading[2] % pi - pi / 2)
+            if(closeToPiOver2 < minimumCloseness):
+                minimumCloseness = closeToPiOver2
+                closestRoomba = position
+                closestRoomba.z = 2.5
+        return closestRoomba
 
     def run(self):
-        self.test_explore()
+        self.test_follow()
+        #self.test_explore()
         #self.test_follow_redirect()
 
 
