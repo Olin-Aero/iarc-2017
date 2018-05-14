@@ -48,7 +48,7 @@ class ColorTrackerROS(object):
         self.boxes = []
         self.bridge = CvBridge()  # used to convert ROS messages to OpenCV
         self.cameraModel = PinholeCameraModel()
-        self.tf = TransformListener()
+        self.tf = TransformListener(cache_time=rospy.Duration.from_sec(20))
 
         # parameters ...
         self._gui = bool(rospy.get_param('~gui', default=False)) # set to _gui:=true for debug display
@@ -77,9 +77,9 @@ class ColorTrackerROS(object):
             self.cv_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding="bgr8")
 
             # get drone position ...
-            # self.tf.waitForTransform('map', msg.header.frame_id,
-            #         msg.header.stamp, rospy.Duration(1.0))
-            # pos, _ = self.tf.lookupTransform('map', msg.header.frame_id, msg.header.stamp)
+            self.tf.waitForTransform('map', msg.header.frame_id,
+                    msg.header.stamp, rospy.Duration(0.1))
+            pos, _ = self.tf.lookupTransform('map', msg.header.frame_id, msg.header.stamp)
 
             # area scale + tolerance
             xy2uv = self.cameraModel.getDeltaU(1.0, pos[2]) * self.cameraModel.getDeltaV(1.0, pos[2])
@@ -115,8 +115,11 @@ class ColorTrackerROS(object):
 
                 listOfRoombas.append(rb)
                 self.debug_pub.publish(pwcs)
+
             if(not not listOfRoombas):
                 self.roomba_pub.publish(header=Header(frame_id='base_link',stamp=msg.header.stamp),data=listOfRoombas)
+
+            print "Successfully processed image!"
             # TODO: Do something with the boxes
             # TODO: make sure it doesn't get too far behind
 
@@ -185,7 +188,7 @@ class ColorTracker(object):
             box = np.int0(box)
             width = distance(box[0],box[1])
             height = distance(box[0],box[2])
-            if((1.5 < width / height and width / height < 1.8) or (1.5 < height / width and height / width < 1.8) )
+            if((1.5 < width / height and width / height < 1.8) or (1.5 < height / width and height / width < 1.8) ):
                 boxes.append(box)
                 cv2.drawContours(image, [box], 0, (0, 0, 255), 2)
 
