@@ -11,7 +11,7 @@ Owner:
 
 Notes:
 If the image is compressed:
-rosrun image_transport republish in:=ardrone/bottom/image_raw _image_transport:=compressed raw out:=ardrone/bottom/image_raw
+rosrun image_transport republish compressed in:=ardrone/bottom/image_raw raw out:=ardrone/bottom/image_raw
 
 TODO(nathanestill) : Improve robustness of detection on **GREEN** Roombas; currently not working in 3d simulation
 TODO(nathanestill) : handle invalid heading information / fill output covariance accordingly
