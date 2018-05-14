@@ -138,6 +138,9 @@ class PixhawkConnector(object):
         self.vel.linear.x = msg.linear.x * np.cos(yaw) + msg.linear.y * np.sin(yaw)
         self.vel.linear.y = msg.linear.y * np.cos(yaw) - msg.linear.x * np.sin(yaw)
 
+        rospy.loginfo_throttle(0.5, "Vel correction: \tth=({}) \tin={} \tout={}".format(
+            yaw, (msg.linear.x, msg.linear.y), (self.vel.linear.x, self.vel.linear.y)))
+
         self.vel.angular = msg.angular
         try:
             self.vel_pub.publish(self.vel)
