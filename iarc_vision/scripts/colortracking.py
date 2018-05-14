@@ -48,24 +48,27 @@ class ColorTrackerROS(object):
         self.boxes = []
         self.bridge = CvBridge()  # used to convert ROS messages to OpenCV
         self.cameraModel = PinholeCameraModel()
-        self.tf = TransformListener()
+        self.tf = TransformListener(cache_time=rospy.Duration(10.0))
 
         # parameters ...
         self._gui = bool(rospy.get_param('~gui', default=False)) # set to _gui:=true for debug display
         self._rate = float(rospy.get_param('~rate', default=50.0)) # processing rate
         self._par = float(rospy.get_param('~plate_area', default=0.0338709))
 
-        # start listening ...
-        rospy.Subscriber("/ardrone/bottom/image_raw", Image, self.process_image)
-        rospy.Subscriber("/ardrone/bottom/camera_info", CameraInfo, self.on_camera_info)
+        # publishers ...
+        self.debug_pub = rospy.Publisher("tracker/debug", PoseWithCovarianceStamped, queue_size=10)
+        self.roomba_pub = rospy.Publisher("visible_roombas", RoombaList, queue_size = 10)
 
-        print("Initializing Color Tracker")
+        rospy.loginfo("Initializing Color Tracker")
         if self._gui:
             cv2.namedWindow('preview_window')
             cv2.namedWindow('binary')
 
-        self.debug_pub = rospy.Publisher("tracker/debug", PoseWithCovarianceStamped, queue_size=10)
-        self.roomba_pub = rospy.Publisher("visible_roombas", RoombaList, queue_size = 10)
+        # start listening ...
+        rospy.Subscriber("/ardrone/bottom/image_raw", Image, self.process_image)
+        rospy.Subscriber("/ardrone/bottom/camera_info", CameraInfo, self.on_camera_info)
+
+
 
     def process_image(self, msg):
         """
@@ -77,9 +80,9 @@ class ColorTrackerROS(object):
             self.cv_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding="bgr8")
 
             # get drone position ...
-            # self.tf.waitForTransform('map', msg.header.frame_id,
-            #         msg.header.stamp, rospy.Duration(1.0))
-            # pos, _ = self.tf.lookupTransform('map', msg.header.frame_id, msg.header.stamp)
+            self.tf.waitForTransform('map', msg.header.frame_id,
+                    msg.header.stamp, rospy.Duration(0.1))
+            pos, _ = self.tf.lookupTransform('map', msg.header.frame_id, msg.header.stamp)
 
             # area scale + tolerance
             xy2uv = self.cameraModel.getDeltaU(1.0, pos[2]) * self.cameraModel.getDeltaV(1.0, pos[2])
@@ -101,10 +104,9 @@ class ColorTrackerROS(object):
                 # get drone height for ground-plane projection
                 multiplier = -pos[2] / drone_ray.vector.z
 
-                # implicitly convert optical -> robot frame, and scale by height
-                drone_to_roomba = np.array([drone_ray.vector.x, drone_ray.vector.y, drone_ray.vector.z]) * multiplier
+                camera_to_roomba = np.array([camera_ray.vector.x, camera_ray.vector.y, camera_ray.vector.z]) * multiplier
                 quat = quaternion_from_euler(0,0,heading)
-                pose = Pose(position=Point(*drone_to_roomba), orientation = Quaternion(*quat))
+                pose = Pose(position=Point(*camera_to_roomba), orientation = Quaternion(*quat))
                 pwcs = PoseWithCovarianceStamped(header=Header(frame_id=msg.header.frame_id, stamp=msg.header.stamp),
                                                  pose=PoseWithCovariance(
                                                      pose=pose,
@@ -123,8 +125,7 @@ class ColorTrackerROS(object):
             # self.binary_image = binary_image
             # self.cv_image = cv_image
         except CvBridgeError as e:
-            print "Error loading image"
-            print(e)
+            rospy.loginfo_throttle(0.5, "Error loading image : {}".format(e))
 
     def on_camera_info(self, msg):
         self.cameraModel.fromCameraInfo(msg)
@@ -155,7 +156,7 @@ class ColorTracker(object):
         """
         # Get bounding boxes around red and green rectangles
         hsv_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
-        red_image = self.get_red_bounding_boxes(hsv_image, image)
+        red_image = self.get_green_bounding_boxes(hsv_image, image)
         #green_image = self.get_green_bounding_boxes(hsv_image, image)
         # TODO: Differentiate red vs green boxes
         #binary_image = cv2.bitwise_or(red_image, green_image)
@@ -180,12 +181,15 @@ class ColorTracker(object):
         boxes = []
         for i in maxcnt:
             rect = cv2.minAreaRect(i)
+            width, height = rect[1]
+
             box = cv2.boxPoints(rect)
 
             box = np.int0(box)
-            width = distance(box[0],box[1])
-            height = distance(box[0],box[2])
-            if((1.5 < width / height and width / height < 1.8) or (1.5 < height / width and height / width < 1.8) )
+            a1 = float(height) / width
+            a2 = float(width) / height
+
+            if((1.5 < a1 < 2.0) or (1.5 < a2 < 2.0)):
                 boxes.append(box)
                 cv2.drawContours(image, [box], 0, (0, 0, 255), 2)
 
@@ -197,7 +201,7 @@ class ColorTracker(object):
         return boxes, binary_image
 
     def get_green_bounding_boxes(self, hsv_image, rgb_image):
-        binary_image1 = cv2.inRange(hsv_image, np.array([40, 30, 30], dtype="uint8"),
+        binary_image1 = cv2.inRange(hsv_image, np.array([30, 0, 0], dtype="uint8"),
                                     np.array([100, 255, 255], dtype="uint8"))
         return cv2.bitwise_or(binary_image1, binary_image1)
 
@@ -232,20 +236,20 @@ def get_heading(box, center, binary_image):
         if darkness_corners[0] is True:
             # heading from box[1] -> box[0]
             heading = get_vector_heading(box[1], box[0])
-            print "box 1 to 0"
+            #print "box 1 to 0"
         else:
             # heading from box[0] -> box[1]
             heading = get_vector_heading(box[0], box[1])
-            print "box 0 to 1"
+            #print "box 0 to 1"
     else:
         if darkness_corners[1] is True:
             # heading from box[2] -> box[1]
             heading = get_vector_heading(box[2], box[1])
-            print "box 2 to 1"
+            #print "box 2 to 1"
         else:
             # heading from box[1] -> box[2]
             heading = get_vector_heading(box[1], box[2])
-            print "box 1 to 2"
+            #print "box 1 to 2"
     heading = (-heading) - math.pi / 2
     if(heading < math.pi):
         heading = heading + 2*math.pi
@@ -253,7 +257,8 @@ def get_heading(box, center, binary_image):
         covarianceOfHeading = 100
     else:
         covarianceOfHeading = 0.2
-    print "Heading angle", math.degrees(heading), heading, covarianceOfHeading
+    log_msg = 'Heading Angle : {}({}) , {}'.format(np.rad2deg(heading), heading, covarianceOfHeading)
+    rospy.loginfo_throttle(0.5, log_msg)
     return heading, covarianceOfHeading
 
 
