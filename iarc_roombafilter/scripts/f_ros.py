@@ -44,6 +44,7 @@ class UKFManagerROS(object):
         self._obs_topic = rospy.get_param('~obs_topic', default='visible_roombas')
         self._out_topic = rospy.get_param('~out_topic', default='seen_roombas')
         self._sync_topic = rospy.get_param('~sync_topic', default='start_round')
+        self._map_frame = rospy.get_param('~map_frame', default='map')
         self._sim2d = rospy.get_param('~sim2d', default=False)
         self._rate = rospy.get_param('~rate', default=50)  # 50hz
 
@@ -103,9 +104,11 @@ class UKFManagerROS(object):
         if msg == None:
             return
 
+        stamp = msg.header.stamp
+
         if self._sim2d:
             try:
-                pos, _ = self._tfl.lookupTransform('map', 'base_link', rospy.Time(0))
+                pos, _ = self._tfl.lookupTransform('map', 'base_link', stamp)
                 obs_ar = ConicObservation(
                         pos[0],
                         pos[1],
@@ -117,9 +120,8 @@ class UKFManagerROS(object):
                 return
         else:
             try:
-                txn, qxn = self._tf.lookupTransform(self._map_frame, self._cam_frame, rospy.Time(0))
-                #_, qxn = self._tfl.lookupTransform(self._cam_frame, 'map', rospy.Time(0))
-                #txn, _ = self._tfl.lookupTransform('map', self._cam_frame, rospy.Time(0))
+                self._tfl.waitForTransform(self._map_frame, self._cam_frame, stamp, rospy.Duration(1.0))
+                txn, qxn = self._tfl.lookupTransform(self._map_frame, self._cam_frame, stamp)
                 qxn = [qxn[3], qxn[0], qxn[1], qxn[2]]  # reorder xyzw-> wxyz
                 ar = observability(self._K, self._w, self._h, qxn, txn, False)
                 obs_ar = PolygonObservation(ar)
@@ -140,6 +142,8 @@ class UKFManagerROS(object):
             # print r.visible_location.pose.pose.position.x
 
             p = PoseStamped(r.visible_location.header, r.visible_location.pose.pose)
+            self._tfl.waitForTransform('map', r.visible_location.header.frame_id,
+                    r.visible_location.header.stamp, rospy.Duration(1.0))
             p = self._tfl.transformPose('map', p).pose
             p, q = p.position, p.orientation
             h = tf.transformations.euler_from_quaternion([q.x, q.y, q.z, q.w])[2]

@@ -65,7 +65,8 @@ class Strategy(object):
             target = self.choose_target(self.world.targets)
             if target is not None:
                 rospy.loginfo('Current Target : {}'.format(target))
-                self.drone.move_towards(0, 0, target.frame_id)
+                #self.drone.move_towards(0, 0, target.frame_id)
+                #self.drone.move_towards(0, 0, target.frame_id)
             else:
                 rospy.loginfo('explore')
                 resp = self._explore_srv()
@@ -127,7 +128,13 @@ class Strategy(object):
         :param List[Roomba] targets:
         :rtype: Roomba|None
         """
-        s = targetSelect(goodnessScore(targets, obstacles, self.targeting))
+        #s = targetSelect(goodnessScore(targets, obstacles, self.targeting))
+        s = targets[-1]
+        if targets != []:
+            s = (targets[-1], 0)
+        else:
+            return (None, 0)
+
         if(s[1] < -100):
             return None
         self.targeting = s[0]
@@ -144,8 +151,8 @@ class Strategy(object):
         # return closestRoomba
 
     def run(self):
-        #self.test_explore()
-        self.test_follow_redirect()
+        self.test_explore()
+        #self.test_follow_redirect()
 
 
 def angle_diff(a, b):
